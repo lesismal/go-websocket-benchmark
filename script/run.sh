@@ -44,9 +44,12 @@ total_cpu_num=$(getconf _NPROCESSORS_ONLN)
 want_cpu_num=$((total_cpu_num >= 16 ? 7 : total_cpu_num / 2 - 1))
 limit_cpu="taskset -c 0-$want_cpu_num"
 echo "run each server on cpu 0-$want_cpu_num"
+# start all servers together, else it would hard to bind addr and start failed after some benchmark
 for f in ${frameworks[@]}; do
     nohup $taskset_server "./output/bin/${f}.server" >"./output/log/${f}.log" 2>&1 &
-    ./output/bin/bench.client -f="${f}" -n=2000000
+done
+for f in ${frameworks[@]}; do
+    ./output/bin/bench.client -f="${f}" -c=50000 -n=2000000
 done
 
 
