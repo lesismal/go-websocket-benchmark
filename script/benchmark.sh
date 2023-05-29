@@ -1,6 +1,8 @@
 #!/bin/bash
 
-. ./script/util.sh
+echo $line
+
+. ./script/env.sh
 
 echo $line
 
