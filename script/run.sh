@@ -46,7 +46,7 @@ limit_cpu="taskset -c 0-$want_cpu_num"
 echo "run each server on cpu 0-$want_cpu_num"
 for f in ${frameworks[@]}; do
     nohup $taskset_server "./output/bin/${f}.server" >"./output/log/${f}.log" 2>&1 &
-    ./output/bin/bench.client -f="${f}"
+    ./output/bin/bench.client -f="${f}" -n=2000000
 done
 
 
