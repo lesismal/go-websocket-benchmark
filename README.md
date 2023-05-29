@@ -5,12 +5,12 @@
 ```sh
 git clone https://github.com/lesismal/go-websocket-benchmark.git
 cd go-websocket-benchmark
-./script/run.sh
+./script/benchmark.sh
 ```
 
 - Clean
 ```sh
-./script/run.sh
+./script/clean.sh
 ```
 
 

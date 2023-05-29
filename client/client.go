@@ -70,7 +70,7 @@ func startClients() {
 
 	chConns = make(chan *websocket.Conn, *numClient)
 
-	engine := nbhttp.NewEngine(nbhttp.Config{})
+	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client"})
 	err := engine.Start()
 	if err != nil {
 		fmt.Printf("nbio.Start failed: %v\n", err)
