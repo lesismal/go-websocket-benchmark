@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -17,14 +18,17 @@ import (
 )
 
 var (
-	maxBlockingOnline = flag.Int("nb", 10000, `max blocking online num, e.g. 10000`)
+	maxBlockingOnline = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_                 = flag.Int("b", 1024, `read buffer size`)
+	memLimit          = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 
 	upgrader = websocket.NewUpgrader()
 )
 
 func main() {
 	flag.Parse()
+
+	debug.SetMemoryLimit(*memLimit)
 
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)

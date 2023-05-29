@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	_ = flag.Int("nb", 10000, `max blocking online num, e.g. 10000`)
+	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_ = flag.Int("b", 1024, `read buffer size`)
 )
 

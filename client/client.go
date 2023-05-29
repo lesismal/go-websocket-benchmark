@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +33,7 @@ var (
 	payloadSize    = flag.Int("b", 1024, `payload size`)
 	benchmarkTimes = flag.Int("n", 1000000, `benchmark times`)
 	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
+	memLimit       = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -41,6 +43,8 @@ var (
 
 func main() {
 	flag.Parse()
+
+	debug.SetMemoryLimit(*memLimit)
 
 	startClients()
 
