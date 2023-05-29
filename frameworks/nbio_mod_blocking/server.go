@@ -53,11 +53,12 @@ func main() {
 func startServers(addrs []string) {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
-	svr := nbhttp.NewServer(nbhttp.Config{
-		Network: "tcp",
-		Addrs:   addrs,
-		Handler: mux,
-		IOMod:   nbhttp.IOModBlocking,
+	svr := nbhttp.NewEngine(nbhttp.Config{
+		Network:                 "tcp",
+		Addrs:                   addrs,
+		Handler:                 mux,
+		IOMod:                   nbhttp.IOModBlocking,
+		ReleaseWebsocketPayload: true,
 	})
 
 	err := svr.Start()

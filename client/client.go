@@ -15,6 +15,7 @@ import (
 
 	"go-websocket-benchmark/conf"
 
+	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/perf"
@@ -173,6 +174,7 @@ func startBenchmark() {
 		}
 		ch := conn.Session().(chan EchoResult)
 		ret := <-ch
+		defer mempool.Free(ret.b)
 		if ret.mt != websocket.BinaryMessage {
 			log.Fatalf("invalid message type: %v", ret.mt)
 		}
