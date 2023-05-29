@@ -202,12 +202,7 @@ func startBenchmark() {
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
 	psCounter.Stop()
 
-	// fmt.Println("-------------------------")
-	// fmt.Println(calculator.String())
-	// fmt.Printf("TP50: %.2fms\n", float64(calculator.TPN(50))/1000000.0)
-	// fmt.Printf("TP75: %.2fms\n", float64(calculator.TPN(75))/1000000.0)
-	// fmt.Printf("TP90: %.2fms\n", float64(calculator.TPN(90))/1000000.0)
-	// fmt.Printf("TP95: %.2fms\n", float64(calculator.TPN(95))/1000000.0)
-	// fmt.Printf("TP99: %.2fms\n", float64(calculator.TPN(99))/1000000.0)
-	// fmt.Println("-------------------------")
+	fmt.Println("-------------------------")
+	fmt.Println(calculator.String())
+	fmt.Println("-------------------------")
 }
