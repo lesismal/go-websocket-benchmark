@@ -6,7 +6,7 @@ require (
 	github.com/gobwas/ws v1.0.2
 	github.com/gorilla/websocket v1.5.0
 	github.com/lesismal/nbio v1.3.17-0.20230528135421-990b47d137d8
-	github.com/lesismal/perf v0.0.0-20230528145653-3e0ae7441a90
+	github.com/lesismal/perf v0.0.0-20230528162756-ad2344da4f23
 	github.com/lxzan/gws v1.5.1
 	nhooyr.io/websocket v1.8.7
 )

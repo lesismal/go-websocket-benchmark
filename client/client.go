@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go-websocket-benchmark/conf"
+
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/perf"
@@ -23,7 +25,7 @@ const bufferNum uint32 = 1000
 
 var (
 	ip             = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
-	portRange      = flag.String("ports", "18001:18050", `port range, e.g. "18001:18050"`)
+	framework      = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
 	numClient      = flag.Int("c", 300000, "client num")
 	numGoroutine   = flag.Int("g", 2000, "goroutine num")
 	payloadSize    = flag.Int("b", 1024, `payload size`)
@@ -89,14 +91,15 @@ func startClients() {
 	log.Printf("%v clients start connecting", *numClient)
 	defer log.Printf("%v clients connected", *numClient)
 
-	ports := strings.Split(*portRange, ":")
+	portRange := conf.Ports[*framework]
+	ports := strings.Split(conf.Ports[*framework], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", *portRange, err)
+		log.Fatalf("invalid port range: %v, %v", portRange, err)
 	}
 	maxPort, err := strconv.Atoi(ports[1])
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", *portRange, err)
+		log.Fatalf("invalid port range: %v, %v", portRange, err)
 	}
 	addrs := []string{}
 	for i := minPort; i <= maxPort; i++ {
@@ -179,14 +182,14 @@ func startBenchmark() {
 		chConns <- conn
 		return nil
 	}
-	tpPercents := []int{50, 60, 70, 80, 90, 95, 99, 999}
+	tpPercents := []int{50, 75, 90, 95, 99}
 
-	psCounter, err := perf.NewPSCounter(0)
+	psCounter, err := perf.NewPSCounterByProcName(*framework + ".server")
 	if err != nil {
 		panic(err)
 	}
 
-	calculator := perf.NewCalculator("test")
+	calculator := perf.NewCalculator(*framework)
 	calculator.Warmup(*numGoroutine, *benchmarkTimes/10, oneTask)
 
 	psCounter.Start(perf.PSCountOptions{
@@ -199,22 +202,12 @@ func startBenchmark() {
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
 	psCounter.Stop()
 
-	fmt.Println("-------------------------")
-	fmt.Println(calculator.String())
-	fmt.Printf("TP50: %.2fms\n", float64(calculator.TPN(50))/1000000.0)
-	fmt.Println("-------------------------")
-	// fmt.Println(psCounter.Json())
-	fmt.Println("-------------------------")
-	fmt.Println("CPUMin:", psCounter.CPUMin())
-	fmt.Println("CPUMax:", psCounter.CPUMax())
-	fmt.Println("CPUAvg:", psCounter.CPUAvg())
-	fmt.Println("-------------------------")
-	fmt.Println("MEMRSSMin:", psCounter.MEMRSSMin())
-	fmt.Println("MEMRSSMax :", psCounter.MEMRSSMax())
-	fmt.Println("MEMRSSAvg :", psCounter.MEMRSSAvg())
-	fmt.Println("-------------------------")
-	fmt.Println("MEMVMSMin:", psCounter.MEMVMSMin())
-	fmt.Println("MEMVMSMax :", psCounter.MEMVMSMax())
-	fmt.Println("MEMVMSAvg :", psCounter.MEMVMSAvg())
-	fmt.Println("-------------------------")
+	// fmt.Println("-------------------------")
+	// fmt.Println(calculator.String())
+	// fmt.Printf("TP50: %.2fms\n", float64(calculator.TPN(50))/1000000.0)
+	// fmt.Printf("TP75: %.2fms\n", float64(calculator.TPN(75))/1000000.0)
+	// fmt.Printf("TP90: %.2fms\n", float64(calculator.TPN(90))/1000000.0)
+	// fmt.Printf("TP95: %.2fms\n", float64(calculator.TPN(95))/1000000.0)
+	// fmt.Printf("TP99: %.2fms\n", float64(calculator.TPN(99))/1000000.0)
+	// fmt.Println("-------------------------")
 }
