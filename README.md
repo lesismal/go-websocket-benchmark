@@ -1,8 +1,70 @@
-# go-websocket-benchmark
+# Go-Websocket-Benchmark
 - support 1m-connections client
 - support 1m-connections nbio_mod_nonblocking server
 
-## Benchmark
+## 1M-Connections-Benchmark For nbio
+- Run
+```sh
+git clone https://github.com/lesismal/go-websocket-benchmark.git
+cd go-websocket-benchmark
+
+# build
+./script/build.sh
+
+# start server
+./script/server.sh nbio_mod_nonblocking 
+# or
+# ./script/server.sh nbio_mod_mixed
+
+# start benchmark client
+# -c connections
+# -n benchmark times
+./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
+# or 
+# ./script/client.sh -f=nbio_mod_mixed -c=1000000 -n=5000000 -b=1024
+```
+
+Some benchmark result on my ubuntu vm:
+```sh
+root@ubuntu:~/go-websocket-benchmark# ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
+-f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
+2023/05/30 14:27:01.747 [INF] NBIO[Benchmark-Client] start
+2023/05/30 14:27:01 1000000 clients start connecting
+2023/05/30 14:27:02 29006 clients connected
+2023/05/30 14:27:03 65988 clients connected
+......
+2023/05/30 14:27:33 999988 clients connected
+2023/05/30 14:27:33 1000000 clients connected
+-------------------------
+BENCHMARK: nbio_mod_nonblocking
+TOTAL    : 5000000 times
+SUCCESS  : 5000000, 100.00%
+FAILED   : 0, 0.00%
+TPS      : 126575
+TIME USED: 39.50s
+MIN USED : 59.06ms
+MAX USED : 237.44us
+AVG USED : 15.80us
+TP50     : 14.35us
+TP75     : 19.70us
+TP90     : 25.88us
+TP95     : 30.52us
+TP99     : 42.36us
+CPU MIN  : 0.00%
+CPU MIN  : 365.01%
+CPU MIN  : 430.50%
+MEM MIN  : 1.60G
+MEM MIN  : 1.95G
+MEM MIN  : 2.09G
+-------------------------
+```
+
+- Clean
+```sh
+./script/clean.sh
+```
+
+## Benchmark For All Frameworks
 - Run
 ```sh
 git clone https://github.com/lesismal/go-websocket-benchmark.git
@@ -14,7 +76,6 @@ cd go-websocket-benchmark
 ```sh
 ./script/clean.sh
 ```
-
 
 Some benchmark result on my ubuntu vm:
 ```sh
