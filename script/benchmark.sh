@@ -23,3 +23,7 @@ echo $line
 . ./script/clients.sh
 
 echo $line
+
+. ./script/report.sh -r=true
+
+echo $line

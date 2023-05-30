@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -36,6 +36,7 @@ var (
 	benchmarkTimes = flag.Int("n", 1000000, `benchmark times`)
 	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
 	memLimit       = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
+	report         = flag.Bool("r", false, `make report`)
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -45,6 +46,11 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if *report {
+		makeReport("")
+		return
+	}
 
 	debug.SetMemoryLimit(*memLimit)
 
@@ -200,37 +206,45 @@ func startBenchmark() {
 
 	calculator := perf.NewCalculator(*framework)
 	calculator.Warmup(*numGoroutine, *benchmarkTimes/10, oneTask)
-	psCounter.Start(perf.PSCountOptions{
-		CountCPU: true,
-		CountMEM: true,
-		CountIO:  true,
-		CountNET: true,
-		Interval: time.Second,
+
+	// delay 1 second
+	time.AfterFunc(time.Second, func() {
+		psCounter.Start(perf.PSCountOptions{
+			CountCPU: true,
+			CountMEM: true,
+			CountIO:  true,
+			CountNET: true,
+			Interval: time.Second,
+		})
 	})
+
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
-	calculator.TPS()
 	psCounter.Stop()
 	fmt.Println("-------------------------")
 	fmt.Println(calculator.String())
-	fmt.Printf(`CPU MIN  : %.2f%%,
-CPU MIN  : %.2f%%,
-CPU MIN  : %.2f%%,
-MEM MIN  : %v,
-MEM MIN  : %v,
+	fmt.Printf(`CPU MIN  : %.2f%%
+CPU MIN  : %.2f%%
+CPU MIN  : %.2f%%
+MEM MIN  : %v
+MEM MIN  : %v
 MEM MIN  : %v
 `,
 		psCounter.CPUMin(),
 		psCounter.CPUAvg(),
 		psCounter.CPUMax(),
-		psCounter.MEMRSSMin(),
-		psCounter.MEMRSSAvg(),
-		psCounter.MEMRSSMax())
+		perf.I2MemString(psCounter.MEMRSSMin()),
+		perf.I2MemString(psCounter.MEMRSSAvg()),
+		perf.I2MemString(psCounter.MEMRSSMax()))
 
 	report := &Report{
+		Framework: *framework,
 		Total:     int64(calculator.Total),
 		Success:   calculator.Success,
 		Failed:    calculator.Failed,
 		TimeUsed:  calculator.Used,
+		Min:       calculator.Min,
+		Avg:       calculator.Avg,
+		Max:       calculator.Max,
 		TPS:       calculator.TPS(),
 		TP50:      calculator.TPN(50),
 		TP75:      calculator.TPN(75),
@@ -248,18 +262,53 @@ MEM MIN  : %v
 	if err != nil {
 		log.Fatalf("Marshal Report failed: %v", err)
 	}
-	err = ioutil.WriteFile("./output/report/"+*framework+" .json", b, 0666)
+	err = os.WriteFile("./output/report/"+*framework+" .json", b, 0666)
 	if err != nil {
 		log.Fatalf("Write Report failed: %v", err)
 	}
 	fmt.Println("-------------------------")
 }
 
+func makeReport(typ string) {
+	makeReportMarkdown()
+}
+
+func makeReportMarkdown() {
+	reports := make([]*Report, len(conf.FrameworkList))
+	for i, v := range conf.FrameworkList {
+		b, err := os.ReadFile("./output/report/" + v + " .json")
+		if err != nil {
+			log.Fatalf("Read Report %v failed: %v", v, err)
+		}
+		report := &Report{}
+		err = json.Unmarshal(b, report)
+		if err != nil {
+			log.Fatalf("Unmarshal Report %v failed: %v", v, err)
+		}
+		reports[i] = report
+	}
+	table := perf.NewTable()
+	table.SetTitle((&Report{}).Headers())
+	for _, v := range reports {
+		table.AddRow(v.Strings())
+	}
+	text := table.Markdown()
+	fmt.Println(text)
+	err := os.WriteFile("./output/report/report.md", []byte(text), 0666)
+	if err != nil {
+		log.Fatalf("Write Report failed: %v", err)
+	}
+}
+
 type Report struct {
+	Framework string
 	Total     int64
 	Success   int64
 	Failed    int64
 	TimeUsed  time.Duration
+	Min       int64
+	Avg       int64
+	Max       int64
 	TPS       int64
 	TP50      int64
 	TP75      int64
@@ -272,4 +321,55 @@ type Report struct {
 	MEMRSSMin uint64
 	MEMRSSAvg uint64
 	MEMRSSMax uint64
+}
+
+func (r *Report) Headers() []string {
+	ret := [20]string{
+		"Framework",
+		"Total",
+		"Success",
+		"Failed",
+		"TimeUsed",
+		"Min",
+		"Avg",
+		"Max",
+		"TPS",
+		"TP50",
+		"TP75",
+		"TP90",
+		"TP95",
+		"TP99",
+		"CPU Min",
+		"CPU Avg",
+		"CPU Max",
+		"MEM Min",
+		"MEM Avg",
+		"MEM Max",
+	}
+	return ret[:]
+}
+
+func (r *Report) Strings() []string {
+	ret := make([]string, 20)[:0]
+	ret = append(ret, r.Framework)
+	ret = append(ret, fmt.Sprintf("%d", r.Total))
+	ret = append(ret, fmt.Sprintf("%v", r.Success))
+	ret = append(ret, fmt.Sprintf("%v", r.Failed))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(int64(r.TimeUsed))))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Min)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Avg)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Max)))
+	ret = append(ret, fmt.Sprintf("%v", r.TPS))
+	ret = append(ret, fmt.Sprintf("%v", r.TP50))
+	ret = append(ret, fmt.Sprintf("%v", r.TP75))
+	ret = append(ret, fmt.Sprintf("%v", r.TP90))
+	ret = append(ret, fmt.Sprintf("%v", r.TP95))
+	ret = append(ret, fmt.Sprintf("%v", r.TP99))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMin))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUAvg))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMax))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMin)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSAvg)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMax)))
+	return ret
 }

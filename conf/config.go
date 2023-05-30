@@ -23,3 +23,15 @@ var Ports = map[string]string{
 	NbioModNonblocking: "18001:18050",
 	Nhooyr:             "19001:19050",
 }
+
+var FrameworkList = []string{
+	Gobwas,
+	Gorilla,
+	Gws,
+	GwsBasedonStdhttp,
+	NbioBasedonStdhttp,
+	NbioModBlocking,
+	NbioModMixed,
+	NbioModNonblocking,
+	Nhooyr,
+}
