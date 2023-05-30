@@ -222,6 +222,9 @@ func startBenchmark() {
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
 	psCounter.Stop()
 	fmt.Println("-------------------------")
+	fmt.Printf("Benchmark: %s\n", *framework)
+	fmt.Printf("Conns    : %d\n", *numClient)
+	fmt.Printf("Payload  : %d\n", *payloadSize)
 	fmt.Println(calculator.String())
 	fmt.Printf(`CPU MIN  : %.2f%%
 CPU AVG  : %.2f%%
