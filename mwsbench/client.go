@@ -206,7 +206,7 @@ func startBenchmark() {
 	}
 
 	calculator := perf.NewCalculator(*framework)
-	calculator.Warmup(*numGoroutine, *benchmarkTimes/10, oneTask)
+	calculator.Warmup(*numGoroutine, *numClient*2, oneTask)
 
 	// delay 1 second
 	time.AfterFunc(time.Second, func() {

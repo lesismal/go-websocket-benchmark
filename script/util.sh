@@ -19,10 +19,13 @@ clean() {
 
 total_cpu_num=$(getconf _NPROCESSORS_ONLN)
 server_cpu_num=$((total_cpu_num >= 16 ? 7 : total_cpu_num / 2 - 1))
+client_cpu_num=$((server_cpu_num + 1))
 limit_cpu_server="taskset -c 0-${server_cpu_num}"
-limit_cpu_client="taskset -c $((server_cpu_num + 1))-$((total_cpu_num - 1))"
+limit_cpu_client="taskset -c ${client_cpu_num}-$((total_cpu_num - 1))"
 
-# echo "limit_cpu_server: ${limit_cpu_server}"
-# echo "limit_cpu_client: ${limit_cpu_client}"
+# debug
+# echo "limit_cpu_server: ${server_cpu_num}, ${limit_cpu_server}"
+# echo "limit_cpu_client: ${client_cpu_num}, ${limit_cpu_client}"
 
 line="--------------------------------"
+
