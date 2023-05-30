@@ -15,5 +15,5 @@ for f in ${frameworks[@]}; do
     echo
 done
 echo "build client ..."
-go build -o "./output/bin/bench.client" "./client"
+go build -o "./output/bin/bench.client" "./mwsbench"
 echo "build client done"

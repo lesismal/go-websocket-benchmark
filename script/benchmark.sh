@@ -20,10 +20,10 @@ echo $line
 
 echo $line
 
-. ./script/clients.sh
+. ./script/clients.sh -suffix="_x"
 
 echo $line
 
-. ./script/report.sh -r=true
+. ./script/report.sh -r=true -suffix="_x"
 
 echo $line

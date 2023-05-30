@@ -72,11 +72,13 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		for {
 			msg, op, err := wsutil.ReadClientData(c)
 			if err != nil {
-				log.Fatalf("read failed: %v", err)
+				log.Printf("read failed: %v", err)
+				return
 			}
 			err = wsutil.WriteServerMessage(c, op, msg)
 			if err != nil {
-				log.Fatalf("write failed: %v", err)
+				log.Printf("write failed: %v", err)
+				return
 			}
 		}
 	}()

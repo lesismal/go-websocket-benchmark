@@ -76,7 +76,8 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, reader, err := c.NextReader()
 		if err != nil {
-			log.Fatalf("read failed: %v", err)
+			log.Printf("read failed: %v", err)
+			return
 		}
 		for {
 			if nread == len(readBuffer) {
@@ -91,7 +92,8 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		err = c.WriteMessage(mt, readBuffer[:nread])
 		nread = 0
 		if err != nil {
-			log.Fatalf("write failed: %v", err)
+			log.Printf("write failed: %v", err)
+			return
 		}
 	}
 }
