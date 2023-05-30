@@ -5,6 +5,7 @@
 rm -rf ./output
 mkdir -p ./output/bin
 mkdir -p ./output/log
+mkdir -p ./output/report
 
 # build
 for f in ${frameworks[@]}; do

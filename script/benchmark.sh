@@ -1,5 +1,11 @@
 #!/bin/bash
 
+. ./script/util.sh
+
+echo $line
+
+. ./script/clean.sh
+
 echo $line
 
 . ./script/env.sh

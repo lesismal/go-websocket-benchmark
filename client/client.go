@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"runtime/debug"
 	"strconv"
@@ -190,14 +192,14 @@ func startBenchmark() {
 	}
 	tpPercents := []int{50, 75, 90, 95, 99}
 
-	psCounter, err := perf.NewPSCounterByProcName(*framework + ".server")
+	procName := *framework + ".server"
+	psCounter, err := perf.NewPSCounterByProcName(procName)
 	if err != nil {
 		panic(err)
 	}
 
 	calculator := perf.NewCalculator(*framework)
 	calculator.Warmup(*numGoroutine, *benchmarkTimes/10, oneTask)
-
 	psCounter.Start(perf.PSCountOptions{
 		CountCPU: true,
 		CountMEM: true,
@@ -206,9 +208,68 @@ func startBenchmark() {
 		Interval: time.Second,
 	})
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
+	calculator.TPS()
 	psCounter.Stop()
-
 	fmt.Println("-------------------------")
 	fmt.Println(calculator.String())
+	fmt.Printf(`CPU MIN  : %.2f%%,
+CPU MIN  : %.2f%%,
+CPU MIN  : %.2f%%,
+MEM MIN  : %v,
+MEM MIN  : %v,
+MEM MIN  : %v
+`,
+		psCounter.CPUMin(),
+		psCounter.CPUAvg(),
+		psCounter.CPUMax(),
+		psCounter.MEMRSSMin(),
+		psCounter.MEMRSSAvg(),
+		psCounter.MEMRSSMax())
+
+	report := &Report{
+		Total:     int64(calculator.Total),
+		Success:   calculator.Success,
+		Failed:    calculator.Failed,
+		TimeUsed:  calculator.Used,
+		TPS:       calculator.TPS(),
+		TP50:      calculator.TPN(50),
+		TP75:      calculator.TPN(75),
+		TP90:      calculator.TPN(90),
+		TP95:      calculator.TPN(95),
+		TP99:      calculator.TPN(99),
+		CPUMin:    psCounter.CPUMin(),
+		CPUAvg:    psCounter.CPUAvg(),
+		CPUMax:    psCounter.CPUMax(),
+		MEMRSSMin: psCounter.MEMRSSMin(),
+		MEMRSSAvg: psCounter.MEMRSSAvg(),
+		MEMRSSMax: psCounter.MEMRSSMax(),
+	}
+	b, err := json.Marshal(report)
+	if err != nil {
+		log.Fatalf("Marshal Report failed: %v", err)
+	}
+	err = ioutil.WriteFile("./output/report/"+*framework+" .json", b, 0666)
+	if err != nil {
+		log.Fatalf("Write Report failed: %v", err)
+	}
 	fmt.Println("-------------------------")
+}
+
+type Report struct {
+	Total     int64
+	Success   int64
+	Failed    int64
+	TimeUsed  time.Duration
+	TPS       int64
+	TP50      int64
+	TP75      int64
+	TP90      int64
+	TP95      int64
+	TP99      int64
+	CPUMin    float64
+	CPUAvg    float64
+	CPUMax    float64
+	MEMRSSMin uint64
+	MEMRSSAvg uint64
+	MEMRSSMax uint64
 }
