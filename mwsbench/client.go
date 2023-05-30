@@ -240,6 +240,7 @@ MEM MAX  : %v
 	report := &FullReport{
 		Framework: *framework,
 		Conns:     *numClient,
+		Payload:   *payloadSize,
 		Total:     int64(calculator.Total),
 		Success:   calculator.Success,
 		Failed:    calculator.Failed,
