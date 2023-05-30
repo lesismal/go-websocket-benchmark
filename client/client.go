@@ -37,6 +37,7 @@ var (
 	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
 	memLimit       = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 	report         = flag.Bool("r", false, `make report`)
+	suffix         = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -262,7 +263,7 @@ MEM MIN  : %v
 	if err != nil {
 		log.Fatalf("Marshal Report failed: %v", err)
 	}
-	err = os.WriteFile("./output/report/"+*framework+" .json", b, 0666)
+	err = os.WriteFile("./output/report/"+*framework+*suffix+" .json", b, 0666)
 	if err != nil {
 		log.Fatalf("Write Report failed: %v", err)
 	}
@@ -280,7 +281,7 @@ func makeReport(typ string) {
 func makeReportMarkdown(simple bool) {
 	reports := make([]Report, len(conf.FrameworkList))
 	for i, v := range conf.FrameworkList {
-		b, err := os.ReadFile("./output/report/" + v + " .json")
+		b, err := os.ReadFile("./output/report/" + v + *suffix + " .json")
 		if err != nil {
 			log.Fatalf("Read Report %v failed: %v", v, err)
 		}
@@ -311,12 +312,12 @@ func makeReportMarkdown(simple bool) {
 	text := table.Markdown()
 	fmt.Println(text)
 	if simple {
-		err := os.WriteFile("./output/report/report_simple.md", []byte(text), 0666)
+		err := os.WriteFile("./output/report/report_simple"+*suffix+".md", []byte(text), 0666)
 		if err != nil {
 			log.Fatalf("Write Report failed: %v", err)
 		}
 	} else {
-		err := os.WriteFile("./output/report/report_full.md", []byte(text), 0666)
+		err := os.WriteFile("./output/report/report_full"+*suffix+".md", []byte(text), 0666)
 		if err != nil {
 			log.Fatalf("Write Report failed: %v", err)
 		}

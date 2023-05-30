@@ -37,6 +37,12 @@ func (r *FullReport) Headers() []string {
 		"Success",
 		"Failed",
 		"Used",
+		"CPU Min",
+		"CPU Avg",
+		"CPU Max",
+		"MEM Min",
+		"MEM Avg",
+		"MEM Max",
 		"Min",
 		"Avg",
 		"Max",
@@ -46,12 +52,6 @@ func (r *FullReport) Headers() []string {
 		"TP90",
 		"TP95",
 		"TP99",
-		"CPU Min",
-		"CPU Avg",
-		"CPU Max",
-		"MEM Min",
-		"MEM Avg",
-		"MEM Max",
 	}
 	return ret[:]
 }
@@ -63,6 +63,12 @@ func (r *FullReport) Strings() []string {
 	ret = append(ret, fmt.Sprintf("%v", r.Success))
 	ret = append(ret, fmt.Sprintf("%v", r.Failed))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(int64(r.TimeUsed))))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMin))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUAvg))
+	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMax))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMin)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSAvg)))
+	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMax)))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Min)))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Avg)))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.Max)))
@@ -72,12 +78,7 @@ func (r *FullReport) Strings() []string {
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.TP90)))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.TP95)))
 	ret = append(ret, fmt.Sprintf("%v", perf.I2TimeString(r.TP99)))
-	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMin))
-	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUAvg))
-	ret = append(ret, fmt.Sprintf("%.2f%%", r.CPUMax))
-	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMin)))
-	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSAvg)))
-	ret = append(ret, fmt.Sprintf("%v", perf.I2MemString(r.MEMRSSMax)))
+
 	return ret
 }
 
