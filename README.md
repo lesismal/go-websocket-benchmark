@@ -24,7 +24,7 @@ cd go-websocket-benchmark
 # ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 ```
 
-Some benchmark result on my ubuntu vm:
+Here is some 1M-Connections-Benchmark report on my ubuntu vm, the nbio non-blocking server use cpu 0-3 and SetMemoryLimit(2G), benchmark with 1k payload:
 ```sh
 2023/05/30 14:27:01.747 [INF] NBIO[Benchmark-Client] start
 2023/05/30 14:27:01 1000000 clients start connecting
