@@ -21,40 +21,48 @@ cd go-websocket-benchmark
 # -n benchmark times
 ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 # or 
-# ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
+# ./script/client.sh -f=nbio_mod_mixed -c=1000000 -n=5000000 -b=1024
 ```
 
 Here is some 1M-Connections-Benchmark report on my ubuntu vm, the nbio non-blocking server use cpu 0-3 and SetMemoryLimit(2G), benchmark with 1k payload:
 ```sh
-2023/05/30 14:27:01.747 [INF] NBIO[Benchmark-Client] start
-2023/05/30 14:27:01 1000000 clients start connecting
-2023/05/30 14:27:02 29006 clients connected
-2023/05/30 14:27:03 65988 clients connected
+root@ubuntu:~/go-websocket-benchmark# ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
+2023/05/30 16:04:51.048 [INF] NBIO[Benchmark-Client] start
+2023/05/30 16:04:51 1000000 clients start connecting
+2023/05/30 16:04:52 25890 clients connected
+2023/05/30 16:04:53 69455 clients connected
+2023/05/30 16:04:54 116592 clients connected
 ......
-2023/05/30 14:27:33 999988 clients connected
-2023/05/30 14:27:33 1000000 clients connected
+2023/05/30 16:05:20 999998 clients connected
+2023/05/30 16:05:21 999998 clients connected
+2023/05/30 16:05:21 1000000 clients connected
 -------------------------
 BENCHMARK: nbio_mod_nonblocking
 TOTAL    : 5000000 times
 SUCCESS  : 5000000, 100.00%
 FAILED   : 0, 0.00%
-TPS      : 126575
-TIME USED: 39.50s
-MIN USED : 59.06ms
-MAX USED : 237.44us
-AVG USED : 15.80us
-TP50     : 14.35us
-TP75     : 19.70us
-TP90     : 25.88us
-TP95     : 30.52us
-TP99     : 42.36us
+TPS      : 102906
+TIME USED: 48.59s
+MIN USED : 49.46us
+AVG USED : 19.43ms
+MAX USED : 238.03ms
+TP50     : 18.17ms
+TP75     : 25.62ms
+TP90     : 33.38ms
+TP95     : 38.84ms
+TP99     : 51.05ms
 CPU MIN  : 0.00%
-CPU MIN  : 365.01%
-CPU MIN  : 430.50%
-MEM MIN  : 1.60G
-MEM MIN  : 1.95G
-MEM MIN  : 2.09G
+CPU AVG  : 297.54%
+CPU MAX  : 333.87%
+MEM MIN  : 1.62G
+MEM AVG  : 1.91G
+MEM MAX  : 1.98G
 -------------------------
+```
+
+Or just run:
+```sh
+./script/1m_conns_benchmark.sh
 ```
 
 - Clean
@@ -110,4 +118,5 @@ Swap:             0           0           0
 2. Auto save Charts/Markdown/Xls files - Markdown done
 3. Different Args
 4. Add more frameworks
+
 
