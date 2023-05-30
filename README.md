@@ -21,13 +21,11 @@ cd go-websocket-benchmark
 # -n benchmark times
 ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 # or 
-# ./script/client.sh -f=nbio_mod_mixed -c=1000000 -n=5000000 -b=1024
+# ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 ```
 
 Some benchmark result on my ubuntu vm:
 ```sh
-root@ubuntu:~/go-websocket-benchmark# ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
--f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 2023/05/30 14:27:01.747 [INF] NBIO[Benchmark-Client] start
 2023/05/30 14:27:01 1000000 clients start connecting
 2023/05/30 14:27:02 29006 clients connected
@@ -88,17 +86,6 @@ Ubuntu 20.04.6 LTS \n \l
 cpu model:
 
 model name	: AMD Ryzen 7 5800H with Radeon Graphics
---------------------------------
-processors:
-
-processor	: 0
-processor	: 1
-processor	: 2
-processor	: 3
-processor	: 4
-processor	: 5
-processor	: 6
-processor	: 7
 --------------------------------
               total        used        free      shared  buff/cache   available
 Mem:       16362568      396988    15151676        1636      813904    15656380
