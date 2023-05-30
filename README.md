@@ -37,26 +37,28 @@ root@ubuntu:~/go-websocket-benchmark# ./script/client.sh -f=nbio_mod_nonblocking
 2023/05/30 16:05:21 999998 clients connected
 2023/05/30 16:05:21 1000000 clients connected
 -------------------------
-BENCHMARK: nbio_mod_nonblocking
+Benchmark: nbio_mod_nonblocking
+Conns    : 1000000
+Payload  : 1024
 TOTAL    : 5000000 times
 SUCCESS  : 5000000, 100.00%
 FAILED   : 0, 0.00%
-TPS      : 102906
-TIME USED: 48.59s
-MIN USED : 49.46us
-AVG USED : 19.43ms
-MAX USED : 238.03ms
-TP50     : 18.17ms
-TP75     : 25.62ms
-TP90     : 33.38ms
-TP95     : 38.84ms
-TP99     : 51.05ms
+TPS      : 100672
+TIME USED: 49.67s
+MIN USED : 39.24us
+AVG USED : 19.86ms
+MAX USED : 242.16ms
+TP50     : 18.56ms
+TP75     : 26.04ms
+TP90     : 34.24ms
+TP95     : 39.64ms
+TP99     : 52.16ms
 CPU MIN  : 0.00%
-CPU AVG  : 297.54%
-CPU MAX  : 333.87%
-MEM MIN  : 1.62G
+CPU AVG  : 293.65%
+CPU MAX  : 319.95%
+MEM MIN  : 1.61G
 MEM AVG  : 1.91G
-MEM MAX  : 1.98G
+MEM MAX  : 2.06G
 -------------------------
 ```
 
