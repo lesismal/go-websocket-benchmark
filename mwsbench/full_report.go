@@ -10,6 +10,7 @@ import (
 type FullReport struct {
 	Framework string
 	Conns     int
+	Payload   int
 	Total     int64
 	Success   int64
 	Failed    int64
@@ -32,9 +33,10 @@ type FullReport struct {
 }
 
 func (r *FullReport) Headers() []string {
-	ret := [21]string{
+	ret := [22]string{
 		"Framework",
 		"Conns",
+		"Payload",
 		"Total",
 		"Success",
 		"Failed",
@@ -62,6 +64,7 @@ func (r *FullReport) Strings() []string {
 	ret := make([]string, 20)[:0]
 	ret = append(ret, r.Framework)
 	ret = append(ret, fmt.Sprintf("%d", r.Conns))
+	ret = append(ret, fmt.Sprintf("%d", r.Payload))
 	ret = append(ret, fmt.Sprintf("%d", r.Total))
 	ret = append(ret, fmt.Sprintf("%v", r.Success))
 	ret = append(ret, fmt.Sprintf("%v", r.Failed))
@@ -89,6 +92,7 @@ func (r *FullReport) ToSimple() *SimpleReport {
 	return &SimpleReport{
 		Framework: r.Framework,
 		Conns:     r.Conns,
+		Payload:   r.Payload,
 		Total:     r.Total,
 		Success:   r.Success,
 		Failed:    r.Failed,
