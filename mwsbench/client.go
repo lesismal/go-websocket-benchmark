@@ -224,11 +224,11 @@ func startBenchmark() {
 	fmt.Println("-------------------------")
 	fmt.Println(calculator.String())
 	fmt.Printf(`CPU MIN  : %.2f%%
-CPU MIN  : %.2f%%
-CPU MIN  : %.2f%%
+CPU AVG  : %.2f%%
+CPU MAX  : %.2f%%
 MEM MIN  : %v
-MEM MIN  : %v
-MEM MIN  : %v
+MEM AVG  : %v
+MEM MAX  : %v
 `,
 		psCounter.CPUMin(),
 		psCounter.CPUAvg(),
