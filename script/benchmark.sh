@@ -1,5 +1,5 @@
 #!/bin/bash
-
+ulimit -n 1000000
 . ./script/util.sh
 
 echo $line
