@@ -61,4 +61,5 @@ Swap:             0           0           0
 1. Add cpu/mem count to the result - done
 2. Auto save Charts/Markdown/Xls files - Markdown done
 3. Different Args
+4. Add more frameworks
 
