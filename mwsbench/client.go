@@ -305,8 +305,8 @@ func makeReport(typ string) {
 }
 
 func makeReportMarkdown(simple bool) {
-	reports := make([]Report, len(conf.FrameworkList))
-	for i, v := range conf.FrameworkList {
+	reports := make([]Report, len(conf.FrameworkList))[:0]
+	for _, v := range conf.FrameworkList {
 		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
 		if err != nil {
 			continue
@@ -316,12 +316,13 @@ func makeReportMarkdown(simple bool) {
 		report := &FullReport{}
 		err = json.Unmarshal(b, report)
 		if err != nil {
-			log.Fatalf("Unmarshal Report %v failed: %v", v, err)
+			continue
+			// log.Fatalf("Unmarshal Report %v failed: %v", v, err)
 		}
 		if simple {
-			reports[i] = report.ToSimple()
+			reports = append(reports, report.ToSimple())
 		} else {
-			reports[i] = report
+			reports = append(reports, report)
 		}
 	}
 
