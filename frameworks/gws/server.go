@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -39,6 +40,12 @@ func main() {
 		addrs = append(addrs, fmt.Sprintf(":%d", i))
 	}
 	startServers(addrs)
+	pidPort := maxPort + 1
+	go func() {
+		mux := &http.ServeMux{}
+		mux.HandleFunc("/pid", onServerPid)
+		log.Fatalf("pid server exit: %v", http.ListenAndServe(fmt.Sprintf(":%d", pidPort), mux))
+	}()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -52,6 +59,10 @@ func startServers(addrs []string) {
 			log.Fatalf("server exit: %v", server.Run(addr))
 		}(v)
 	}
+}
+
+func onServerPid(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 type Handler struct {
