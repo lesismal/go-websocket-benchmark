@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go-websocket-benchmark/conf"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+
+	"go-websocket-benchmark/conf"
 
 	"nhooyr.io/websocket"
 )
