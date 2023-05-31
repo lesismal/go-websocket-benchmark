@@ -30,18 +30,19 @@ import (
 const bufferNum uint32 = 1000
 
 var (
-	ip             = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
-	framework      = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
-	numClient      = flag.Int("c", 10000, "client num")
-	numGoroutine   = flag.Int("g", 5000, "goroutine num")
-	payloadSize    = flag.Int("b", 1024, `payload size`)
-	benchmarkTimes = flag.Int("n", 1000000, `benchmark times`)
-	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
-	memLimit       = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
-	report         = flag.Bool("r", false, `make report`)
-	preffix        = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
-	suffix         = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
-	serverPid      = flag.Int("spid", -1, `framework server pid`)
+	ip               = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
+	framework        = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
+	numClient        = flag.Int("c", 10000, "client num")
+	dialConcurrency  = flag.Int("dc", 2000, "goroutine num")
+	benchConcurrency = flag.Int("bc", 5000, "goroutine num")
+	payloadSize      = flag.Int("b", 1024, `payload size`)
+	benchmarkTimes   = flag.Int("n", 1000000, `benchmark times`)
+	maxTPS           = flag.Int("l", 0, `max benchmark tps`)
+	memLimit         = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
+	report           = flag.Bool("r", false, `make report`)
+	preffix          = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
+	suffix           = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
+	serverPid        = flag.Int("spid", -1, `framework server pid`)
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -57,21 +58,16 @@ func main() {
 		return
 	}
 
-	if *numGoroutine > *numClient {
-		*numGoroutine = *numClient
-	}
-	if *numGoroutine > 50000 {
-		*numGoroutine = 50000
-	}
-
-	log.Printf("start benchmark [%v]", *framework)
-	log.Printf("%v connections, %v payload, %v times", *numClient, *payloadSize, *benchmarkTimes)
-
 	debug.SetMemoryLimit(*memLimit)
 
-	startClients()
+	log.Printf("benchmark [%v]", *framework)
+	log.Printf("dial  concurrency: %v", *dialConcurrency)
+	log.Printf("bench concurrency: %v", *benchConcurrency)
+	log.Printf("%v connections, %v payload, %v times", *numClient, *payloadSize, *benchmarkTimes)
 
-	initBuffers()
+	initArgsAndBuffers()
+
+	startClients()
 
 	startBenchmark()
 }
@@ -116,9 +112,6 @@ func startClients() {
 
 	time.Sleep(time.Second / 10)
 
-	log.Printf("%v clients start connecting", *numClient)
-	defer log.Printf("%v clients connected", *numClient)
-
 	portRange := conf.Ports[*framework]
 	ports := strings.Split(conf.Ports[*framework], ":")
 	minPort, err := strconv.Atoi(ports[0])
@@ -152,16 +145,25 @@ func startClients() {
 		log.Fatalf("parse server pid failed: %v", err)
 	}
 	if pid > 0 {
-		log.Printf("%v server pid: %v", *framework, pid)
+		log.Printf("[%v] server pid: %v", *framework, pid)
 		*serverPid = pid
 	}
+
+	log.Printf("%v clients start connecting ...", *numClient)
+	defer log.Printf("%v clients connected", *numClient)
+
 	wg := sync.WaitGroup{}
 	var addrIdx uint32
-	for i := 0; i < *numGoroutine; i++ {
+	chConnect := make(chan struct{}, *numClient)
+	for i := 0; i < *numClient; i++ {
+		chConnect <- struct{}{}
+	}
+	close(chConnect)
+	for i := 0; i < *dialConcurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < (*numClient)/(*numGoroutine); j++ {
+			for range chConnect {
 				var addr = addrs[atomic.AddUint32(&addrIdx, 1)%uint32(len(addrs))]
 				var err error
 				var conn *websocket.Conn
@@ -192,7 +194,17 @@ func startClients() {
 	time.Sleep(time.Second / 10)
 }
 
-func initBuffers() {
+func initArgsAndBuffers() {
+	if *benchConcurrency > *numClient {
+		*benchConcurrency = *numClient
+	}
+	if *benchConcurrency > 50000 {
+		*benchConcurrency = 50000
+	}
+	if *dialConcurrency > 5000 {
+		*dialConcurrency = 5000
+	}
+
 	buffers = make([][]byte, bufferNum)
 	for i := uint32(0); i < bufferNum; i++ {
 		buffer := make([]byte, *payloadSize)
@@ -243,7 +255,9 @@ func startBenchmark() {
 	}
 
 	calculator := perf.NewCalculator(*framework)
-	calculator.Warmup(*numGoroutine, *numClient*2, oneTask)
+	log.Printf("warmup for %d times ...", *numClient*2)
+	calculator.Warmup(*benchConcurrency, *numClient*2, oneTask)
+	log.Printf("warmup for %d times done", *numClient*2)
 
 	// delay 1 second
 	time.AfterFunc(time.Second, func() {
@@ -256,11 +270,13 @@ func startBenchmark() {
 		})
 	})
 
-	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
+	log.Printf("benchmark start ...")
+	calculator.Benchmark(*benchConcurrency, *benchmarkTimes, oneTask, tpPercents)
 	for i := 0; i < len(chConns); i++ {
 		c := <-chConns
 		c.Close()
 	}
+	log.Printf("benchmark done")
 
 	psCounter.Stop()
 	fmt.Println("-------------------------")
