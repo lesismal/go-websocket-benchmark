@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/fasthttp/websocket"
 )
 
 var (
