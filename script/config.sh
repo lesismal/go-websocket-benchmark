@@ -5,15 +5,15 @@ BodySize=(128 1024)
 BenchTime=(1000000)
 
 frameworks=(
+    "fasthttp"
     "gobwas"
     "gorilla"
     "gws"
     "gws_basedon_stdhttp"
+    "hertz"
     "nbio_basedon_stdhttp"
     "nbio_mod_blocking"
     "nbio_mod_mixed"
     "nbio_mod_nonblocking"
     "nhooyr"
-    "hertz"
-    "fasthttp"
 )
