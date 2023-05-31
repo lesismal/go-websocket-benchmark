@@ -1,14 +1,16 @@
 #!/bin/bash
 
-. ./script/util.sh
+. ./script/env.sh
 
 echo $line
+. ./script/killall.sh
 
+echo $line
 . ./script/clean.sh
 
 echo $line
 
-. ./script/env.sh
+print_env
 
 echo $line
 
@@ -20,10 +22,10 @@ echo $line
 
 echo $line
 
-. ./script/clients.sh -suffix="_x"
+. ./script/clients.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 echo $line
 
-. ./script/report.sh -r=true -suffix="_x"
+. ./script/report.sh -r=true $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 echo $line

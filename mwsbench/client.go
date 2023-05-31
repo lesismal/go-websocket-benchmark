@@ -30,13 +30,14 @@ const bufferNum uint32 = 1000
 var (
 	ip             = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 	framework      = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
-	numClient      = flag.Int("c", 300000, "client num")
+	numClient      = flag.Int("c", 10000, "client num")
 	numGoroutine   = flag.Int("g", 2000, "goroutine num")
 	payloadSize    = flag.Int("b", 1024, `payload size`)
 	benchmarkTimes = flag.Int("n", 1000000, `benchmark times`)
 	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
 	memLimit       = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 	report         = flag.Bool("r", false, `make report`)
+	preffix        = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
 	suffix         = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
 
 	buffers   [][]byte
@@ -52,6 +53,16 @@ func main() {
 		makeReport("")
 		return
 	}
+
+	if *numGoroutine > *numClient {
+		*numGoroutine = *numClient
+	}
+	if *numGoroutine > 5000 {
+		*numGoroutine = 5000
+	}
+
+	log.Printf("start benchmark [%v]", *framework)
+	log.Printf("%v connections, %v payload, %v times", *numClient, *payloadSize, *benchmarkTimes)
 
 	debug.SetMemoryLimit(*memLimit)
 
@@ -268,7 +279,7 @@ MEM MAX  : %v
 	if err != nil {
 		log.Fatalf("Marshal Report failed: %v", err)
 	}
-	err = os.WriteFile("./output/report/"+*framework+*suffix+".json", b, 0666)
+	err = os.WriteFile("./output/report/"+*preffix+*framework+*suffix+".json", b, 0666)
 	if err != nil {
 		log.Fatalf("Write Report failed: %v", err)
 	}
@@ -291,9 +302,10 @@ func makeReport(typ string) {
 func makeReportMarkdown(simple bool) {
 	reports := make([]Report, len(conf.FrameworkList))
 	for i, v := range conf.FrameworkList {
-		b, err := os.ReadFile("./output/report/" + v + *suffix + ".json")
+		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
 		if err != nil {
-			log.Fatalf("Read Report %v failed: %v", v, err)
+			continue
+			// log.Fatalf("Read Report %v failed: %v", v, err)
 		}
 
 		report := &FullReport{}
@@ -322,12 +334,12 @@ func makeReportMarkdown(simple bool) {
 	text := table.Markdown()
 	fmt.Println(text)
 	if simple {
-		err := os.WriteFile("./output/report/report_simple"+*suffix+".md", []byte(text), 0666)
+		err := os.WriteFile("./output/report/"+*preffix+"report_simple"+*suffix+".md", []byte(text), 0666)
 		if err != nil {
 			log.Fatalf("Write Report failed: %v", err)
 		}
 	} else {
-		err := os.WriteFile("./output/report/report_full"+*suffix+".md", []byte(text), 0666)
+		err := os.WriteFile("./output/report/"+*preffix+"report_full"+*suffix+".md", []byte(text), 0666)
 		if err != nil {
 			log.Fatalf("Write Report failed: %v", err)
 		}

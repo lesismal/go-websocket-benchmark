@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./script/util.sh
+. ./script/env.sh
 
 echo $line
 
@@ -23,4 +23,3 @@ echo $line
 ./script/client.sh -f=nbio_mod_nonblocking -c=1000000 -n=5000000 -b=1024
 
 echo $line
-

@@ -1,8 +1,9 @@
 #!/bin/bash
 
-. ./script/util.sh
+. ./script/env.sh
 
-rm -rf ./output
+. ./script/clean.sh
+
 mkdir -p ./output/bin
 mkdir -p ./output/log
 mkdir -p ./output/report
