@@ -39,6 +39,7 @@ var (
 	report         = flag.Bool("r", false, `make report`)
 	preffix        = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
 	suffix         = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
+	serverPid      = flag.Int("spid", -1, `framework server pid`)
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -210,8 +211,9 @@ func startBenchmark() {
 	}
 	tpPercents := []int{50, 75, 90, 95, 99}
 
-	procName := *framework + ".server"
-	psCounter, err := perf.NewPSCounterByProcName(procName)
+	// procName := *framework + ".server"
+	// psCounter, err := perf.NewPSCounterByProcName(procName)
+	psCounter, err := perf.NewPSCounter(*serverPid)
 	if err != nil {
 		panic(err)
 	}
