@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -31,7 +33,7 @@ var (
 	ip             = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 	framework      = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
 	numClient      = flag.Int("c", 10000, "client num")
-	numGoroutine   = flag.Int("g", 2000, "goroutine num")
+	numGoroutine   = flag.Int("g", 5000, "goroutine num")
 	payloadSize    = flag.Int("b", 1024, `payload size`)
 	benchmarkTimes = flag.Int("n", 1000000, `benchmark times`)
 	maxTPS         = flag.Int("l", 0, `max benchmark tps`)
@@ -58,8 +60,8 @@ func main() {
 	if *numGoroutine > *numClient {
 		*numGoroutine = *numClient
 	}
-	if *numGoroutine > 5000 {
-		*numGoroutine = 5000
+	if *numGoroutine > 50000 {
+		*numGoroutine = 50000
 	}
 
 	log.Printf("start benchmark [%v]", *framework)
@@ -131,7 +133,27 @@ func startClients() {
 	for i := minPort; i <= maxPort; i++ {
 		addrs = append(addrs, fmt.Sprintf("ws://%v:%d/ws", *ip, i))
 	}
+	pidServerAddr := addrs[0]
+	if *framework == conf.Gws {
+		pidPort := maxPort + 1
+		pidServerAddr = fmt.Sprintf("ws://%v:%d/ws", *ip, pidPort)
+	}
 
+	res, err := http.Get(fmt.Sprintf(`http://%v/pid`, pidServerAddr))
+	if err != nil {
+		log.Fatalf("request server pid failed: %v", err)
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalf("read server pidfailed: %v", err)
+	}
+	pid, err := strconv.Atoi(string(body))
+	if err != nil {
+		log.Fatalf("parse server pid failed: %v", err)
+	}
+	if pid > 0 {
+		*serverPid = pid
+	}
 	wg := sync.WaitGroup{}
 	var addrIdx uint32
 	for i := 0; i < *numGoroutine; i++ {

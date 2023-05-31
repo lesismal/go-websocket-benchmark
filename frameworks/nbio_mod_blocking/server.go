@@ -56,6 +56,7 @@ func main() {
 func startServers(addrs []string) {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
+	mux.HandleFunc("/pid", onServerPid)
 	svr := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
@@ -69,6 +70,10 @@ func startServers(addrs []string) {
 		log.Printf("nbio.Start failed: %v", err)
 		return
 	}
+}
+
+func onServerPid(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {

@@ -57,6 +57,7 @@ func startServers(addrs []string) {
 		go func(addr string) {
 			mux := &http.ServeMux{}
 			mux.HandleFunc("/ws", onWebsocket)
+			mux.HandleFunc("/pid", onServerPid)
 			server := http.Server{
 				Addr:    addr,
 				Handler: mux,
@@ -64,6 +65,10 @@ func startServers(addrs []string) {
 			log.Fatalf("server exit: %v", server.ListenAndServe())
 		}(v)
 	}
+}
+
+func onServerPid(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {

@@ -62,9 +62,14 @@ func startServers(addrs []string) {
 		go func(addr string) {
 			srv := server.Default(server.WithHostPorts(addr))
 			srv.GET("/ws", onWebsocket)
+			srv.GET("/pid", onServerPid)
 			srv.Spin()
 		}(v)
 	}
+}
+
+func onServerPid(c context.Context, ctx *app.RequestContext) {
+	ctx.Response.BodyWriter().Write([]byte(fmt.Sprintf("%d", os.Getpid())))
 }
 
 func onWebsocket(c context.Context, ctx *app.RequestContext) {
