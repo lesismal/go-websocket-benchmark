@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -90,18 +89,27 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var buffer = bytes.NewBufferString("")
-	var tmp = make([]byte, 4096)
+	var nread int
+	var buffer = make([]byte, *readBufferSize)
+	var readBuffer = buffer
 	for {
-		mt, data, err := c.Reader(context.Background())
+		mt, reader, err := c.Reader(context.Background())
 		if err != nil {
 			log.Printf("read failed: %v", err)
 			break
 		}
-
-		buffer.Reset()
-		io.CopyBuffer(buffer, data, tmp)
-		err = c.Write(context.Background(), mt, buffer.Bytes())
+		for {
+			if nread == len(readBuffer) {
+				readBuffer = append(readBuffer, buffer...)
+			}
+			n, err := reader.Read(readBuffer[nread:])
+			nread += n
+			if err == io.EOF {
+				break
+			}
+		}
+		err = c.Write(context.Background(), mt, readBuffer[:nread])
+		nread = 0
 		if err != nil {
 			log.Printf("write failed: %v", err)
 			return
