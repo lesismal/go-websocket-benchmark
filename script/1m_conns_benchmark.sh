@@ -4,7 +4,7 @@
 
 echo $line
 
-. ./script/kill.sh
+. ./script/killall.sh
 
 echo $line
 
