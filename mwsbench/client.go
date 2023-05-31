@@ -133,13 +133,13 @@ func startClients() {
 	for i := minPort; i <= maxPort; i++ {
 		addrs = append(addrs, fmt.Sprintf("ws://%v:%d/ws", *ip, i))
 	}
-	pidServerAddr := addrs[0]
+	pidServerAddr := fmt.Sprintf("http://%v:%v/pid", *ip, minPort)
 	if *framework == conf.Gws {
 		pidPort := maxPort + 1
-		pidServerAddr = fmt.Sprintf("ws://%v:%d/ws", *ip, pidPort)
+		pidServerAddr = fmt.Sprintf("http://%v:%v/pid", *ip, pidPort)
 	}
 
-	res, err := http.Get(fmt.Sprintf(`http://%v/pid`, pidServerAddr))
+	res, err := http.Get(pidServerAddr)
 	if err != nil {
 		log.Fatalf("request server pid failed: %v", err)
 	}
@@ -152,6 +152,7 @@ func startClients() {
 		log.Fatalf("parse server pid failed: %v", err)
 	}
 	if pid > 0 {
+		log.Printf("%v server pid: %v", *framework, pid)
 		*serverPid = pid
 	}
 	wg := sync.WaitGroup{}
