@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go-websocket-benchmark/conf"
 	"io"
 	"log"
 	"os"
@@ -13,21 +12,30 @@ import (
 	"strings"
 	"time"
 
+	"go-websocket-benchmark/conf"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/websocket"
 )
 
 var (
-	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	readBufferSize = flag.Int("b", 1024, `read buffer size`)
+	readBufferSize    = flag.Int("b", 1024, `read buffer size`)
+	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
+	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.HertzUpgrader{}
 )
 
 func main() {
 	flag.Parse()
+
+	if *readBufferSize > *maxReadBufferSize {
+		log.Printf("readBufferSize: %v, will handle reading by ReadMessage()", *readBufferSize)
+	} else {
+		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
+	}
 
 	ports := strings.Split(conf.Ports[conf.Hertz], ":")
 	minPort, err := strconv.Atoi(ports[0])
@@ -65,7 +73,7 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 		defer c.Close()
 
 		// avoid connections hold large buffer
-		if *readBufferSize > 4096 {
+		if *readBufferSize > *maxReadBufferSize {
 			for {
 				mt, message, err := c.ReadMessage()
 				if err != nil {

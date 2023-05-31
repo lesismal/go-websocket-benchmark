@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go-websocket-benchmark/conf"
 	"io"
 	"log"
 	"net/http"
@@ -13,13 +12,16 @@ import (
 	"strings"
 	"time"
 
+	"go-websocket-benchmark/conf"
+
 	"github.com/gorilla/websocket"
 )
 
 var (
-	readBufferSize = flag.Int("b", 1024, `read buffer size`)
-	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	readBufferSize    = flag.Int("b", 1024, `read buffer size`)
+	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
+	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.Upgrader{}
 )
@@ -27,7 +29,11 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Println("readBufferSize:", *readBufferSize)
+	if *readBufferSize > *maxReadBufferSize {
+		log.Printf("readBufferSize: %v, will handle reading by ReadMessage()", *readBufferSize)
+	} else {
+		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
+	}
 
 	ports := strings.Split(conf.Ports[conf.Gorilla], ":")
 	minPort, err := strconv.Atoi(ports[0])
@@ -73,7 +79,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	// avoid connections hold large buffer
-	if *readBufferSize > 4096 {
+	if *readBufferSize > *maxReadBufferSize {
 		for {
 			mt, message, err := c.ReadMessage()
 			if err != nil {

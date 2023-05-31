@@ -18,13 +18,20 @@ import (
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	readBufferSize    = flag.Int("b", 1024, `read buffer size`)
+	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
+	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
 	flag.Parse()
+
+	if *readBufferSize > *maxReadBufferSize {
+		log.Printf("readBufferSize: %v, will handle reading by ReadMessage()", *readBufferSize)
+	} else {
+		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
+	}
 
 	ports := strings.Split(conf.Ports[conf.Nhooyr], ":")
 	minPort, err := strconv.Atoi(ports[0])
@@ -67,6 +74,21 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
+	if *readBufferSize > *maxReadBufferSize {
+		for {
+			mt, data, err := c.Read(context.Background())
+			if err != nil {
+				log.Printf("read failed: %v", err)
+				return
+			}
+			err = c.Write(context.Background(), mt, data)
+			if err != nil {
+				log.Printf("write failed: %v", err)
+				return
+			}
+		}
+	}
+
 	var buffer = bytes.NewBufferString("")
 	var tmp = make([]byte, 4096)
 	for {
@@ -78,6 +100,10 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 
 		buffer.Reset()
 		io.CopyBuffer(buffer, data, tmp)
-		c.Write(context.Background(), mt, buffer.Bytes())
+		err = c.Write(context.Background(), mt, buffer.Bytes())
+		if err != nil {
+			log.Printf("write failed: %v", err)
+			return
+		}
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go-websocket-benchmark/conf"
 	"log"
 	"net/http"
 	"os"
@@ -13,12 +12,15 @@ import (
 	"strings"
 	"time"
 
+	"go-websocket-benchmark/conf"
+
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
 var (
 	_                 = flag.Int("b", 1024, `read buffer size`)
+	_                 = flag.Int("mrb", 4096, `max read buffer size`)
 	memLimit          = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	maxBlockingOnline = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
