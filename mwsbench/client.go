@@ -172,8 +172,8 @@ func startClients() {
 				}
 				for k := 0; k < 5; k++ {
 					conn, _, err = dialer.Dial(addr, nil)
-					conn.SetReadDeadline(time.Time{})
 					if err == nil {
+						conn.SetReadDeadline(time.Time{})
 						conn.SetSession(make(chan EchoResult, 1))
 						atomic.AddUint32(&connected, 1)
 						chConns <- conn

@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -78,48 +77,48 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 		defer c.Close()
 
 		// avoid connections hold large buffer
-		if *readBufferSize > *maxReadBufferSize {
-			for {
-				mt, message, err := c.ReadMessage()
-				if err != nil {
-					log.Printf("read message failed: %v", err)
-					return
-				}
-				err = c.WriteMessage(mt, message)
-				if err != nil {
-					log.Printf("write failed: %v", err)
-					return
-				}
-			}
-		}
-
-		var nread int
-		var buffer = make([]byte, *readBufferSize)
-		var readBuffer = buffer
-
+		// if *readBufferSize > *maxReadBufferSize {
 		for {
-			mt, reader, err := c.NextReader()
+			mt, message, err := c.ReadMessage()
 			if err != nil {
-				log.Printf("read failed: %v", err)
+				log.Printf("read message failed: %v", err)
 				return
 			}
-			for {
-				if nread == len(readBuffer) {
-					readBuffer = append(readBuffer, buffer...)
-				}
-				n, err := reader.Read(readBuffer[nread:])
-				nread += n
-				if err == io.EOF {
-					break
-				}
-			}
-			err = c.WriteMessage(mt, readBuffer[:nread])
-			nread = 0
+			err = c.WriteMessage(mt, message)
 			if err != nil {
 				log.Printf("write failed: %v", err)
 				return
 			}
 		}
+		// }
+
+		// var nread int
+		// var buffer = make([]byte, *readBufferSize)
+		// var readBuffer = buffer
+
+		// for {
+		// 	mt, reader, err := c.NextReader()
+		// 	if err != nil {
+		// 		log.Printf("read failed: %v", err)
+		// 		return
+		// 	}
+		// 	for {
+		// 		if nread == len(readBuffer) {
+		// 			readBuffer = append(readBuffer, buffer...)
+		// 		}
+		// 		n, err := reader.Read(readBuffer[nread:])
+		// 		nread += n
+		// 		if err == io.EOF {
+		// 			break
+		// 		}
+		// 	}
+		// 	err = c.WriteMessage(mt, readBuffer[:nread])
+		// 	nread = 0
+		// 	if err != nil {
+		// 		log.Printf("write failed: %v", err)
+		// 		return
+		// 	}
+		// }
 	})
 
 	if upgradeErr != nil {
