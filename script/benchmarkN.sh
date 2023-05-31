@@ -28,6 +28,8 @@ for c in ${Connections[@]}; do
             echo $line
             . ./script/killall.sh
 
+            sleep $SleepTime
+
             echo $line
 
             for f in ${frameworks[@]}; do
@@ -42,8 +44,6 @@ for c in ${Connections[@]}; do
             . ./script/clients.sh -c=$c -b=$b -n=$n -suffix=${suffix}
             echo $line
             . ./script/report.sh -r=true -suffix=${suffix} $1 $2 $3 $4 $5 $6 $7 $8 $9
-
-            sleep $SleepTime
         done
     done
 done
