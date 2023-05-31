@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	maxBlockingOnline = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_                 = flag.Int("b", 1024, `read buffer size`)
 	memLimit          = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	maxBlockingOnline = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.NewUpgrader()
 )

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"go-websocket-benchmark/conf"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -17,8 +19,8 @@ import (
 
 var (
 	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
@@ -65,12 +67,17 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
+	var buffer = bytes.NewBufferString("")
+	var tmp = make([]byte, 4096)
 	for {
-		mt, data, err := c.Read(context.Background())
+		mt, data, err := c.Reader(context.Background())
 		if err != nil {
 			log.Printf("read failed: %v", err)
 			break
 		}
-		c.Write(context.Background(), mt, data)
+
+		buffer.Reset()
+		io.CopyBuffer(buffer, data, tmp)
+		c.Write(context.Background(), mt, buffer.Bytes())
 	}
 }

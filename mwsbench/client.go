@@ -231,6 +231,11 @@ func startBenchmark() {
 	})
 
 	calculator.Benchmark(*numGoroutine, *benchmarkTimes, oneTask, tpPercents)
+	for i := 0; i < len(chConns); i++ {
+		c := <-chConns
+		c.Close()
+	}
+
 	psCounter.Stop()
 	fmt.Println("-------------------------")
 	fmt.Printf("Benchmark: %s\n", *framework)

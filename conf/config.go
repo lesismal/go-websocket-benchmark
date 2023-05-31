@@ -1,17 +1,17 @@
 package conf
 
 const (
+	FastHTTP           = "fasthttp"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
 	GwsBasedonStdhttp  = "gws_basedon_stdhttp"
+	Hertz              = "hertz"
 	NbioBasedonStdhttp = "nbio_basedon_stdhttp"
 	NbioModBlocking    = "nbio_mod_blocking"
 	NbioModMixed       = "nbio_mod_mixed"
 	NbioModNonblocking = "nbio_mod_nonblocking"
 	Nhooyr             = "nhooyr"
-	Hertz              = "hertz"
-	FastHTTP           = "fasthttp"
 )
 
 var Ports = map[string]string{
@@ -29,15 +29,15 @@ var Ports = map[string]string{
 }
 
 var FrameworkList = []string{
+	FastHTTP,
 	Gobwas,
 	Gorilla,
 	Gws,
 	GwsBasedonStdhttp,
+	Hertz,
 	NbioBasedonStdhttp,
 	NbioModBlocking,
 	NbioModMixed,
 	NbioModNonblocking,
 	Nhooyr,
-	Hertz,
-	FastHTTP,
 }
