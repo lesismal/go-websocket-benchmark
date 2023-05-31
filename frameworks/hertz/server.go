@@ -28,7 +28,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.Gorilla], ":")
+	ports := strings.Split(conf.Ports[conf.Hertz], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)
