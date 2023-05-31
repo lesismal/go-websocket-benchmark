@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"flag"
 	"fmt"
 	"go-websocket-benchmark/conf"
@@ -13,20 +11,23 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 
-	"nhooyr.io/websocket"
+	"github.com/fasthttp/websocket"
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	readBufferSize = flag.Int("b", 1024, `read buffer size`)
+
+	upgrader = websocket.Upgrader{}
 )
 
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.Nhooyr], ":")
+	ports := strings.Split(conf.Ports[conf.FastHTTP], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)
@@ -61,23 +62,38 @@ func startServers(addrs []string) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, nil)
+	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	defer c.Close(websocket.StatusInternalError, "the sky is falling")
+	c.SetReadDeadline(time.Time{})
+	defer c.Close()
 
-	var buffer = bytes.NewBufferString("")
-	var tmp = make([]byte, 4096)
+	var nread int
+	var buffer = make([]byte, *readBufferSize)
+	var readBuffer = buffer
 	for {
-		mt, data, err := c.Reader(context.Background())
+		mt, reader, err := c.NextReader()
 		if err != nil {
 			log.Printf("read failed: %v", err)
-			break
+			return
 		}
-
-		buffer.Reset()
-		io.CopyBuffer(buffer, data, tmp)
-		c.Write(context.Background(), mt, buffer.Bytes())
+		for {
+			if nread == len(readBuffer) {
+				readBuffer = append(readBuffer, buffer...)
+			}
+			n, err := reader.Read(readBuffer[nread:])
+			nread += n
+			if err == io.EOF {
+				break
+			}
+		}
+		err = c.WriteMessage(mt, readBuffer[:nread])
+		nread = 0
+		if err != nil {
+			log.Printf("write failed: %v", err)
+			return
+		}
 	}
 }
