@@ -1,11 +1,11 @@
 #!/bin/bash
 
-Connections=(1000 2000)
-BodySize=(128 512)
-BenchTime=(500000)
-SleepTime=10
+Connections=(1000 10000)
+BodySize=(128 1024)
+BenchTime=(1000000)
 
 frameworks=(
+    "fasthttp"
     "gobwas"
     "gorilla"
     "gws"
