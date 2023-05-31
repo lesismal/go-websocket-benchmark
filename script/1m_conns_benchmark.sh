@@ -4,6 +4,10 @@
 
 echo $line
 
+. ./script/kill.sh
+
+echo $line
+
 . ./script/clean.sh
 
 echo $line
