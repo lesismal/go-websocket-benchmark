@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fasthttp/websocket"
+	"github.com/gorilla/websocket"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.Gorilla], ":")
+	ports := strings.Split(conf.Ports[conf.FastHTTP], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)
