@@ -11,6 +11,7 @@ const (
 	NbioModNonblocking = "nbio_mod_nonblocking"
 	Nhooyr             = "nhooyr"
 	Hertz              = "hertz"
+	FastHTTP           = "fasthttp"
 )
 
 var Ports = map[string]string{
@@ -24,6 +25,7 @@ var Ports = map[string]string{
 	NbioModNonblocking: "18001:18050",
 	Nhooyr:             "19001:19050",
 	Hertz:              "20001:20050",
+	FastHTTP:           "21001:21050",
 }
 
 var FrameworkList = []string{
@@ -37,4 +39,5 @@ var FrameworkList = []string{
 	NbioModNonblocking,
 	Nhooyr,
 	Hertz,
+	FastHTTP,
 }

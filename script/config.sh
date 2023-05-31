@@ -15,4 +15,5 @@ frameworks=(
     "nbio_mod_nonblocking"
     "nhooyr"
     "hertz"
+    "fasthttp"
 )
