@@ -4,9 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/hertz-contrib/websocket"
 	"go-websocket-benchmark/conf"
 	"io"
 	"log"
@@ -15,6 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/websocket"
 )
 
 var (
@@ -62,6 +63,22 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 	upgradeErr := upgrader.Upgrade(ctx, func(c *websocket.Conn) {
 		_ = c.SetReadDeadline(time.Time{})
 		defer c.Close()
+
+		// avoid connections hold large buffer
+		if *readBufferSize > 4096 {
+			for {
+				mt, message, err := c.ReadMessage()
+				if err != nil {
+					log.Printf("read message failed: %v", err)
+					return
+				}
+				err = c.WriteMessage(mt, message)
+				if err != nil {
+					log.Printf("write failed: %v", err)
+					return
+				}
+			}
+		}
 
 		var nread int
 		var buffer = make([]byte, *readBufferSize)

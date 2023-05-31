@@ -17,15 +17,17 @@ import (
 )
 
 var (
-	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	readBufferSize = flag.Int("b", 1024, `read buffer size`)
+	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.Upgrader{}
 )
 
 func main() {
 	flag.Parse()
+
+	log.Println("readBufferSize:", *readBufferSize)
 
 	ports := strings.Split(conf.Ports[conf.Gorilla], ":")
 	minPort, err := strconv.Atoi(ports[0])
@@ -69,6 +71,22 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	c.SetReadDeadline(time.Time{})
 	defer c.Close()
+
+	// avoid connections hold large buffer
+	if *readBufferSize > 4096 {
+		for {
+			mt, message, err := c.ReadMessage()
+			if err != nil {
+				log.Printf("read message failed: %v", err)
+				return
+			}
+			err = c.WriteMessage(mt, message)
+			if err != nil {
+				log.Printf("write failed: %v", err)
+				return
+			}
+		}
+	}
 
 	var nread int
 	var buffer = make([]byte, *readBufferSize)
