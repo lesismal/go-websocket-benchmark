@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -79,45 +78,45 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
-	if *readBufferSize > *maxReadBufferSize {
-		for {
-			mt, data, err := c.Read(context.Background())
-			if err != nil {
-				log.Printf("read failed: %v", err)
-				return
-			}
-			err = c.Write(context.Background(), mt, data)
-			if err != nil {
-				log.Printf("write failed: %v", err)
-				return
-			}
-		}
-	}
-
-	var nread int
-	var buffer = make([]byte, *readBufferSize)
-	var readBuffer = buffer
+	// if *readBufferSize > *maxReadBufferSize {
 	for {
-		mt, reader, err := c.Reader(context.Background())
+		mt, data, err := c.Read(context.Background())
 		if err != nil {
 			log.Printf("read failed: %v", err)
-			break
+			return
 		}
-		for {
-			if nread == len(readBuffer) {
-				readBuffer = append(readBuffer, buffer...)
-			}
-			n, err := reader.Read(readBuffer[nread:])
-			nread += n
-			if err == io.EOF {
-				break
-			}
-		}
-		err = c.Write(context.Background(), mt, readBuffer[:nread])
-		nread = 0
+		err = c.Write(context.Background(), mt, data)
 		if err != nil {
 			log.Printf("write failed: %v", err)
 			return
 		}
 	}
+	// }
+
+	// var nread int
+	// var buffer = make([]byte, *readBufferSize)
+	// var readBuffer = buffer
+	// for {
+	// 	mt, reader, err := c.Reader(context.Background())
+	// 	if err != nil {
+	// 		log.Printf("read failed: %v", err)
+	// 		break
+	// 	}
+	// 	for {
+	// 		if nread == len(readBuffer) {
+	// 			readBuffer = append(readBuffer, buffer...)
+	// 		}
+	// 		n, err := reader.Read(readBuffer[nread:])
+	// 		nread += n
+	// 		if err == io.EOF {
+	// 			break
+	// 		}
+	// 	}
+	// 	err = c.Write(context.Background(), mt, readBuffer[:nread])
+	// 	nread = 0
+	// 	if err != nil {
+	// 		log.Printf("write failed: %v", err)
+	// 		return
+	// 	}
+	// }
 }
