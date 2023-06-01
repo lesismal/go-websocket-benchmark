@@ -32,7 +32,7 @@ const bufferNum uint32 = 1000
 var (
 	ip               = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 	framework        = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
-	numClient        = flag.Int("c", 10000, "client num")
+	numClient        = flag.Int("c", 5000, "client num")
 	dialConcurrency  = flag.Int("dc", 2000, "goroutine num")
 	benchConcurrency = flag.Int("bc", 5000, "goroutine num")
 	payloadSize      = flag.Int("b", 1024, `payload size`)
@@ -47,7 +47,10 @@ var (
 	buffers   [][]byte
 	bufferIdx uint32
 
-	chConns chan *websocket.Conn
+	chConns                chan *websocket.Conn
+	connectSuccess         uint32
+	connectFailed          uint32
+	lastConnectSuccessTime time.Time
 )
 
 func main() {
@@ -299,28 +302,28 @@ MEM MAX  : %v
 		perf.I2MemString(psCounter.MEMRSSMax()))
 
 	report := &FullReport{
-		Framework: *framework,
-		Conns:     *numClient,
-		Payload:   *payloadSize,
-		Total:     int64(calculator.Total),
-		Success:   calculator.Success,
-		Failed:    calculator.Failed,
-		TimeUsed:  calculator.Used,
-		Min:       calculator.Min,
-		Avg:       calculator.Avg,
-		Max:       calculator.Max,
-		TPS:       calculator.TPS(),
-		TP50:      calculator.TPN(50),
-		TP75:      calculator.TPN(75),
-		TP90:      calculator.TPN(90),
-		TP95:      calculator.TPN(95),
-		TP99:      calculator.TPN(99),
-		CPUMin:    psCounter.CPUMin(),
-		CPUAvg:    psCounter.CPUAvg(),
-		CPUMax:    psCounter.CPUMax(),
-		MEMRSSMin: psCounter.MEMRSSMin(),
-		MEMRSSAvg: psCounter.MEMRSSAvg(),
-		MEMRSSMax: psCounter.MEMRSSMax(),
+		Framework:   *framework,
+		Connections: *numClient,
+		Payload:     *payloadSize,
+		Total:       int64(calculator.Total),
+		Success:     calculator.Success,
+		Failed:      calculator.Failed,
+		TimeUsed:    calculator.Used,
+		Min:         calculator.Min,
+		Avg:         calculator.Avg,
+		Max:         calculator.Max,
+		TPS:         calculator.TPS(),
+		TP50:        calculator.TPN(50),
+		TP75:        calculator.TPN(75),
+		TP90:        calculator.TPN(90),
+		TP95:        calculator.TPN(95),
+		TP99:        calculator.TPN(99),
+		CPUMin:      psCounter.CPUMin(),
+		CPUAvg:      psCounter.CPUAvg(),
+		CPUMax:      psCounter.CPUMax(),
+		MEMRSSMin:   psCounter.MEMRSSMin(),
+		MEMRSSAvg:   psCounter.MEMRSSAvg(),
+		MEMRSSMax:   psCounter.MEMRSSMax(),
 	}
 	b, err := json.Marshal(report)
 	if err != nil {
