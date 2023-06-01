@@ -334,9 +334,6 @@ MEM MAX  : %v
 }
 
 func makeReport(typ string) {
-	time.AfterFunc(time.Second*20, func() {
-		os.Exit(-1)
-	})
 	fmt.Println("simple report:")
 	fmt.Println("")
 	makeReportMarkdown(true)
