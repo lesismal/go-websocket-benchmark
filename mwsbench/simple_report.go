@@ -8,28 +8,33 @@ import (
 )
 
 type SimpleReport struct {
-	Framework string
-	Conns     int
-	Payload   int
-	Total     int64
-	Success   int64
-	Failed    int64
-	TimeUsed  time.Duration
-	Min       int64 `json:"-"`
-	Avg       int64
-	Max       int64 `json:"-"`
-	TPS       int64
-	TP50      int64
-	TP75      int64 `json:"-"`
-	TP90      int64
-	TP95      int64 `json:"-"`
-	TP99      int64
-	CPUMin    float64 `json:"-"`
-	CPUAvg    float64
-	CPUMax    float64 `json:"-"`
-	MEMRSSMin uint64  `json:"-"`
-	MEMRSSAvg uint64
-	MEMRSSMax uint64 `json:"-"`
+	Framework        string
+	Connections      int
+	DialConcurrency  int
+	BenchConcurrency int
+	ConnectSuccess   int
+	ConnectFailed    int
+	ConnectUsed      time.Duration
+	Payload          int
+	Total            int64
+	Success          int64
+	Failed           int64
+	TimeUsed         time.Duration
+	Min              int64 `json:"-"`
+	Avg              int64
+	Max              int64 `json:"-"`
+	TPS              int64
+	TP50             int64
+	TP75             int64 `json:"-"`
+	TP90             int64
+	TP95             int64 `json:"-"`
+	TP99             int64
+	CPUMin           float64 `json:"-"`
+	CPUAvg           float64
+	CPUMax           float64 `json:"-"`
+	MEMRSSMin        uint64  `json:"-"`
+	MEMRSSAvg        uint64
+	MEMRSSMax        uint64 `json:"-"`
 }
 
 func (r *SimpleReport) Headers() []string {
@@ -63,7 +68,7 @@ func (r *SimpleReport) Headers() []string {
 func (r *SimpleReport) Strings() []string {
 	ret := make([]string, 20)[:0]
 	ret = append(ret, r.Framework)
-	ret = append(ret, fmt.Sprintf("%d", r.Conns))
+	ret = append(ret, fmt.Sprintf("%d", r.Connections))
 	ret = append(ret, fmt.Sprintf("%d", r.Payload))
 	ret = append(ret, fmt.Sprintf("%d", r.Total))
 	ret = append(ret, fmt.Sprintf("%v", r.Success))

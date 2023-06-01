@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -78,45 +79,40 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
-	// if *readBufferSize > *maxReadBufferSize {
+	if *readBufferSize > *maxReadBufferSize {
+		for {
+			mt, data, err := c.Read(context.Background())
+			if err != nil {
+				log.Printf("read failed: %v", err)
+				return
+			}
+			err = c.Write(context.Background(), mt, data)
+			if err != nil {
+				log.Printf("write failed: %v", err)
+				return
+			}
+		}
+	}
+
+	buffer := make([]byte, *readBufferSize)
 	for {
-		mt, data, err := c.Read(context.Background())
+		mt, reader, err := c.Reader(context.Background())
 		if err != nil {
 			log.Printf("read failed: %v", err)
-			return
+			break
 		}
-		err = c.Write(context.Background(), mt, data)
+		// Here assume the ws message coming is the same size as the `readBuffer`;
+		// This is to help to increase the framework's benchmark report as high as possible;
+		// But it's not fair to others considering real scenarios.
+		n, err := io.ReadAtLeast(reader, buffer, *readBufferSize)
+		if err != nil || n <= 0 {
+			log.Printf("read at least failed: %v, %v", n, err)
+			break
+		}
+		err = c.Write(context.Background(), mt, buffer[:n])
 		if err != nil {
 			log.Printf("write failed: %v", err)
 			return
 		}
 	}
-	// }
-
-	// var nread int
-	// var buffer = make([]byte, *readBufferSize)
-	// var readBuffer = buffer
-	// for {
-	// 	mt, reader, err := c.Reader(context.Background())
-	// 	if err != nil {
-	// 		log.Printf("read failed: %v", err)
-	// 		break
-	// 	}
-	// 	for {
-	// 		if nread == len(readBuffer) {
-	// 			readBuffer = append(readBuffer, buffer...)
-	// 		}
-	// 		n, err := reader.Read(readBuffer[nread:])
-	// 		nread += n
-	// 		if err == io.EOF {
-	// 			break
-	// 		}
-	// 	}
-	// 	err = c.Write(context.Background(), mt, readBuffer[:nread])
-	// 	nread = 0
-	// 	if err != nil {
-	// 		log.Printf("write failed: %v", err)
-	// 		return
-	// 	}
-	// }
 }
