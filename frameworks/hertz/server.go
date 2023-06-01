@@ -14,6 +14,7 @@ import (
 
 	"go-websocket-benchmark/config"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/websocket"
@@ -30,6 +31,8 @@ var (
 
 func main() {
 	flag.Parse()
+
+	gopool.SetCap(1000000)
 
 	if *readBufferSize > *maxReadBufferSize {
 		log.Printf("readBufferSize: %v, will handle reading by ReadMessage()", *readBufferSize)
