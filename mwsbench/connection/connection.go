@@ -9,6 +9,7 @@ import (
 
 	"go-websocket-benchmark/config"
 
+	"github.com/lesismal/nbio/logging"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
@@ -48,7 +49,7 @@ func New(framework, ip string, dialConcurrency, numConns int) *Connections {
 
 func (cs *Connections) Run() {
 	fmt.Println(config.Line)
-	defer fmt.Println(config.Line)
+	defer fmt.Println("")
 
 	// fmt.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
 	fmt.Printf("New  Connections: [%v]\n", cs.NumConnections)
@@ -69,6 +70,8 @@ func (cs *Connections) startEngine() {
 		return
 	}
 
+	logging.SetLevel(logging.LevelError)
+
 	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client"})
 	err := engine.Start()
 	if err != nil {
@@ -81,7 +84,7 @@ func (cs *Connections) startEngine() {
 	upgrader.OnMessage(func(c *websocket.Conn, mt websocket.MessageType, b []byte) {})
 	cs.Upgrader = upgrader
 
-	time.Sleep(time.Second / 5)
+	time.Sleep(time.Second)
 }
 
 func (cs *Connections) startConnections() {
@@ -105,7 +108,7 @@ func (cs *Connections) startConnections() {
 
 	go func() {
 		defer func() {
-			fmt.Printf("Connections Done: [%v Success], [%v Failed]", cs.ConnectSuccess, cs.ConnectFailed)
+			fmt.Printf("Connections Done: %v Success, %v Failed\n", cs.ConnectSuccess, cs.ConnectFailed)
 		}()
 		ticker := time.NewTicker(time.Second)
 		for {

@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/mwsbench/benchecho"
+	"go-websocket-benchmark/mwsbench/connection"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
@@ -47,21 +49,20 @@ var (
 	buffers   [][]byte
 	bufferIdx uint32
 
-	chConns                chan *websocket.Conn
-	connectSuccess         uint32
-	connectFailed          uint32
-	lastConnectSuccessTime time.Time
+	chConns chan *websocket.Conn
 )
 
 func main() {
 	flag.Parse()
 
 	// test
-	// cs := connection.New(*framework, *ip, 500, 5000)
-	// cs.Run()
-	// bm := benchecho.New(*framework, *ip, 5000, len(cs.Conns)*2, *benchConcurrency, cs.Conns)
-	// bm.Run()
-	// return
+	cs := connection.New(*framework, *ip, 500, 5000)
+	cs.Run()
+	bm := benchecho.New(*framework, *ip, 5000, len(cs.Conns)*2, *benchConcurrency, cs.Conns)
+	bm.Run()
+	if true {
+		return
+	}
 
 	if *report {
 		makeReport("")
