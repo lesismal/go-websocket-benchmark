@@ -41,7 +41,7 @@ for c in ${Connections[@]}; do
             echo "benchmarkN: ${c} connections, ${b} payload, ${n} times"
             . ./script/clients.sh -c=$c -b=$b -n=$n -suffix=${suffix}
             echo $line
-            . ./script/report.sh -r=true -suffix=${suffix} $1 $2 $3 $4 $5 $6 $7 $8 $9
+            . ./script/report.sh -suffix=${suffix} $1 $2 $3 $4 $5 $6 $7 $8 $9
 	    
             sleep $SleepTime
         done
