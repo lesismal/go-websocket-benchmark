@@ -58,6 +58,12 @@ func (cs *Connections) Run() {
 	cs.startConnections()
 }
 
+func (cs *Connections) Clean() {
+	for c := range cs.Conns {
+		c.Close()
+	}
+}
+
 func (cs *Connections) startEngine() {
 	if cs.Engine != nil {
 		return
@@ -99,7 +105,7 @@ func (cs *Connections) startConnections() {
 
 	go func() {
 		defer func() {
-			fmt.Printf("New  Connections Done: [%v Success], [%v Failed]", cs.ConnectSuccess, cs.ConnectFailed)
+			fmt.Printf("Connections Done: [%v Success], [%v Failed]", cs.ConnectSuccess, cs.ConnectFailed)
 		}()
 		ticker := time.NewTicker(time.Second)
 		for {
@@ -115,6 +121,8 @@ func (cs *Connections) startConnections() {
 	if cs.RetryTimes <= 0 {
 		cs.RetryTimes = 5
 	}
+
+	cs.BeginTime = time.Now()
 
 	muxConns := sync.Mutex{}
 	for i := 0; i < cs.DialConcurrency; i++ {
@@ -139,7 +147,6 @@ func (cs *Connections) startConnections() {
 					conn, _, err := dialer.Dial(addr, nil)
 					if err == nil {
 						conn.SetReadDeadline(time.Time{})
-						conn.SetSession(make(chan config.EchoSession, 1))
 						atomic.AddUint32(&cs.ConnectSuccess, 1)
 						muxConns.Lock()
 						cs.Conns[conn] = struct{}{}
@@ -160,5 +167,6 @@ func (cs *Connections) startConnections() {
 		}()
 	}
 	wg.Wait()
+	cs.EndTime = time.Now()
 	close(done)
 }

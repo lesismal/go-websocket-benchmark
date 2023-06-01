@@ -59,8 +59,8 @@ func main() {
 	// test
 	// cs := connection.New(*framework, *ip, 500, 5000)
 	// cs.Run()
-	// nConns := len(cs.Conns)
-	// fmt.Println("cs.Conns:", nConns)
+	// bm := benchecho.New(*framework, *ip, 5000, len(cs.Conns)*2, *benchConcurrency, cs.Conns)
+	// bm.Run()
 	// return
 
 	if *report {
