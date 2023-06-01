@@ -4,11 +4,17 @@
 
 echo "kill all ..."
 
+killcmd=pkill
+if [ $(which killall) ]; then
+    killcmd=killall
+fi
+
 # run
 for f in ${frameworks[@]}; do
     echo "kill ${f}.server ..."
-    killall -9 "${f}.server" 1>/dev/null 2>&1
+    $killcmd -9 "${f}.server" 1>/dev/null 2>&1
 done
-killall -9 "bench.client" 1>/dev/null 2>&1
+echo "kill bench.client ..."
+$killcmd -9 "bench.client" 1>/dev/null 2>&1
 
 echo "kill all done"
