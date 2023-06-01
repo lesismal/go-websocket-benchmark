@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
 
 	"github.com/lxzan/gws"
 )
@@ -28,7 +28,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.GwsBasedonStdhttp], ":")
+	ports := strings.Split(config.Ports[config.GwsBasedonStdhttp], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)

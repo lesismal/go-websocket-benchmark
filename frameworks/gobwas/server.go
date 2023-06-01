@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -27,7 +27,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.Gobwas], ":")
+	ports := strings.Split(config.Ports[config.Gobwas], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)

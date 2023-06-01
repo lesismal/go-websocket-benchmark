@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
 
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
@@ -32,7 +32,7 @@ func main() {
 		c.WriteMessage(messageType, data)
 	})
 
-	ports := strings.Split(conf.Ports[conf.NbioBasedonStdhttp], ":")
+	ports := strings.Split(config.Ports[config.NbioBasedonStdhttp], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)

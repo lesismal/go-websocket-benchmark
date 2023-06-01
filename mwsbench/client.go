@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
@@ -31,7 +31,7 @@ const bufferNum uint32 = 1000
 
 var (
 	ip               = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
-	framework        = flag.String("f", conf.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
+	framework        = flag.String("f", config.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
 	numClient        = flag.Int("c", 5000, "client num")
 	dialConcurrency  = flag.Int("dc", 2000, "goroutine num")
 	benchConcurrency = flag.Int("bc", 5000, "goroutine num")
@@ -56,6 +56,13 @@ var (
 func main() {
 	flag.Parse()
 
+	// test
+	// cs := connection.New(*framework, *ip, 500, 5000)
+	// cs.Run()
+	// nConns := len(cs.Conns)
+	// fmt.Println("cs.Conns:", nConns)
+	// return
+
 	if *report {
 		makeReport("")
 		return
@@ -73,11 +80,6 @@ func main() {
 	startClients()
 
 	startBenchmark()
-}
-
-type EchoResult struct {
-	mt websocket.MessageType
-	b  []byte
 }
 
 func startClients() {
@@ -106,17 +108,16 @@ func startClients() {
 	upgrader := websocket.NewUpgrader()
 	upgrader.Engine = engine
 	upgrader.OnMessage(func(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-		ch, _ := c.Session().(chan EchoResult)
-		ch <- EchoResult{
-			mt: mt,
-			b:  b,
+		ch, _ := c.Session().(chan config.EchoSession)
+		ch <- config.EchoSession{
+			MT:    mt,
+			Bytes: b,
 		}
 	})
-
 	time.Sleep(time.Second / 10)
 
-	portRange := conf.Ports[*framework]
-	ports := strings.Split(conf.Ports[*framework], ":")
+	portRange := config.Ports[*framework]
+	ports := strings.Split(config.Ports[*framework], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", portRange, err)
@@ -130,7 +131,7 @@ func startClients() {
 		addrs = append(addrs, fmt.Sprintf("ws://%v:%d/ws", *ip, i))
 	}
 	pidServerAddr := fmt.Sprintf("http://%v:%v/pid", *ip, minPort)
-	if *framework == conf.Gws {
+	if *framework == config.Gws {
 		pidPort := maxPort + 1
 		pidServerAddr = fmt.Sprintf("http://%v:%v/pid", *ip, pidPort)
 	}
@@ -179,7 +180,7 @@ func startClients() {
 					conn, _, err = dialer.Dial(addr, nil)
 					if err == nil {
 						conn.SetReadDeadline(time.Time{})
-						conn.SetSession(make(chan EchoResult, 1))
+						conn.SetSession(make(chan config.EchoSession, 1))
 						atomic.AddUint32(&connected, 1)
 						chConns <- conn
 						break
@@ -236,13 +237,13 @@ func startBenchmark() {
 		if err != nil {
 			log.Fatalf("write failed: %v", err)
 		}
-		ch := conn.Session().(chan EchoResult)
+		ch := conn.Session().(chan config.EchoSession)
 		ret := <-ch
-		defer mempool.Free(ret.b)
-		if ret.mt != websocket.BinaryMessage {
-			log.Fatalf("invalid message type: %v", ret.mt)
+		defer mempool.Free(ret.Bytes)
+		if ret.MT != websocket.BinaryMessage {
+			log.Fatalf("invalid message type: %v", ret.MT)
 		}
-		if !bytes.Equal(buffer, ret.b) {
+		if !bytes.Equal(buffer, ret.Bytes) {
 			log.Fatalf("response not equal to request")
 		}
 		chConns <- conn
@@ -347,8 +348,8 @@ func makeReport(typ string) {
 }
 
 func makeReportMarkdown(simple bool) {
-	reports := make([]Report, len(conf.FrameworkList))[:0]
-	for _, v := range conf.FrameworkList {
+	reports := make([]Report, len(config.FrameworkList))[:0]
+	for _, v := range config.FrameworkList {
 		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
 		if err != nil {
 			continue

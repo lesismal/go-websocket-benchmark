@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
 
 	"nhooyr.io/websocket"
 )
@@ -33,7 +33,7 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	ports := strings.Split(conf.Ports[conf.Nhooyr], ":")
+	ports := strings.Split(config.Ports[config.Nhooyr], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)
