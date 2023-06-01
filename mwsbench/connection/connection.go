@@ -48,13 +48,9 @@ func New(framework, ip string, dialConcurrency, numConns int) *Connections {
 }
 
 func (cs *Connections) Run() {
-	fmt.Println(config.Line)
-	defer fmt.Println("")
-
 	// fmt.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
 	fmt.Printf("New  Connections: [%v]\n", cs.NumConnections)
 	fmt.Printf("Dial Concurrency: [%v]\n", cs.DialConcurrency)
-	fmt.Println("")
 
 	cs.startConnections()
 }
