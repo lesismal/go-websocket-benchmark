@@ -26,6 +26,6 @@ echo $line
 
 echo $line
 
-. ./script/report.sh -r=true $1 $2 $3 $4 $5 $6 $7 $8 $9
+. ./script/report.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 echo $line
