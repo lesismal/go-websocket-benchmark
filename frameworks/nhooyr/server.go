@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,8 +23,6 @@ var (
 	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
 	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-
-	chExit = make(chan struct{})
 )
 
 func main() {
@@ -35,52 +34,38 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	// ports := strings.Split(config.Ports[config.Nhooyr], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.Nhooyr)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Nhooyr, err)
 	}
-	startServers(addrs)
+	lns := startServers(addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
-	close(chExit)
+	for _, ln := range lns {
+		ln.Close()
+	}
 }
 
-func startServers(addrs []string) {
-	for _, v := range addrs {
-		go func(addr string) {
-			mux := &http.ServeMux{}
-			mux.HandleFunc("/ws", onWebsocket)
-			mux.HandleFunc("/pid", onServerPid)
-			server := http.Server{
-				// Addr:    addr,
-				Handler: mux,
-			}
-			ln, err := reuseport.Listen("tcp", addr)
-			if err != nil {
-				logging.Fatalf("Listen failed: %v", err)
-			}
-			go func() {
-				<-chExit
-				ln.Close()
-			}()
-			logging.Fatalf("server exit: %v", server.Serve(ln))
-		}(v)
+func startServers(addrs []string) []net.Listener {
+	lns := make([]net.Listener, 0, len(addrs))
+	for _, addr := range addrs {
+		mux := &http.ServeMux{}
+		mux.HandleFunc("/ws", onWebsocket)
+		mux.HandleFunc("/pid", onServerPid)
+		server := http.Server{
+			Addr:    addr,
+			Handler: mux,
+		}
+		ln, err := reuseport.Listen("tcp", addr)
+		if err != nil {
+			logging.Fatalf("Listen failed: %v", err)
+		}
+		lns = append(lns, ln)
+		go logging.Fatalf("server exit: %v", server.Serve(ln))
 	}
+	return lns
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {

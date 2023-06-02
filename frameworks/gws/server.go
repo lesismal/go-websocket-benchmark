@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,31 +22,16 @@ var (
 	_ = flag.Int("mrb", 4096, `max read buffer size`)
 	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-
-	chExit = make(chan struct{})
 )
 
 func main() {
 	flag.Parse()
 
-	// ports := strings.Split(config.Ports[config.Gws], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.Gws)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Gws, err)
 	}
-	startServers(addrs)
+	lns := startServers(addrs)
 	pidServerAddr, err := config.GetFrameworkPidServerAddrs(config.Gws)
 	if err != nil {
 		logging.Fatalf("GetFrameworkPidServerAddrs(%v) failed: %v", config.Gws, err)
@@ -59,10 +45,13 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
-	close(chExit)
+	for _, ln := range lns {
+		ln.Close()
+	}
 }
 
-func startServers(addrs []string) {
+func startServers(addrs []string) []net.Listener {
+	lns := make([]net.Listener, 0, len(addrs))
 	for _, v := range addrs {
 		go func(addr string) {
 			server := gws.NewServer(new(Handler), &gws.ServerOption{})
@@ -70,13 +59,11 @@ func startServers(addrs []string) {
 			if err != nil {
 				logging.Fatalf("Listen failed: %v", err)
 			}
-			go func() {
-				<-chExit
-				ln.Close()
-			}()
+			lns = append(lns, ln)
 			logging.Fatalf("server exit: %v", server.RunListener(ln))
 		}(v)
 	}
+	return lns
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {
