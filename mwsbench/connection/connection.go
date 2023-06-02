@@ -19,21 +19,21 @@ import (
 )
 
 type Connections struct {
-	Framework       string
-	Ip              string
-	DialConcurrency int
-	NumConnections  int
-	DialTimeout     time.Duration
-	RetryInterval   time.Duration
-	RetryTimes      int
-	Percents        []int
+	Framework      string
+	Ip             string
+	Concurrency    int
+	NumConnections int
+	DialTimeout    time.Duration
+	RetryInterval  time.Duration
+	RetryTimes     int
+	Percents       []int
 
 	// Caculations
-	ConnectSuccess uint32
-	ConnectFailed  uint32
+	Success uint32
+	Failed  uint32
 
 	// All connected connections
-	Conns map[*websocket.Conn]struct{}
+	ConnsMap map[*websocket.Conn]struct{}
 
 	Calculator *perf.Calculator
 
@@ -46,13 +46,12 @@ type Connections struct {
 	chConnecting chan struct{}
 }
 
-func New(framework, ip string, dialConcurrency, numConns int) *Connections {
+func New(framework, ip string, numConns int) *Connections {
 	return &Connections{
-		Framework:       framework,
-		Ip:              ip,
-		NumConnections:  numConns,
-		DialConcurrency: dialConcurrency,
-		Conns:           map[*websocket.Conn]struct{}{},
+		Framework:      framework,
+		Ip:             ip,
+		NumConnections: numConns,
+		ConnsMap:       map[*websocket.Conn]struct{}{},
 	}
 }
 
@@ -62,13 +61,13 @@ func (cs *Connections) Run() {
 
 	// logging.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
 	logging.Printf("New  Connections: [%v]\n", cs.NumConnections)
-	logging.Printf("Dial Concurrency: [%v]\n", cs.DialConcurrency)
+	logging.Printf("Dial Concurrency: [%v]\n", cs.Concurrency)
 	done := make(chan struct{})
 	logCone := make(chan struct{})
 
 	go func() {
 		defer func() {
-			logging.Printf("Connections done: %v Success, %v Failed\n", cs.ConnectSuccess, cs.ConnectFailed)
+			logging.Printf("Connections done: %v Success, %v Failed\n", cs.Success, cs.Failed)
 			close(logCone)
 		}()
 		ticker := time.NewTicker(time.Second)
@@ -77,32 +76,48 @@ func (cs *Connections) Run() {
 			case <-done:
 				return
 			case <-ticker.C:
-				logging.Printf("%v Connected ...", atomic.LoadUint32(&cs.ConnectSuccess))
+				logging.Printf("%v Connected ...", atomic.LoadUint32(&cs.Success))
 			}
 		}
 	}()
 
-	logging.Printf("Connections start ...")
-	cs.Calculator.Benchmark(cs.DialConcurrency, cs.NumConnections, cs.doOnce, cs.Percents)
+	logging.Printf("Connections start ...\n")
+	cs.Calculator.Benchmark(cs.Concurrency, cs.NumConnections, cs.doOnce, cs.Percents)
 
 	close(done)
 	<-logCone
 }
 
 func (cs *Connections) Stop() {
-	for c := range cs.Conns {
+	for c := range cs.ConnsMap {
 		c.Close()
 	}
 	cs.Engine.Shutdown(context.Background())
 }
 
 func (cs *Connections) Report() report.Report {
-	return &report.ConnectionReport{}
+	return &report.ConnectionReport{
+		Framework:   cs.Framework + " [Connections]",
+		Connections: cs.NumConnections,
+		Concurrency: cs.Concurrency,
+		Success:     cs.Success,
+		Failed:      cs.Failed,
+		Used:        int64(cs.Calculator.Used),
+		TPS:         cs.Calculator.TPS(),
+		Min:         cs.Calculator.Min,
+		Avg:         cs.Calculator.Avg,
+		Max:         cs.Calculator.Max,
+		TP50:        cs.Calculator.TPN(50),
+		TP75:        cs.Calculator.TPN(75),
+		TP90:        cs.Calculator.TPN(90),
+		TP95:        cs.Calculator.TPN(95),
+		TP99:        cs.Calculator.TPN(99),
+	}
 }
 
 func (cs *Connections) init() {
-	if cs.DialConcurrency <= 0 {
-		cs.DialConcurrency = runtime.NumCPU() * 1024
+	if cs.Concurrency <= 0 {
+		cs.Concurrency = runtime.NumCPU() * 1000
 	}
 	if cs.DialTimeout <= 0 {
 		cs.DialTimeout = time.Second * 1
@@ -180,14 +195,14 @@ begin:
 			conn, _, err := dialer.Dial(addr, nil)
 			if err == nil {
 				conn.SetReadDeadline(time.Time{})
-				atomic.AddUint32(&cs.ConnectSuccess, 1)
+				atomic.AddUint32(&cs.Success, 1)
 				cs.mux.Lock()
-				cs.Conns[conn] = struct{}{}
+				cs.ConnsMap[conn] = struct{}{}
 				cs.mux.Unlock()
 				goto begin
 			}
 			time.Sleep(cs.RetryInterval)
 		}
-		atomic.AddUint32(&cs.ConnectFailed, 1)
+		atomic.AddUint32(&cs.Failed, 1)
 	}
 }

@@ -10,7 +10,7 @@ import (
 func init() {
 	typ := reflect.TypeOf(ConnectionReport{})
 	for i := 0; i < typ.NumField(); i++ {
-		header := typ.Field(i).Tag.Get("json")
+		header := typ.Field(i).Tag.Get("md")
 		connectionReportMarkdownHeaders = append(connectionReportMarkdownHeaders, header)
 	}
 
@@ -21,7 +21,7 @@ func init() {
 	}
 }
 
-func ObjValues(obj interface{}) []string {
+func ObjFieldValues(obj interface{}) []string {
 	values := []string{}
 	typ := reflect.TypeOf(obj)
 	value := reflect.ValueOf(obj)
@@ -110,7 +110,10 @@ func ObjString(obj interface{}) string {
 		headers[i] = v
 	}
 	for i, v := range headers {
-		ret += v + ": " + values[i] + "\n"
+		ret += v + ": " + values[i]
+		if i != len(headers)-1 {
+			ret += "\n"
+		}
 	}
 	return ret
 }

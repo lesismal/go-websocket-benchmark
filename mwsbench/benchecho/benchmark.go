@@ -24,7 +24,7 @@ type BenchEcho struct {
 	Framework   string
 	Ip          string
 	WarmupTimes int
-	Times       int
+	Total       int
 	Concurrency int
 	Payload     int
 	Limit       int
@@ -37,25 +37,23 @@ type BenchEcho struct {
 	Calculator *perf.Calculator
 	PsCounter  *perf.PSCounter
 
+	ConnsMap map[*websocket.Conn]struct{}
+
 	buffers   [][]byte
 	bufferIdx uint32
 
 	chConns chan *websocket.Conn
-	conns   map[*websocket.Conn]struct{}
 
 	limitFn func()
 }
 
-func New(framework, ip string, concurrency, nWarmup, nBenchmark int, conns map[*websocket.Conn]struct{}) *BenchEcho {
+func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}) *BenchEcho {
 	bm := &BenchEcho{
-		Framework:   framework,
-		Ip:          ip,
-		Concurrency: concurrency,
-		WarmupTimes: nWarmup,
-		Times:       nBenchmark,
-
-		conns:   conns,
-		limitFn: func() {},
+		Framework: framework,
+		Ip:        ip,
+		Total:     benchmarkTimes,
+		ConnsMap:  connsMap,
+		limitFn:   func() {},
 	}
 	return bm
 }
@@ -82,15 +80,15 @@ func (bm *BenchEcho) Run() {
 		close(chCounterStart)
 	})
 
-	logging.Printf("benchmark start ...")
-	bm.Calculator.Benchmark(bm.Concurrency, bm.Times, bm.doOnce, bm.Percents)
-	logging.Printf("benchmark done")
+	logging.Printf("benchmark for %d times ...\n", bm.Total)
+	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
+	logging.Printf("benchmark for %d times done\n", bm.Total)
 
 	<-chCounterStart
 	bm.PsCounter.Stop()
 
 	// 	logging.Printf("Benchmark: %s\n", bm.Framework)
-	// 	logging.Printf("Conns    : %d\n", len(bm.conns))
+	// 	logging.Printf("Conns    : %d\n", len(bm.ConnsMap))
 	// 	logging.Printf("Payload  : %d\n", bm.Payload)
 	// 	logging.Println(bm.Calculator.String())
 	// 	logging.Printf(`CPU MIN  : %.2f%%
@@ -148,15 +146,42 @@ func (bm *BenchEcho) Stop() {
 }
 
 func (bm *BenchEcho) Report() report.Report {
-	return &report.BenchEchoReport{}
+	return &report.BenchEchoReport{
+		Framework:   bm.Framework + " [BenchEcho]",
+		Connections: len(bm.ConnsMap),
+		Concurrency: bm.Concurrency,
+		Payload:     bm.Payload,
+		Total:       bm.Total,
+		Success:     bm.Calculator.Success,
+		Failed:      bm.Calculator.Failed,
+		Used:        int64(bm.Calculator.Used),
+		CPUMin:      bm.PsCounter.CPUMin(),
+		CPUAvg:      bm.PsCounter.CPUAvg(),
+		CPUMax:      bm.PsCounter.CPUMax(),
+		MEMRSSMin:   bm.PsCounter.MEMRSSMin(),
+		MEMRSSAvg:   bm.PsCounter.MEMRSSAvg(),
+		MEMRSSMax:   bm.PsCounter.MEMRSSMax(),
+		TPS:         bm.Calculator.TPS(),
+		Min:         bm.Calculator.Min,
+		Avg:         bm.Calculator.Avg,
+		Max:         bm.Calculator.Max,
+		TP50:        bm.Calculator.TPN(50),
+		TP75:        bm.Calculator.TPN(75),
+		TP90:        bm.Calculator.TPN(90),
+		TP95:        bm.Calculator.TPN(95),
+		TP99:        bm.Calculator.TPN(99),
+	}
 }
 
 func (bm *BenchEcho) init() {
 	if bm.WarmupTimes <= 0 {
-		bm.WarmupTimes = len(bm.conns) * 2
+		bm.WarmupTimes = len(bm.ConnsMap) * 5
+		if bm.WarmupTimes > 2000000 {
+			bm.WarmupTimes = 2000000
+		}
 	}
 	if bm.Concurrency <= 0 {
-		bm.Concurrency = runtime.NumCPU() * 1024
+		bm.Concurrency = runtime.NumCPU() * 1000
 	}
 	if bm.Payload <= 0 {
 		bm.Payload = 1024
@@ -182,8 +207,8 @@ func (bm *BenchEcho) init() {
 		bm.buffers[i] = buffer
 	}
 
-	bm.chConns = make(chan *websocket.Conn, len(bm.conns))
-	for c := range bm.conns {
+	bm.chConns = make(chan *websocket.Conn, len(bm.ConnsMap))
+	for c := range bm.ConnsMap {
 		c.SetSession(make(chan config.EchoSession, 1))
 		c.OnMessage(bm.onMessage)
 		bm.chConns <- c

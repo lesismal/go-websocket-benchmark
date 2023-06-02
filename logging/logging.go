@@ -45,12 +45,8 @@ func PrintLongLine() {
 	fmt.Fprintln(Output, LongLine)
 }
 
-func PrintfWithoutTime(format string, a ...interface{}) (n int, err error) {
-	return fmt.Fprintf(Output, format, a...)
-}
-
-func PrintlnWithoutTime(a ...interface{}) {
-	fmt.Fprintln(Output, a...)
+func Print(a ...interface{}) {
+	fmt.Fprint(Output, a...)
 }
 
 func NowString() string {
