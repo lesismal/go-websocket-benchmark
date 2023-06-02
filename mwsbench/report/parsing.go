@@ -17,7 +17,7 @@ func init() {
 	typ = reflect.TypeOf(BenchEchoReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		header := typ.Field(i).Tag.Get("md")
-		benchEchoReportMarkdownHeaders = append(benchEchoReportMarkdownHeaders, header)
+		BenchEchoReportMarkdownHeaders = append(BenchEchoReportMarkdownHeaders, header)
 	}
 }
 
@@ -117,54 +117,3 @@ func ObjString(obj interface{}) string {
 	}
 	return ret
 }
-
-// func (r *BenchEchoReport) MarkdownHeaderFilter(v string) bool {
-// 	return benchEchoReportMarkdownHeaderFilterMap[v]
-// }
-
-// func (r *BenchEchoReport) MarkdownFieldFilter(idx int) bool {
-// 	return benchEchoReportMarkdownFieldFilterMap[idx]
-// }
-
-// var(
-
-// benchEchoReportMarkdownHeaderFilterMap = map[string]bool{}
-// benchEchoReportMarkdownFieldFilterMap  = map[int]bool{}
-//
-//	benchEchoReportHeaders = []string{
-//		"Framework",
-//		"Conns",
-//		"Concurrency",
-//		"Payload",
-//		"Total",
-//		"Success",
-//		"Failed",
-//		"Used",
-//		"CPU Min",
-//		"CPU Avg",
-//		"CPU Max",
-//		"MEM Min",
-//		"MEM Avg",
-//		"MEM Max",
-//		"Min",
-//		"Avg",
-//		"Max",
-//		"TPS",
-//		"TP50",
-//		"TP75",
-//		"TP90",
-//		"TP95",
-//		"TP99",
-//	}
-// )
-
-// func init() {
-// 	for i, v := range benchEchoReportHeaders {
-// 		switch v {
-// 		case "Framework", "Conns", "Payload", "Total", "Success", "Failed", "Used", "CPU Avg", "MEM Avg", "Avg", "TPS", "TP50", "TP90", "TP99":
-// 			benchEchoReportMarkdownHeaderFilterMap[v] = true
-// 			benchEchoReportMarkdownFieldFilterMap[i] = true
-// 		default:
-// 		}
-// 	}
-// }

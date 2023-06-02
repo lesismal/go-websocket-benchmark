@@ -43,20 +43,7 @@ func main() {
 	flag.Parse()
 
 	if *genReport {
-		data := report.GenerateConnectionsReports(*preffix, *suffix)
-		filename := report.Filename("Connections", *preffix, *suffix+".md")
-		report.WriteFile(filename, data)
-		logging.Print(logging.LongLine)
-		logging.Print(data)
-		logging.Print("\n")
-
-		data = report.GenerateBenchEchoReports(*preffix, *suffix)
-		filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
-		report.WriteFile(filename, data)
-		logging.Print(logging.LongLine)
-		logging.Print(data)
-		logging.Print("\n")
-		logging.Print(logging.LongLine)
+		generateReports()
 		return
 	}
 
@@ -94,4 +81,21 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.LongLine)
 	logging.Print("\n")
+}
+
+func generateReports() {
+	data := report.GenerateConnectionsReports(*preffix, *suffix)
+	filename := report.Filename("Connections", *preffix, *suffix+".md")
+	report.WriteFile(filename, data)
+	logging.Print(logging.LongLine)
+	logging.Print(data)
+	logging.Print("\n")
+
+	data = report.GenerateBenchEchoReports(*preffix, *suffix)
+	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
+	report.WriteFile(filename, data)
+	logging.Print(logging.LongLine)
+	logging.Print(data)
+	logging.Print("\n")
+	logging.Print(logging.LongLine)
 }
