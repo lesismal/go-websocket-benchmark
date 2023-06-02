@@ -25,6 +25,8 @@ var (
 	_        = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.NewUpgrader()
+
+	chExit = make(chan struct{})
 )
 
 func main() {
@@ -58,13 +60,14 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+	close(chExit)
 }
 
 func startServers(addrs []string) {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	mux.HandleFunc("/pid", onServerPid)
-	svr := nbhttp.NewEngine(nbhttp.Config{
+	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
 		Handler:                 mux,
@@ -73,11 +76,15 @@ func startServers(addrs []string) {
 		Listen:                  reuseport.Listen,
 	})
 
-	err := svr.Start()
+	err := engine.Start()
 	if err != nil {
 		log.Printf("nbio.Start failed: %v", err)
 		return
 	}
+	go func() {
+		<-chExit
+		engine.Stop()
+	}()
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {

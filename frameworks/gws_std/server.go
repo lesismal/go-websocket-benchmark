@@ -23,6 +23,8 @@ var (
 	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = gws.NewUpgrader(&Handler{}, &gws.ServerOption{})
+
+	chExit = make(chan struct{})
 )
 
 func main() {
@@ -50,6 +52,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+	close(chExit)
 }
 
 func startServers(addrs []string) {
@@ -66,6 +69,10 @@ func startServers(addrs []string) {
 			if err != nil {
 				logging.Fatalf("Listen failed: %v", err)
 			}
+			go func() {
+				<-chExit
+				ln.Close()
+			}()
 			logging.Fatalf("server exit: %v", server.Serve(ln))
 		}(v)
 	}
