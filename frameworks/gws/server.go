@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"github.com/lxzan/gws"
 )
@@ -26,25 +25,32 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(conf.Ports[conf.Gws], ":")
-	minPort, err := strconv.Atoi(ports[0])
+	// ports := strings.Split(config.Ports[config.Gws], ":")
+	// minPort, err := strconv.Atoi(ports[0])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// maxPort, err := strconv.Atoi(ports[1])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// addrs := []string{}
+	// for i := minPort; i <= maxPort; i++ {
+	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
+	// }
+	addrs, err := config.GetFrameworkServerAddrs(config.Gws)
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	maxPort, err := strconv.Atoi(ports[1])
-	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	addrs := []string{}
-	for i := minPort; i <= maxPort; i++ {
-		addrs = append(addrs, fmt.Sprintf(":%d", i))
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Gws, err)
 	}
 	startServers(addrs)
-	pidPort := maxPort + 1
+	pidServerAddr, err := config.GetFrameworkPidServerAddrs(config.Gws)
+	if err != nil {
+		logging.Fatalf("GetFrameworkPidServerAddrs(%v) failed: %v", config.Gws, err)
+	}
 	go func() {
 		mux := &http.ServeMux{}
 		mux.HandleFunc("/pid", onServerPid)
-		log.Fatalf("pid server exit: %v", http.ListenAndServe(fmt.Sprintf(":%d", pidPort), mux))
+		log.Fatalf("pid server exit: %v", http.ListenAndServe(pidServerAddr, mux))
 	}()
 
 	interrupt := make(chan os.Signal, 1)

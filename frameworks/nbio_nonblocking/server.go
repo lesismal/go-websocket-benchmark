@@ -7,21 +7,21 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
+	"runtime/debug"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mrb", 4096, `max read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	_        = flag.Int("b", 1024, `read buffer size`)
+	_        = flag.Int("mrb", 4096, `max read buffer size`)
+	memLimit = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_        = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.NewUpgrader()
 )
@@ -29,22 +29,28 @@ var (
 func main() {
 	flag.Parse()
 
+	debug.SetMemoryLimit(*memLimit)
+
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
 
-	ports := strings.Split(conf.Ports[conf.NbioModBlocking], ":")
-	minPort, err := strconv.Atoi(ports[0])
+	// ports := strings.Split(config.Ports[config.NbioModNonblocking], ":")
+	// minPort, err := strconv.Atoi(ports[0])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// maxPort, err := strconv.Atoi(ports[1])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// addrs := []string{}
+	// for i := minPort; i <= maxPort; i++ {
+	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
+	// }
+	addrs, err := config.GetFrameworkServerAddrs(config.NbioModNonblocking)
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	maxPort, err := strconv.Atoi(ports[1])
-	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	addrs := []string{}
-	for i := minPort; i <= maxPort; i++ {
-		addrs = append(addrs, fmt.Sprintf(":%d", i))
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModNonblocking, err)
 	}
 	startServers(addrs)
 
@@ -61,7 +67,7 @@ func startServers(addrs []string) {
 		Network:                 "tcp",
 		Addrs:                   addrs,
 		Handler:                 mux,
-		IOMod:                   nbhttp.IOModBlocking,
+		IOMod:                   nbhttp.IOModNonBlocking,
 		ReleaseWebsocketPayload: true,
 	})
 
