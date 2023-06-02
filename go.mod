@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
+	github.com/go-netty/go-netty-ws v0.0.0-20230602062057-8b582e1ac4a5
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
@@ -23,14 +24,16 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cloudwego/netpoll v0.3.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/go-netty/go-netty v1.2.0 // indirect
+	github.com/go-netty/go-netty-transport v1.2.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
-	github.com/golang/protobuf v1.5.0 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/henrylee2cn/ameda v1.4.10 // indirect
 	github.com/henrylee2cn/goutil v0.0.0-20210127050712-89660552f6f8 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.14 // indirect
 	github.com/lesismal/llib v1.1.12 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
@@ -47,5 +50,5 @@ require (
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 )
