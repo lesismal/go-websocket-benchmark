@@ -12,6 +12,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 
+	"github.com/libp2p/go-reuseport"
 	"github.com/lxzan/gws"
 )
 
@@ -62,7 +63,11 @@ func startServers(addrs []string) {
 	for _, v := range addrs {
 		go func(addr string) {
 			server := gws.NewServer(new(Handler), &gws.ServerOption{})
-			log.Fatalf("server exit: %v", server.Run(addr))
+			ln, err := reuseport.Listen("tcp", addr)
+			if err != nil {
+				logging.Fatalf("Listen failed: %v", err)
+			}
+			logging.Fatalf("server exit: %v", server.RunListener(ln))
 		}(v)
 	}
 }

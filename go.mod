@@ -12,6 +12,7 @@ require (
 	github.com/hertz-contrib/websocket v0.0.1
 	github.com/lesismal/nbio v1.3.17-0.20230602053808-bded71394a33
 	github.com/lesismal/perf v0.0.0-20230602082936-9f80cb3b639b
+	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.5.3
 	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7

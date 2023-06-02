@@ -14,6 +14,7 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/libp2p/go-reuseport"
 )
 
 var (
@@ -57,10 +58,14 @@ func startServers(addrs []string) {
 			mux.HandleFunc("/ws", onWebsocket)
 			mux.HandleFunc("/pid", onServerPid)
 			server := http.Server{
-				Addr:    addr,
+				// Addr:    addr,
 				Handler: mux,
 			}
-			log.Fatalf("server exit: %v", server.ListenAndServe())
+			ln, err := reuseport.Listen("tcp", addr)
+			if err != nil {
+				logging.Fatalf("Listen failed: %v", err)
+			}
+			logging.Fatalf("server exit: %v", server.Serve(ln))
 		}(v)
 	}
 }
