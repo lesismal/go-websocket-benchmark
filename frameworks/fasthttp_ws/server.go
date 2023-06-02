@@ -35,7 +35,7 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	ports := strings.Split(config.Ports[config.FasthttpWS], ":")
+	ports := strings.Split(config.Ports[config.FasthttpWs], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)

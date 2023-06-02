@@ -7,6 +7,7 @@ SleepTime=10
 
 frameworks=(
     "fasthttp_ws"
+    "go-netty-ws"
     "gobwas"
     "gorilla"
     "gws"
