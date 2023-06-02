@@ -66,7 +66,7 @@ func (r *FullReport) Headers() []string {
 	return ret[:]
 }
 
-func (r *FullReport) Strings() []string {
+func (r *FullReport) Fields() []string {
 	ret := make([]string, 20)[:0]
 	ret = append(ret, r.Framework)
 	ret = append(ret, fmt.Sprintf("%d", r.Connections))

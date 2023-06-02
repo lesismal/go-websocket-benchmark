@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Connections=(5000 9000)
+Connections=(10000)
 BodySize=(1024)
 BenchTime=(2000000)
 SleepTime=10

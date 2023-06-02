@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -27,9 +28,13 @@ type BenchEcho struct {
 	Payload     int
 	Limit       int
 	Percents    []int
+	PsInterval  time.Duration
 
 	OutPreffix string
 	OutSuffix  string
+
+	Calculator *perf.Calculator
+	PsCounter  *perf.PSCounter
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -54,58 +59,41 @@ func New(framework, ip string, concurrency, nWarmup, nBenchmark int, conns map[*
 	return bm
 }
 
-func (bm *BenchEcho) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	ch, _ := c.Session().(chan config.EchoSession)
-	ch <- config.EchoSession{
-		MT:    mt,
-		Bytes: b,
-	}
-}
-
-var (
-	chConns chan *websocket.Conn
-)
-
 func (bm *BenchEcho) Run() {
 	bm.init()
 	defer bm.clean()
 
-	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
-	if err != nil {
-		log.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
-	}
-	psCounter, err := perf.NewPSCounter(serverPid)
-	if err != nil {
-		panic(err)
-	}
-
-	calculator := perf.NewCalculator(bm.Framework)
 	fmt.Printf("warmup for %d times ...\n", bm.WarmupTimes)
-	calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
+	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
 	fmt.Printf("warmup for %d times done\n", bm.WarmupTimes)
 
 	// delay 1 second
+	chCounterStart := make(chan struct{})
 	time.AfterFunc(time.Second, func() {
-		psCounter.Start(perf.PSCountOptions{
+		bm.PsCounter.Start(perf.PSCountOptions{
 			CountCPU: true,
 			CountMEM: true,
 			CountIO:  true,
 			CountNET: true,
-			Interval: time.Second,
+			Interval: bm.PsInterval,
 		})
+		time.Sleep(bm.PsInterval)
+		close(chCounterStart)
 	})
 
 	log.Printf("benchmark start ...")
-	calculator.Benchmark(bm.Concurrency, bm.Times, bm.doOnce, bm.Percents)
+	bm.Calculator.Benchmark(bm.Concurrency, bm.Times, bm.doOnce, bm.Percents)
 
 	log.Printf("benchmark done")
 
-	psCounter.Stop()
+	<-chCounterStart
+	bm.PsCounter.Stop()
+
 	fmt.Println("-------------------------")
 	fmt.Printf("Benchmark: %s\n", bm.Framework)
 	fmt.Printf("Conns    : %d\n", len(bm.conns))
 	fmt.Printf("Payload  : %d\n", bm.Payload)
-	fmt.Println(calculator.String())
+	fmt.Println(bm.Calculator.String())
 	fmt.Printf(`CPU MIN  : %.2f%%
 CPU AVG  : %.2f%%
 CPU MAX  : %.2f%%
@@ -113,30 +101,30 @@ MEM MIN  : %v
 MEM AVG  : %v
 MEM MAX  : %v
 `,
-		psCounter.CPUMin(),
-		psCounter.CPUAvg(),
-		psCounter.CPUMax(),
-		perf.I2MemString(psCounter.MEMRSSMin()),
-		perf.I2MemString(psCounter.MEMRSSAvg()),
-		perf.I2MemString(psCounter.MEMRSSMax()))
+		bm.PsCounter.CPUMin(),
+		bm.PsCounter.CPUAvg(),
+		bm.PsCounter.CPUMax(),
+		perf.I2MemString(bm.PsCounter.MEMRSSMin()),
+		perf.I2MemString(bm.PsCounter.MEMRSSAvg()),
+		perf.I2MemString(bm.PsCounter.MEMRSSMax()))
 
 	// report := &FullReport{
 	// 	Framework:   *framework,
 	// 	Connections: *numClient,
 	// 	Payload:     *payloadSize,
-	// 	Total:       int64(calculator.Total),
-	// 	Success:     calculator.Success,
-	// 	Failed:      calculator.Failed,
-	// 	TimeUsed:    calculator.Used,
-	// 	Min:         calculator.Min,
-	// 	Avg:         calculator.Avg,
-	// 	Max:         calculator.Max,
-	// 	TPS:         calculator.TPS(),
-	// 	TP50:        calculator.TPN(50),
-	// 	TP75:        calculator.TPN(75),
-	// 	TP90:        calculator.TPN(90),
-	// 	TP95:        calculator.TPN(95),
-	// 	TP99:        calculator.TPN(99),
+	// 	Total:       int64(bm.Calculator.Total),
+	// 	Success:     bm.Calculator.Success,
+	// 	Failed:      bm.Calculator.Failed,
+	// 	TimeUsed:    bm.Calculator.Used,
+	// 	Min:         bm.Calculator.Min,
+	// 	Avg:         bm.Calculator.Avg,
+	// 	Max:         bm.Calculator.Max,
+	// 	TPS:         bm.Calculator.TPS(),
+	// 	TP50:        bm.Calculator.TPN(50),
+	// 	TP75:        bm.Calculator.TPN(75),
+	// 	TP90:        bm.Calculator.TPN(90),
+	// 	TP95:        bm.Calculator.TPN(95),
+	// 	TP99:        bm.Calculator.TPN(99),
 	// 	CPUMin:      psCounter.CPUMin(),
 	// 	CPUAvg:      psCounter.CPUAvg(),
 	// 	CPUMax:      psCounter.CPUMax(),
@@ -157,16 +145,24 @@ MEM MAX  : %v
 }
 
 func (bm *BenchEcho) init() {
+	if bm.Payload <= 0 {
+		bm.Payload = 1024
+	}
+
+	if bm.PsInterval <= 0 {
+		bm.PsInterval = time.Second
+	}
+
+	if bm.Concurrency <= 0 {
+		bm.Concurrency = runtime.NumCPU() * 1024
+	}
+
 	if bm.WarmupTimes <= 0 {
 		bm.WarmupTimes = len(bm.conns) * 2
 	}
 
 	if len(bm.Percents) == 0 {
 		bm.Percents = []int{50, 75, 90, 95, 99}
-	}
-
-	if bm.Payload <= 0 {
-		bm.Payload = 1024
 	}
 
 	bm.buffers = make([][]byte, 1024)
@@ -189,6 +185,18 @@ func (bm *BenchEcho) init() {
 			limiter.Wait(context.Background())
 		}
 	}
+
+	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
+	if err != nil {
+		log.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
+	}
+	psCounter, err := perf.NewPSCounter(serverPid)
+	if err != nil {
+		panic(err)
+	}
+	bm.PsCounter = psCounter
+
+	bm.Calculator = perf.NewCalculator(bm.Framework)
 }
 
 func (bm *BenchEcho) clean() {
@@ -196,6 +204,14 @@ func (bm *BenchEcho) clean() {
 	bm.buffers = nil
 	bm.bufferIdx = 0
 	bm.limitFn = func() {}
+}
+
+func (bm *BenchEcho) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
+	ch, _ := c.Session().(chan config.EchoSession)
+	ch <- config.EchoSession{
+		MT:    mt,
+		Bytes: b,
+	}
 }
 
 func (bm *BenchEcho) getBuffer() []byte {

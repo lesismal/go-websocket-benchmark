@@ -21,6 +21,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/mwsbench/benchecho"
 	"go-websocket-benchmark/mwsbench/connection"
+	"go-websocket-benchmark/mwsbench/reporter"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
@@ -32,19 +33,22 @@ import (
 const bufferNum uint32 = 1000
 
 var (
-	ip               = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
-	framework        = flag.String("f", config.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
-	numClient        = flag.Int("c", 5000, "client num")
-	dialConcurrency  = flag.Int("dc", 2000, "goroutine num")
-	benchConcurrency = flag.Int("bc", 5000, "goroutine num")
-	payloadSize      = flag.Int("b", 1024, `payload size`)
-	benchmarkTimes   = flag.Int("n", 1000000, `benchmark times`)
-	maxTPS           = flag.Int("l", 0, `max benchmark tps`)
-	memLimit         = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
-	report           = flag.Bool("r", false, `make report`)
-	preffix          = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
-	suffix           = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
-	serverPid        = flag.Int("spid", -1, `framework server pid`)
+	ip                = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
+	framework         = flag.String("f", config.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
+	numClient         = flag.Int("c", 5000, "client num")
+	dialConcurrency   = flag.Int("dc", 2000, "goroutine num")
+	benchConcurrency  = flag.Int("bc", 5000, "goroutine num")
+	payloadSize       = flag.Int("b", 1024, `payload size`)
+	benchmarkTimes    = flag.Int("n", 1000000, `benchmark times`)
+	maxTPS            = flag.Int("l", 0, `max benchmark tps`)
+	memLimit          = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
+	genReport         = flag.Bool("r", false, `make report`)
+	preffix           = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
+	suffix            = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
+	serverPid         = flag.Int("spid", -1, `framework server pid`)
+	dialTimeout       = flag.Duration("dt", 5*time.Second, "client dial timeout")
+	dialRetries       = flag.Int("dr", 5, "client dial retry count")
+	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")
 
 	buffers   [][]byte
 	bufferIdx uint32
@@ -64,7 +68,7 @@ func main() {
 		return
 	}
 
-	if *report {
+	if *genReport {
 		makeReport("")
 		return
 	}
@@ -349,7 +353,7 @@ func makeReport(typ string) {
 }
 
 func makeReportMarkdown(simple bool) {
-	reports := make([]Report, len(config.FrameworkList))[:0]
+	reports := make([]reporter.Report, len(config.FrameworkList))[:0]
 	for _, v := range config.FrameworkList {
 		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
 		if err != nil {
@@ -378,7 +382,7 @@ func makeReportMarkdown(simple bool) {
 	}
 
 	for _, v := range reports {
-		table.AddRow(v.Strings())
+		table.AddRow(v.Fields())
 	}
 
 	text := table.Markdown()
@@ -394,9 +398,4 @@ func makeReportMarkdown(simple bool) {
 			log.Fatalf("Write Report failed: %v", err)
 		}
 	}
-}
-
-type Report interface {
-	Headers() []string
-	Strings() []string
 }

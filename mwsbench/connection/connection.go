@@ -12,6 +12,7 @@ import (
 	"github.com/lesismal/nbio/logging"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
+	"github.com/lesismal/perf"
 )
 
 type Connections struct {
@@ -20,6 +21,7 @@ type Connections struct {
 	DialConcurrency int
 	NumConnections  int
 	DialTimeout     time.Duration
+	RetryInterval   time.Duration
 	RetryTimes      int
 
 	// Caculations
@@ -29,8 +31,9 @@ type Connections struct {
 	EndTime        time.Time
 
 	// All connected connections
-	Conns        map[*websocket.Conn]struct{}
-	FailedErrors map[string]int
+	Conns map[*websocket.Conn]struct{}
+
+	Calculator *perf.Calculator
 
 	Engine   *nbhttp.Engine
 	Upgrader *websocket.Upgrader
@@ -43,11 +46,13 @@ func New(framework, ip string, dialConcurrency, numConns int) *Connections {
 		NumConnections:  numConns,
 		DialConcurrency: dialConcurrency,
 		Conns:           map[*websocket.Conn]struct{}{},
-		FailedErrors:    map[string]int{},
 	}
 }
 
 func (cs *Connections) Run() {
+	cs.init()
+	defer cs.clean()
+
 	// fmt.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
 	fmt.Printf("New  Connections: [%v]\n", cs.NumConnections)
 	fmt.Printf("Dial Concurrency: [%v]\n", cs.DialConcurrency)
@@ -55,10 +60,26 @@ func (cs *Connections) Run() {
 	cs.startConnections()
 }
 
-func (cs *Connections) Clean() {
+func (cs *Connections) CloseConns() {
 	for c := range cs.Conns {
 		c.Close()
 	}
+}
+
+func (cs *Connections) init() {
+	if cs.DialTimeout <= 0 {
+		cs.DialTimeout = time.Second * 1
+	}
+	if cs.RetryInterval <= 0 {
+		cs.RetryInterval = time.Second / 10
+	}
+	if cs.RetryTimes <= 0 {
+		cs.RetryTimes = 3
+	}
+}
+
+func (cs *Connections) clean() {
+
 }
 
 func (cs *Connections) startEngine() {
@@ -141,7 +162,7 @@ func (cs *Connections) startConnections() {
 					dialer := &websocket.Dialer{
 						Engine:      cs.Engine,
 						Upgrader:    cs.Upgrader,
-						DialTimeout: time.Second * 5,
+						DialTimeout: cs.DialTimeout,
 					}
 					conn, _, err := dialer.Dial(addr, nil)
 					if err == nil {
@@ -152,14 +173,7 @@ func (cs *Connections) startConnections() {
 						muxConns.Unlock()
 						goto one
 					}
-					time.Sleep(time.Second / 10)
-				}
-				if err != nil {
-					muxConns.Lock()
-					errStr := err.Error()
-					errCnt := cs.FailedErrors[errStr]
-					cs.FailedErrors[errStr] = errCnt + 1
-					muxConns.Unlock()
+					time.Sleep(cs.RetryInterval)
 				}
 				atomic.AddUint32(&cs.ConnectFailed, 1)
 			}
