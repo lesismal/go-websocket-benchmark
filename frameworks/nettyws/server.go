@@ -18,38 +18,26 @@ var (
 	_ = flag.Int("mrb", 4096, `max read buffer size`)
 	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-
-	chExit = make(chan struct{})
 )
 
 func main() {
 	flag.Parse()
 
-	// ports := strings.Split(config.Ports[config.GoNettyWs], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.GoNettyWs)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.GoNettyWs, err)
 	}
-	startServers(addrs)
+	svrs := startServers(addrs)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
-	close(chExit)
+	for _, svr := range svrs {
+		svr.Close()
+	}
 }
 
-func startServers(addrs []string) {
+func startServers(addrs []string) []*nettyws.Websocket {
+	svrs := make([]*nettyws.Websocket, 0, len(addrs))
 	for _, addr := range addrs {
 		var serveMux = http.NewServeMux()
 		serveMux.HandleFunc("/pid", onServerPid)
@@ -60,19 +48,13 @@ func startServers(addrs []string) {
 			nettyws.WithBinary(),
 			nettyws.WithBufferSize(2048, 2048),
 		)
+		svrs = append(svrs, ws)
 		ws.OnData = func(conn nettyws.Conn, data []byte) {
 			conn.Write(data)
 		}
-		go func() {
-			<-chExit
-			ws.Close()
-		}()
-		go func() {
-			if err := ws.Listen(); nil != err {
-				panic(err)
-			}
-		}()
+		go logging.Fatalf("server exit: %v", ws.Listen())
 	}
+	return svrs
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {

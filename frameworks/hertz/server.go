@@ -27,8 +27,6 @@ var (
 	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.HertzUpgrader{}
-
-	chExit = make(chan struct{})
 )
 
 func main() {
@@ -42,45 +40,33 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	// ports := strings.Split(config.Ports[config.Hertz], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.Hertz)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Hertz, err)
 	}
-	startServers(addrs)
+	srvs := startServers(addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
-	close(chExit)
+	for _, srv := range srvs {
+		srv.Close()
+	}
 }
 
-func startServers(addrs []string) {
-	for _, v := range addrs {
-		go func(addr string) {
-			srv := server.New(server.WithHostPorts(addr),
-				server.WithTransport(standard.NewTransporter))
+func startServers(addrs []string) []*server.Hertz {
+	srvs := make([]*server.Hertz, 0, len(addrs))
+	for _, addr := range addrs {
+		srv := server.New(server.WithHostPorts(addr),
+			server.WithTransport(standard.NewTransporter))
+		srvs = append(srvs, srv)
+		go func() {
 			srv.GET("/ws", onWebsocket)
 			srv.GET("/pid", onServerPid)
-			go func() {
-				<-chExit
-				srv.Close()
-			}()
 			srv.Spin()
-		}(v)
+		}()
 	}
+	return srvs
 }
 
 func onServerPid(c context.Context, ctx *app.RequestContext) {
