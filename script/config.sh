@@ -1,21 +1,21 @@
 #!/bin/bash
 
-Connections=(5000 9000)
+Connections=(10000)
 BodySize=(1024)
 BenchTime=(2000000)
-SleepTime=10
+SleepTime=5
 
 frameworks=(
-    "fasthttp_ws"
+    "fasthttp"
+    "nettyws"
     "gobwas"
     "gorilla"
     "gws"
-    "gws_basedon_stdhttp"
+    "gws_std"
     "hertz"
-    "nbio_basedon_stdhttp"
-    "nbio_mod_blocking"
-    "nbio_mod_mixed"
-    "nbio_mod_nonblocking"
+    "nbio_std"
+    "nbio_blocking"
+    "nbio_mixed"
+    "nbio_nonblocking"
     "nhooyr"
-    "nettyws"
 )

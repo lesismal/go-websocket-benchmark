@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
@@ -32,18 +31,22 @@ func main() {
 		c.WriteMessage(messageType, data)
 	})
 
-	ports := strings.Split(conf.Ports[conf.NbioBasedonStdhttp], ":")
-	minPort, err := strconv.Atoi(ports[0])
+	// ports := strings.Split(config.Ports[config.NbioBasedonStdhttp], ":")
+	// minPort, err := strconv.Atoi(ports[0])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// maxPort, err := strconv.Atoi(ports[1])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// addrs := []string{}
+	// for i := minPort; i <= maxPort; i++ {
+	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
+	// }
+	addrs, err := config.GetFrameworkServerAddrs(config.NbioBasedonStdhttp)
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	maxPort, err := strconv.Atoi(ports[1])
-	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	addrs := []string{}
-	for i := minPort; i <= maxPort; i++ {
-		addrs = append(addrs, fmt.Sprintf(":%d", i))
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioBasedonStdhttp, err)
 	}
 	startServers(addrs)
 

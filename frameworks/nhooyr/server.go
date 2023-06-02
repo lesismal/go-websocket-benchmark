@@ -9,10 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"nhooyr.io/websocket"
 )
@@ -33,18 +32,22 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	ports := strings.Split(conf.Ports[conf.Nhooyr], ":")
-	minPort, err := strconv.Atoi(ports[0])
+	// ports := strings.Split(config.Ports[config.Nhooyr], ":")
+	// minPort, err := strconv.Atoi(ports[0])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// maxPort, err := strconv.Atoi(ports[1])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// addrs := []string{}
+	// for i := minPort; i <= maxPort; i++ {
+	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
+	// }
+	addrs, err := config.GetFrameworkServerAddrs(config.Nhooyr)
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	maxPort, err := strconv.Atoi(ports[1])
-	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	addrs := []string{}
-	for i := minPort; i <= maxPort; i++ {
-		addrs = append(addrs, fmt.Sprintf(":%d", i))
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Nhooyr, err)
 	}
 	startServers(addrs)
 

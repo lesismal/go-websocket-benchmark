@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"time"
 
-	"go-websocket-benchmark/conf"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"github.com/fasthttp/websocket"
 )
@@ -35,18 +34,22 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	ports := strings.Split(conf.Ports[conf.FasthttpWS], ":")
-	minPort, err := strconv.Atoi(ports[0])
+	// ports := strings.Split(config.Ports[config.Fasthttp], ":")
+	// minPort, err := strconv.Atoi(ports[0])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// maxPort, err := strconv.Atoi(ports[1])
+	// if err != nil {
+	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
+	// }
+	// addrs := []string{}
+	// for i := minPort; i <= maxPort; i++ {
+	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
+	// }
+	addrs, err := config.GetFrameworkServerAddrs(config.Fasthttp)
 	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	maxPort, err := strconv.Atoi(ports[1])
-	if err != nil {
-		log.Fatalf("invalid port range: %v, %v", ports, err)
-	}
-	addrs := []string{}
-	for i := minPort; i <= maxPort; i++ {
-		addrs = append(addrs, fmt.Sprintf(":%d", i))
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Fasthttp, err)
 	}
 	startServers(addrs)
 
