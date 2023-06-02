@@ -4,11 +4,6 @@
 
 echo "kill all ..."
 
-killcmd=pkill
-if [ $(which killall) ]; then
-    killcmd=killall
-fi
-
 # run
 for f in ${frameworks[@]}; do
     . ./script/killone.sh "${f}.server"

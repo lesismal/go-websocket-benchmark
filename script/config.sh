@@ -3,7 +3,7 @@
 Connections=(10000)
 BodySize=(1024)
 BenchTime=(2000000)
-SleepTime=10
+SleepTime=5
 
 frameworks=(
     "fasthttp"
