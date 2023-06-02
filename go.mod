@@ -9,7 +9,7 @@ require (
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.3.17-0.20230531175008-e67538686b34
+	github.com/lesismal/nbio v1.3.17-0.20230602053808-bded71394a33
 	github.com/lesismal/perf v0.0.0-20230602042148-5afbf219e887
 	github.com/lxzan/gws v1.5.2
 	golang.org/x/time v0.3.0

@@ -6,12 +6,13 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"log"
 	"runtime"
 	"sync/atomic"
 	"time"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/mwsbench/report"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp/websocket"
@@ -63,9 +64,9 @@ func (bm *BenchEcho) Run() {
 	bm.init()
 	defer bm.clean()
 
-	fmt.Printf("warmup for %d times ...\n", bm.WarmupTimes)
+	logging.Printf("warmup for %d times ...\n", bm.WarmupTimes)
 	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
-	fmt.Printf("warmup for %d times done\n", bm.WarmupTimes)
+	logging.Printf("warmup for %d times done\n", bm.WarmupTimes)
 
 	// delay 1 second
 	chCounterStart := make(chan struct{})
@@ -81,31 +82,30 @@ func (bm *BenchEcho) Run() {
 		close(chCounterStart)
 	})
 
-	log.Printf("benchmark start ...")
+	logging.Printf("benchmark start ...")
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Times, bm.doOnce, bm.Percents)
-	log.Printf("benchmark done")
+	logging.Printf("benchmark done")
 
 	<-chCounterStart
 	bm.PsCounter.Stop()
 
-	fmt.Println("-------------------------")
-	fmt.Printf("Benchmark: %s\n", bm.Framework)
-	fmt.Printf("Conns    : %d\n", len(bm.conns))
-	fmt.Printf("Payload  : %d\n", bm.Payload)
-	fmt.Println(bm.Calculator.String())
-	fmt.Printf(`CPU MIN  : %.2f%%
-CPU AVG  : %.2f%%
-CPU MAX  : %.2f%%
-MEM MIN  : %v
-MEM AVG  : %v
-MEM MAX  : %v
-`,
-		bm.PsCounter.CPUMin(),
-		bm.PsCounter.CPUAvg(),
-		bm.PsCounter.CPUMax(),
-		perf.I2MemString(bm.PsCounter.MEMRSSMin()),
-		perf.I2MemString(bm.PsCounter.MEMRSSAvg()),
-		perf.I2MemString(bm.PsCounter.MEMRSSMax()))
+	// 	logging.Printf("Benchmark: %s\n", bm.Framework)
+	// 	logging.Printf("Conns    : %d\n", len(bm.conns))
+	// 	logging.Printf("Payload  : %d\n", bm.Payload)
+	// 	logging.Println(bm.Calculator.String())
+	// 	logging.Printf(`CPU MIN  : %.2f%%
+	// CPU AVG  : %.2f%%
+	// CPU MAX  : %.2f%%
+	// MEM MIN  : %v
+	// MEM AVG  : %v
+	// MEM MAX  : %v
+	// `,
+	// 		bm.PsCounter.CPUMin(),
+	// 		bm.PsCounter.CPUAvg(),
+	// 		bm.PsCounter.CPUMax(),
+	// 		perf.I2MemString(bm.PsCounter.MEMRSSMin()),
+	// 		perf.I2MemString(bm.PsCounter.MEMRSSAvg()),
+	// 		perf.I2MemString(bm.PsCounter.MEMRSSMax()))
 
 	// report := &FullReport{
 	// 	Framework:   *framework,
@@ -133,11 +133,11 @@ MEM MAX  : %v
 	// }
 	// b, err := json.Marshal(report)
 	// if err != nil {
-	// 	log.Fatalf("Marshal Report failed: %v", err)
+	// 	logging.Fatalf("Marshal Report failed: %v", err)
 	// }
 	// err = os.WriteFile("./output/report/"+*preffix+*framework+*suffix+".json", b, 0666)
 	// if err != nil {
-	// 	log.Fatalf("Write Report failed: %v", err)
+	// 	logging.Fatalf("Write Report failed: %v", err)
 	// }
 	// fmt.Println("-------------------------")
 
@@ -145,6 +145,10 @@ MEM MAX  : %v
 
 func (bm *BenchEcho) Stop() {
 
+}
+
+func (bm *BenchEcho) Report() report.Report {
+	return &report.BenchEchoReport{}
 }
 
 func (bm *BenchEcho) init() {
@@ -187,7 +191,7 @@ func (bm *BenchEcho) init() {
 
 	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
 	if err != nil {
-		log.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
+		logging.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
 	}
 	psCounter, err := perf.NewPSCounter(serverPid)
 	if err != nil {
@@ -259,14 +263,14 @@ func (bm *BenchEcho) doOnce() error {
 // 		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
 // 		if err != nil {
 // 			continue
-// 			// log.Fatalf("Read Report %v failed: %v", v, err)
+// 			// logging.Fatalf("Read Report %v failed: %v", v, err)
 // 		}
 
 // 		report := &FullReport{}
 // 		err = json.Unmarshal(b, report)
 // 		if err != nil {
 // 			continue
-// 			// log.Fatalf("Unmarshal Report %v failed: %v", v, err)
+// 			// logging.Fatalf("Unmarshal Report %v failed: %v", v, err)
 // 		}
 // 		if simple {
 // 			reports = append(reports, report.ToSimple())
@@ -291,12 +295,12 @@ func (bm *BenchEcho) doOnce() error {
 // 	if simple {
 // 		err := os.WriteFile("./output/report/"+*preffix+"report_simple"+*suffix+".md", []byte(text), 0666)
 // 		if err != nil {
-// 			log.Fatalf("Write Report failed: %v", err)
+// 			logging.Fatalf("Write Report failed: %v", err)
 // 		}
 // 	} else {
 // 		err := os.WriteFile("./output/report/"+*preffix+"report_full"+*suffix+".md", []byte(text), 0666)
 // 		if err != nil {
-// 			log.Fatalf("Write Report failed: %v", err)
+// 			logging.Fatalf("Write Report failed: %v", err)
 // 		}
 // 	}
 // }

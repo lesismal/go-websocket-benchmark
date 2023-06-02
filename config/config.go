@@ -10,8 +10,6 @@ import (
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
-var Line = "--------------------------------"
-
 const (
 	FasthttpWS         = "fasthttp_ws"
 	Gobwas             = "gobwas"

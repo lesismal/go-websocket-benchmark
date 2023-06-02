@@ -3,14 +3,16 @@ package connection
 import (
 	"context"
 	"fmt"
-	"go-websocket-benchmark/config"
-	"log"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/lesismal/nbio/logging"
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/mwsbench/report"
+
+	nblog "github.com/lesismal/nbio/logging"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/perf"
@@ -58,14 +60,15 @@ func (cs *Connections) Run() {
 	cs.init()
 	defer cs.clean()
 
-	// fmt.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
-	fmt.Printf("New  Connections: [%v]\n", cs.NumConnections)
-	fmt.Printf("Dial Concurrency: [%v]\n", cs.DialConcurrency)
+	// logging.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
+	logging.Printf("New  Connections: [%v]\n", cs.NumConnections)
+	logging.Printf("Dial Concurrency: [%v]\n", cs.DialConcurrency)
 	done := make(chan struct{})
 	logCone := make(chan struct{})
+
 	go func() {
 		defer func() {
-			fmt.Printf("Connections done: %v Success, %v Failed\n", cs.ConnectSuccess, cs.ConnectFailed)
+			logging.Printf("Connections done: %v Success, %v Failed\n", cs.ConnectSuccess, cs.ConnectFailed)
 			close(logCone)
 		}()
 		ticker := time.NewTicker(time.Second)
@@ -74,18 +77,16 @@ func (cs *Connections) Run() {
 			case <-done:
 				return
 			case <-ticker.C:
-				fmt.Printf("%v Connected ...", atomic.LoadUint32(&cs.ConnectSuccess))
+				logging.Printf("%v Connected ...", atomic.LoadUint32(&cs.ConnectSuccess))
 			}
 		}
 	}()
 
-	log.Printf("Connections start ...")
+	logging.Printf("Connections start ...")
 	cs.Calculator.Benchmark(cs.DialConcurrency, cs.NumConnections, cs.doOnce, cs.Percents)
 
 	close(done)
 	<-logCone
-
-	// cs.startConnections()
 }
 
 func (cs *Connections) Stop() {
@@ -93,6 +94,10 @@ func (cs *Connections) Stop() {
 		c.Close()
 	}
 	cs.Engine.Shutdown(context.Background())
+}
+
+func (cs *Connections) Report() report.Report {
+	return &report.ConnectionReport{}
 }
 
 func (cs *Connections) init() {
@@ -116,7 +121,7 @@ func (cs *Connections) init() {
 
 	addrs, err := config.GetFrameworkBenchmarkAddrs(cs.Framework, cs.Ip)
 	if err != nil {
-		log.Fatalf("GetFrameworkBenchmarkAddrs failed: %v", err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs failed: %v", err)
 	}
 	cs.serverAddrs = addrs
 
@@ -138,12 +143,13 @@ func (cs *Connections) startEngine() {
 		return
 	}
 
-	logging.SetLevel(logging.LevelError)
+	nblog.Output = logging.Output
+	nblog.SetLevel(nblog.LevelError)
 
 	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client"})
 	err := engine.Start()
 	if err != nil {
-		log.Fatalf("nbhttp.Engine.Start failed: %v\n", err)
+		logging.Fatalf("nbhttp.Engine.Start failed: %v\n", err)
 	}
 	cs.Engine = engine
 
@@ -154,32 +160,6 @@ func (cs *Connections) startEngine() {
 
 	time.Sleep(time.Second)
 }
-
-// func (cs *Connections) startConnections() {
-// 	done := make(chan struct{})
-// 	logCone := make(chan struct{})
-// 	go func() {
-// 		defer func() {
-// 			fmt.Printf("Connections done: %v Success, %v Failed\n", cs.ConnectSuccess, cs.ConnectFailed)
-// 			close(logCone)
-// 		}()
-// 		ticker := time.NewTicker(time.Second)
-// 		for {
-// 			select {
-// 			case <-done:
-// 				return
-// 			case <-ticker.C:
-// 				fmt.Printf("%v Connected ...", atomic.LoadUint32(&cs.ConnectSuccess))
-// 			}
-// 		}
-// 	}()
-
-// 	log.Printf("Connections start ...")
-// 	cs.Calculator.Benchmark(cs.DialConcurrency, cs.NumConnections, cs.doOnce, cs.Percents)
-
-// 	close(done)
-// 	<-logCone
-// }
 
 func (cs *Connections) doOnce() error {
 begin:

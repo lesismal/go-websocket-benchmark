@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"flag"
 	"fmt"
+	"go-websocket-benchmark/mwsbench/report"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -21,7 +20,6 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/mwsbench/benchecho"
 	"go-websocket-benchmark/mwsbench/connection"
-	"go-websocket-benchmark/mwsbench/reporter"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
@@ -58,7 +56,35 @@ var (
 
 func main() {
 	flag.Parse()
-
+	echoReport := &report.BenchEchoReport{
+		Framework:        "Test",
+		Connections:      1000000,
+		BenchConcurrency: 500,
+		Payload:          1024,
+		Total:            5000000,
+		Success:          5000000,
+		Failed:           0,
+		Used:             (time.Second * 5).Nanoseconds(),
+		CPUMin:           233.0,
+		CPUAvg:           300.0,
+		CPUMax:           400.0,
+		MEMRSSMin:        1024 * 56,
+		MEMRSSAvg:        1024 * 1024 * 178,
+		MEMRSSMax:        1024 * 1024 * 1024 * 34,
+		Min:              300,
+		Avg:              5000,
+		Max:              7000000,
+		TPS:              299999,
+		TP50:             2000000,
+		TP75:             3000000,
+		TP90:             4000000,
+		TP95:             5000000,
+		TP99:             6030000000,
+	}
+	values := report.ObjValues(echoReport)
+	fmt.Println(values)
+	str := report.ObjString(echoReport)
+	fmt.Println(str)
 	// test
 	cs := connection.New(*framework, *ip, 500, 5000)
 	cs.Run()
@@ -311,39 +337,39 @@ MEM MAX  : %v
 		perf.I2MemString(psCounter.MEMRSSAvg()),
 		perf.I2MemString(psCounter.MEMRSSMax()))
 
-	report := &FullReport{
-		Framework:   *framework,
-		Connections: *numClient,
-		Payload:     *payloadSize,
-		Total:       int64(calculator.Total),
-		Success:     calculator.Success,
-		Failed:      calculator.Failed,
-		TimeUsed:    calculator.Used,
-		Min:         calculator.Min,
-		Avg:         calculator.Avg,
-		Max:         calculator.Max,
-		TPS:         calculator.TPS(),
-		TP50:        calculator.TPN(50),
-		TP75:        calculator.TPN(75),
-		TP90:        calculator.TPN(90),
-		TP95:        calculator.TPN(95),
-		TP99:        calculator.TPN(99),
-		CPUMin:      psCounter.CPUMin(),
-		CPUAvg:      psCounter.CPUAvg(),
-		CPUMax:      psCounter.CPUMax(),
-		MEMRSSMin:   psCounter.MEMRSSMin(),
-		MEMRSSAvg:   psCounter.MEMRSSAvg(),
-		MEMRSSMax:   psCounter.MEMRSSMax(),
-	}
-	b, err := json.Marshal(report)
-	if err != nil {
-		log.Fatalf("Marshal Report failed: %v", err)
-	}
-	err = os.WriteFile("./output/report/"+*preffix+*framework+*suffix+".json", b, 0666)
-	if err != nil {
-		log.Fatalf("Write Report failed: %v", err)
-	}
-	fmt.Println("-------------------------")
+	// r := &FullReport{
+	// 	Framework:   *framework,
+	// 	Connections: *numClient,
+	// 	Payload:     *payloadSize,
+	// 	Total:       int64(calculator.Total),
+	// 	Success:     calculator.Success,
+	// 	Failed:      calculator.Failed,
+	// 	TimeUsed:    calculator.Used,
+	// 	Min:         calculator.Min,
+	// 	Avg:         calculator.Avg,
+	// 	Max:         calculator.Max,
+	// 	TPS:         calculator.TPS(),
+	// 	TP50:        calculator.TPN(50),
+	// 	TP75:        calculator.TPN(75),
+	// 	TP90:        calculator.TPN(90),
+	// 	TP95:        calculator.TPN(95),
+	// 	TP99:        calculator.TPN(99),
+	// 	CPUMin:      psCounter.CPUMin(),
+	// 	CPUAvg:      psCounter.CPUAvg(),
+	// 	CPUMax:      psCounter.CPUMax(),
+	// 	MEMRSSMin:   psCounter.MEMRSSMin(),
+	// 	MEMRSSAvg:   psCounter.MEMRSSAvg(),
+	// 	MEMRSSMax:   psCounter.MEMRSSMax(),
+	// }
+	// b, err := json.Marshal(report)
+	// if err != nil {
+	// 	log.Fatalf("Marshal Report failed: %v", err)
+	// }
+	// err = os.WriteFile("./output/report/"+*preffix+*framework+*suffix+".json", b, 0666)
+	// if err != nil {
+	// 	log.Fatalf("Write Report failed: %v", err)
+	// }
+	// fmt.Println("-------------------------")
 }
 
 func makeReport(typ string) {
@@ -357,49 +383,49 @@ func makeReport(typ string) {
 }
 
 func makeReportMarkdown(simple bool) {
-	reports := make([]reporter.Report, len(config.FrameworkList))[:0]
-	for _, v := range config.FrameworkList {
-		b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
-		if err != nil {
-			continue
-			// log.Fatalf("Read Report %v failed: %v", v, err)
-		}
+	// reports := make([]report.Report, len(config.FrameworkList))[:0]
+	// for _, v := range config.FrameworkList {
+	// b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
+	// if err != nil {
+	// 	continue
+	// 	// log.Fatalf("Read Report %v failed: %v", v, err)
+	// }
 
-		report := &FullReport{}
-		err = json.Unmarshal(b, report)
-		if err != nil {
-			continue
-			// log.Fatalf("Unmarshal Report %v failed: %v", v, err)
-		}
-		if simple {
-			reports = append(reports, report.ToSimple())
-		} else {
-			reports = append(reports, report)
-		}
-	}
+	// rItem := &FullReport{}
+	// err = json.Unmarshal(b, rItem)
+	// if err != nil {
+	// 	continue
+	// 	// log.Fatalf("Unmarshal Report %v failed: %v", v, err)
+	// }
+	// if simple {
+	// 	reports = append(reports, rItem.ToSimple())
+	// } else {
+	// 	reports = append(reports, rItem)
+	// }
+	// }
 
-	table := perf.NewTable()
-	if simple {
-		table.SetTitle((&SimpleReport{}).Headers())
-	} else {
-		table.SetTitle((&FullReport{}).Headers())
-	}
+	// table := perf.NewTable()
+	// if simple {
+	// 	table.SetTitle((&SimpleReport{}).Headers())
+	// } else {
+	// 	table.SetTitle((&FullReport{}).Headers())
+	// }
 
-	for _, v := range reports {
-		table.AddRow(v.Fields())
-	}
+	// for _, v := range reports {
+	// 	table.AddRow(v.Fields())
+	// }
 
-	text := table.Markdown()
-	fmt.Println(text)
-	if simple {
-		err := os.WriteFile("./output/report/"+*preffix+"report_simple"+*suffix+".md", []byte(text), 0666)
-		if err != nil {
-			log.Fatalf("Write Report failed: %v", err)
-		}
-	} else {
-		err := os.WriteFile("./output/report/"+*preffix+"report_full"+*suffix+".md", []byte(text), 0666)
-		if err != nil {
-			log.Fatalf("Write Report failed: %v", err)
-		}
-	}
+	// text := table.Markdown()
+	// fmt.Println(text)
+	// if simple {
+	// 	err := os.WriteFile("./output/report/"+*preffix+"report_simple"+*suffix+".md", []byte(text), 0666)
+	// 	if err != nil {
+	// 		log.Fatalf("Write Report failed: %v", err)
+	// 	}
+	// } else {
+	// 	err := os.WriteFile("./output/report/"+*preffix+"report_full"+*suffix+".md", []byte(text), 0666)
+	// 	if err != nil {
+	// 		log.Fatalf("Write Report failed: %v", err)
+	// 	}
+	// }
 }
