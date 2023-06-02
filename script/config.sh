@@ -17,4 +17,5 @@ frameworks=(
     "nbio_mod_mixed"
     "nbio_mod_nonblocking"
     "nhooyr"
+    "nettyws"
 )

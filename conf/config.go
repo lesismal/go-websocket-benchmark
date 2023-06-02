@@ -12,6 +12,7 @@ const (
 	NbioModMixed       = "nbio_mod_mixed"
 	NbioModNonblocking = "nbio_mod_nonblocking"
 	Nhooyr             = "nhooyr"
+	Nettyws            = "nettyws"
 )
 
 var Ports = map[string]string{
@@ -26,6 +27,7 @@ var Ports = map[string]string{
 	NbioModMixed:       "18001:18050",
 	NbioModNonblocking: "19001:19050",
 	Nhooyr:             "20001:20050",
+	Nettyws:            "21001:21050",
 }
 
 var FrameworkList = []string{
@@ -40,4 +42,5 @@ var FrameworkList = []string{
 	NbioModMixed,
 	NbioModNonblocking,
 	Nhooyr,
+	Nettyws,
 }
