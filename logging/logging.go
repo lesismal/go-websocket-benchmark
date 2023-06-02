@@ -15,10 +15,10 @@ var (
 )
 
 func init() {
-	for i := 0; i < 48; i++ {
+	for i := 0; i < 32; i++ {
 		ShortLine += "-"
 	}
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 48; i++ {
 		LongLine += "-"
 	}
 }

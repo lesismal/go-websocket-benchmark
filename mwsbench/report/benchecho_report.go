@@ -3,7 +3,7 @@ package report
 import "fmt"
 
 var (
-	benchEchoReportMarkdownHeaders = []string{}
+	BenchEchoReportMarkdownHeaders = []string{}
 )
 
 type BenchEchoReport struct {
@@ -37,7 +37,7 @@ func (r *BenchEchoReport) Name() string {
 }
 
 func (r *BenchEchoReport) Headers() []string {
-	return benchEchoReportMarkdownHeaders
+	return BenchEchoReportMarkdownHeaders
 }
 
 func (r *BenchEchoReport) Fields() []string {
