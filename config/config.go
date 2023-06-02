@@ -11,22 +11,22 @@ import (
 )
 
 const (
-	FasthttpWs         = "fasthttp_ws"
-	GoNettyWs          = "go-netty-ws"
+	Fasthttp           = "fasthttp"
+	GoNettyWs          = "nettyws"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
-	GwsBasedonStdhttp  = "gws_basedon_stdhttp"
+	GwsBasedonStdhttp  = "gws_std"
 	Hertz              = "hertz"
-	NbioBasedonStdhttp = "nbio_basedon_stdhttp"
-	NbioModBlocking    = "nbio_mod_blocking"
-	NbioModMixed       = "nbio_mod_mixed"
-	NbioModNonblocking = "nbio_mod_nonblocking"
+	NbioBasedonStdhttp = "nbio_std"
+	NbioModBlocking    = "nbio_blocking"
+	NbioModMixed       = "nbio_mixed"
+	NbioModNonblocking = "nbio_nonblocking"
 	Nhooyr             = "nhooyr"
 )
 
 var Ports = map[string]string{
-	FasthttpWs:         "10001:10050",
+	Fasthttp:           "10001:10050",
 	Gobwas:             "11001:11050",
 	GoNettyWs:          "12001:12050",
 	Gorilla:            "13001:13050",
@@ -41,7 +41,7 @@ var Ports = map[string]string{
 }
 
 var FrameworkList = []string{
-	FasthttpWs,
+	Fasthttp,
 	GoNettyWs,
 	Gobwas,
 	Gorilla,

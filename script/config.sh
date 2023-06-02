@@ -6,16 +6,16 @@ BenchTime=(2000000)
 SleepTime=10
 
 frameworks=(
-    "fasthttp_ws"
-    "go-netty-ws"
+    "fasthttp"
+    "nettyws"
     "gobwas"
     "gorilla"
     "gws"
-    "gws_basedon_stdhttp"
+    "gws_std"
     "hertz"
-    "nbio_basedon_stdhttp"
-    "nbio_mod_blocking"
-    "nbio_mod_mixed"
-    "nbio_mod_nonblocking"
+    "nbio_std"
+    "nbio_blocking"
+    "nbio_mixed"
+    "nbio_nonblocking"
     "nhooyr"
 )

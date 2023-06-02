@@ -34,7 +34,7 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	// ports := strings.Split(config.Ports[config.FasthttpWs], ":")
+	// ports := strings.Split(config.Ports[config.Fasthttp], ":")
 	// minPort, err := strconv.Atoi(ports[0])
 	// if err != nil {
 	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
@@ -47,9 +47,9 @@ func main() {
 	// for i := minPort; i <= maxPort; i++ {
 	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
 	// }
-	addrs, err := config.GetFrameworkServerAddrs(config.FasthttpWs)
+	addrs, err := config.GetFrameworkServerAddrs(config.Fasthttp)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.FasthttpWs, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Fasthttp, err)
 	}
 	startServers(addrs)
 
