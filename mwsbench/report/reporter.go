@@ -1,11 +1,35 @@
 package report
 
-import "github.com/lesismal/perf"
+import (
+	"encoding/json"
+	"os"
+
+	"github.com/lesismal/perf"
+)
 
 type Report interface {
+	Tag() string
 	Headers() []string
 	Fields() []string
 	String() string
+}
+
+func Filename(name, preffix, suffix string) string {
+	return "./output/report/" + preffix + name + suffix + ".json"
+}
+
+func ToFile(report Report, preffix, suffix string) error {
+	b, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	filename := Filename(report.Tag(), preffix, suffix)
+	return os.WriteFile(filename, b, 0666)
+}
+
+func JSON(report Report) string {
+	b, _ := json.Marshal(report)
+	return string(b)
 }
 
 func Markdown(reports []Report, filter func(string) bool) string {

@@ -1,4 +1,4 @@
-package connection
+package connections
 
 import (
 	"context"
@@ -96,8 +96,8 @@ func (cs *Connections) Stop() {
 }
 
 func (cs *Connections) Report() report.Report {
-	return &report.ConnectionReport{
-		Framework:   cs.Framework + " [Connections]",
+	return &report.ConnectionsReport{
+		Framework:   cs.Framework,
 		Connections: cs.NumConnections,
 		Concurrency: cs.Concurrency,
 		Success:     cs.Success,

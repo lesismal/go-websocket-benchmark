@@ -8,10 +8,10 @@ import (
 )
 
 func init() {
-	typ := reflect.TypeOf(ConnectionReport{})
+	typ := reflect.TypeOf(ConnectionsReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		header := typ.Field(i).Tag.Get("md")
-		connectionReportMarkdownHeaders = append(connectionReportMarkdownHeaders, header)
+		ConnectionsReportMarkdownHeaders = append(ConnectionsReportMarkdownHeaders, header)
 	}
 
 	typ = reflect.TypeOf(BenchEchoReport{})

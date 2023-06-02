@@ -1,10 +1,12 @@
 package report
 
+import "fmt"
+
 var (
-	connectionReportMarkdownHeaders = []string{}
+	ConnectionsReportMarkdownHeaders = []string{}
 )
 
-type ConnectionReport struct {
+type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
 	Connections int    `json:"Conns" md:"Connections"`
 	Concurrency int    `json:"Concurrency" md:"Concurrency"`
@@ -22,14 +24,18 @@ type ConnectionReport struct {
 	TP99        int64  `json:"TP99" md:"TP99" fmt:"duration"`
 }
 
-func (r *ConnectionReport) Headers() []string {
-	return connectionReportMarkdownHeaders
+func (r *ConnectionsReport) Name() string {
+	return fmt.Sprintf("%s-Connections", r.Framework)
 }
 
-func (r *ConnectionReport) Fields() []string {
+func (r *ConnectionsReport) Headers() []string {
+	return ConnectionsReportMarkdownHeaders
+}
+
+func (r *ConnectionsReport) Fields() []string {
 	return ObjFieldValues(r)
 }
 
-func (r *ConnectionReport) String() string {
+func (r *ConnectionsReport) String() string {
 	return ObjString(r)
 }

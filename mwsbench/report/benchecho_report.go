@@ -1,5 +1,7 @@
 package report
 
+import "fmt"
+
 var (
 	benchEchoReportMarkdownHeaders = []string{}
 )
@@ -28,6 +30,10 @@ type BenchEchoReport struct {
 	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration"`
 	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration"`
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration"`
+}
+
+func (r *BenchEchoReport) Name() string {
+	return fmt.Sprintf("%s-BenchEcho", r.Framework)
 }
 
 func (r *BenchEchoReport) Headers() []string {

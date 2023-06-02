@@ -147,7 +147,7 @@ func (bm *BenchEcho) Stop() {
 
 func (bm *BenchEcho) Report() report.Report {
 	return &report.BenchEchoReport{
-		Framework:   bm.Framework + " [BenchEcho]",
+		Framework:   bm.Framework,
 		Connections: len(bm.ConnsMap),
 		Concurrency: bm.Concurrency,
 		Payload:     bm.Payload,

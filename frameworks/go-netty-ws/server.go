@@ -25,7 +25,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ports := strings.Split(config.Ports[config.GoNettyWs], ":")
+	ports := strings.Spl;it(config.Ports[config.GoNettyWs], ":")
 	minPort, err := strconv.Atoi(ports[0])
 	if err != nil {
 		log.Fatalf("invalid port range: %v, %v", ports, err)
