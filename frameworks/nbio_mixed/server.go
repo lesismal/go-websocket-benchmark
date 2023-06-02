@@ -15,6 +15,7 @@ import (
 
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
+	"github.com/libp2p/go-reuseport"
 )
 
 var (
@@ -70,6 +71,7 @@ func startServers(addrs []string) {
 		IOMod:                   nbhttp.IOModMixed,
 		MaxBlockingOnline:       *maxBlockingOnline,
 		ReleaseWebsocketPayload: true,
+		Listen:                  reuseport.Listen,
 	})
 
 	err := svr.Start()
