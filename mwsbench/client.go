@@ -88,6 +88,7 @@ func generateReports() {
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
+	logging.Print("\n")
 	logging.Print(data)
 	logging.Print("\n")
 
@@ -95,6 +96,7 @@ func generateReports() {
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
+	logging.Print("\n")
 	logging.Print(data)
 	logging.Print("\n")
 	logging.Print(logging.LongLine)
