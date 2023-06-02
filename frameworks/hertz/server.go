@@ -70,8 +70,8 @@ func main() {
 func startServers(addrs []string) {
 	for _, v := range addrs {
 		go func(addr string) {
-			// srv := server.New(server.WithHostPorts(addr))
-			srv := server.New(server.WithTransport(standard.NewTransporter))
+			srv := server.New(server.WithHostPorts(addr),
+				server.WithTransport(standard.NewTransporter))
 			srv.GET("/ws", onWebsocket)
 			srv.GET("/pid", onServerPid)
 			go func() {
