@@ -1,8 +1,8 @@
 #!/bin/bash
 
-Connections=(10000)
+Connections=(5000 10000)
 BodySize=(1024)
-BenchTime=(2000000)
+BenchTime=(1000000)
 SleepTime=5
 
 frameworks=(
