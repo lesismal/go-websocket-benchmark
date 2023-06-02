@@ -83,7 +83,6 @@ func (bm *BenchEcho) Run() {
 
 	log.Printf("benchmark start ...")
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Times, bm.doOnce, bm.Percents)
-
 	log.Printf("benchmark done")
 
 	<-chCounterStart
@@ -144,25 +143,32 @@ MEM MAX  : %v
 
 }
 
+func (bm *BenchEcho) Stop() {
+
+}
+
 func (bm *BenchEcho) init() {
-	if bm.Payload <= 0 {
-		bm.Payload = 1024
-	}
-
-	if bm.PsInterval <= 0 {
-		bm.PsInterval = time.Second
-	}
-
-	if bm.Concurrency <= 0 {
-		bm.Concurrency = runtime.NumCPU() * 1024
-	}
-
 	if bm.WarmupTimes <= 0 {
 		bm.WarmupTimes = len(bm.conns) * 2
 	}
-
+	if bm.Concurrency <= 0 {
+		bm.Concurrency = runtime.NumCPU() * 1024
+	}
+	if bm.Payload <= 0 {
+		bm.Payload = 1024
+	}
+	if bm.PsInterval <= 0 {
+		bm.PsInterval = time.Second
+	}
 	if len(bm.Percents) == 0 {
 		bm.Percents = []int{50, 75, 90, 95, 99}
+	}
+
+	if bm.Limit > 0 {
+		limiter := rate.NewLimiter(rate.Every(1*time.Second), bm.Limit)
+		bm.limitFn = func() {
+			limiter.Wait(context.Background())
+		}
 	}
 
 	bm.buffers = make([][]byte, 1024)
@@ -179,13 +185,6 @@ func (bm *BenchEcho) init() {
 		bm.chConns <- c
 	}
 
-	if bm.Limit > 0 {
-		limiter := rate.NewLimiter(rate.Every(1*time.Second), bm.Limit)
-		bm.limitFn = func() {
-			limiter.Wait(context.Background())
-		}
-	}
-
 	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
 	if err != nil {
 		log.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
@@ -196,7 +195,7 @@ func (bm *BenchEcho) init() {
 	}
 	bm.PsCounter = psCounter
 
-	bm.Calculator = perf.NewCalculator(bm.Framework)
+	bm.Calculator = perf.NewCalculator(fmt.Sprintf("%v-TPS", bm.Framework))
 }
 
 func (bm *BenchEcho) clean() {

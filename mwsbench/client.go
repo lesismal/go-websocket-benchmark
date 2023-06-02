@@ -62,8 +62,12 @@ func main() {
 	// test
 	cs := connection.New(*framework, *ip, 500, 5000)
 	cs.Run()
+	defer cs.Stop()
+
 	bm := benchecho.New(*framework, *ip, 5000, len(cs.Conns)*2, *benchmarkTimes, cs.Conns)
 	bm.Run()
+	defer bm.Stop()
+
 	if true {
 		return
 	}

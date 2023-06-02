@@ -89,6 +89,8 @@ github.com/lesismal/nbio v1.3.17-0.20230531175008-e67538686b34 h1:+ac6bQUxqcvQlk
 github.com/lesismal/nbio v1.3.17-0.20230531175008-e67538686b34/go.mod h1:KWlouFT5cgDdW5sMX8RsHASUMGniea9X0XIellZ0B38=
 github.com/lesismal/perf v0.0.0-20230602032303-53f2a3ff8a0b h1:ZnHNSEwtFXkZIB7wETPZffwtsCdbKatfDfYHJDfNyIU=
 github.com/lesismal/perf v0.0.0-20230602032303-53f2a3ff8a0b/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
+github.com/lesismal/perf v0.0.0-20230602042148-5afbf219e887 h1:vV/S7wBOLTuIusfi/nFTDGFYHlmVlzj/84bE6r+xMMM=
+github.com/lesismal/perf v0.0.0-20230602042148-5afbf219e887/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
 github.com/lxzan/gws v1.5.2 h1:E9g4iFj/MO/x4ZPGQcQ5zu1hkeBBUn/iHnC+VERhzjk=
 github.com/lxzan/gws v1.5.2/go.mod h1:dsC6S7kJNh+iWqqu2HiO8tnNCji04HwyJCYfTOS+6iY=
 github.com/mattn/go-isatty v0.0.12 h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHXY=
