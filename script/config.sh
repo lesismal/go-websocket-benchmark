@@ -7,7 +7,6 @@ SleepTime=5
 
 frameworks=(
     "fasthttp"
-    "nettyws"
     "gobwas"
     "gorilla"
     "gws"
@@ -17,5 +16,6 @@ frameworks=(
     "nbio_blocking"
     "nbio_mixed"
     "nbio_nonblocking"
+    "nettyws"
     "nhooyr"
 )
