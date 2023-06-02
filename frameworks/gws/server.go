@@ -52,16 +52,16 @@ func main() {
 
 func startServers(addrs []string) []net.Listener {
 	lns := make([]net.Listener, 0, len(addrs))
-	for _, v := range addrs {
-		go func(addr string) {
-			server := gws.NewServer(new(Handler), &gws.ServerOption{})
-			ln, err := reuseport.Listen("tcp", addr)
-			if err != nil {
-				logging.Fatalf("Listen failed: %v", err)
-			}
-			lns = append(lns, ln)
+	for _, addr := range addrs {
+		server := gws.NewServer(new(Handler), &gws.ServerOption{})
+		ln, err := reuseport.Listen("tcp", addr)
+		if err != nil {
+			logging.Fatalf("Listen failed: %v", err)
+		}
+		lns = append(lns, ln)
+		go func() {
 			logging.Fatalf("server exit: %v", server.RunListener(ln))
-		}(v)
+		}()
 	}
 	return lns
 }

@@ -63,7 +63,9 @@ func startServers(addrs []string) []net.Listener {
 			logging.Fatalf("Listen failed: %v", err)
 		}
 		lns = append(lns, ln)
-		go logging.Fatalf("server exit: %v", server.Serve(ln))
+		go func() {
+			logging.Fatalf("server exit: %v", server.Serve(ln))
+		}()
 	}
 	return lns
 }
