@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -44,7 +43,20 @@ func main() {
 	flag.Parse()
 
 	if *genReport {
-		// makeReport("")
+		data := report.GenerateConnectionsReports(*preffix, *suffix)
+		filename := report.Filename("Connections", *preffix, *suffix+".md")
+		report.WriteFile(filename, data)
+		logging.Print(logging.LongLine)
+		logging.Print(data)
+		logging.Print("\n")
+
+		data = report.GenerateBenchEchoReports(*preffix, *suffix)
+		filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
+		report.WriteFile(filename, data)
+		logging.Print(logging.LongLine)
+		logging.Print(data)
+		logging.Print("\n")
+		logging.Print(logging.LongLine)
 		return
 	}
 
@@ -82,63 +94,4 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.LongLine)
 	logging.Print("\n")
-
-}
-
-func makeReport(typ string) {
-	fmt.Println("simple report:")
-	fmt.Println("")
-	makeReportMarkdown(true)
-	fmt.Println("")
-	fmt.Println("full report:")
-	fmt.Println("")
-	makeReportMarkdown(false)
-}
-
-func makeReportMarkdown(simple bool) {
-	// reports := make([]report.Report, len(config.FrameworkList))[:0]
-	// for _, v := range config.FrameworkList {
-	// b, err := os.ReadFile("./output/report/" + *preffix + v + *suffix + ".json")
-	// if err != nil {
-	// 	continue
-	// 	// log.Fatalf("Read Report %v failed: %v", v, err)
-	// }
-
-	// rItem := &FullReport{}
-	// err = json.Unmarshal(b, rItem)
-	// if err != nil {
-	// 	continue
-	// 	// log.Fatalf("Unmarshal Report %v failed: %v", v, err)
-	// }
-	// if simple {
-	// 	reports = append(reports, rItem.ToSimple())
-	// } else {
-	// 	reports = append(reports, rItem)
-	// }
-	// }
-
-	// table := perf.NewTable()
-	// if simple {
-	// 	table.SetTitle((&SimpleReport{}).Headers())
-	// } else {
-	// 	table.SetTitle((&FullReport{}).Headers())
-	// }
-
-	// for _, v := range reports {
-	// 	table.AddRow(v.Fields())
-	// }
-
-	// text := table.Markdown()
-	// fmt.Println(text)
-	// if simple {
-	// 	err := os.WriteFile("./output/report/"+*preffix+"report_simple"+*suffix+".md", []byte(text), 0666)
-	// 	if err != nil {
-	// 		log.Fatalf("Write Report failed: %v", err)
-	// 	}
-	// } else {
-	// 	err := os.WriteFile("./output/report/"+*preffix+"report_full"+*suffix+".md", []byte(text), 0666)
-	// 	if err != nil {
-	// 		log.Fatalf("Write Report failed: %v", err)
-	// 	}
-	// }
 }

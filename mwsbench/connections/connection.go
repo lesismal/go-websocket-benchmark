@@ -76,7 +76,7 @@ func (cs *Connections) Run() {
 			case <-done:
 				return
 			case <-ticker.C:
-				logging.Printf("%v Connected ...", atomic.LoadUint32(&cs.Success))
+				logging.Printf("%v Connected ...\n", atomic.LoadUint32(&cs.Success))
 			}
 		}
 	}()

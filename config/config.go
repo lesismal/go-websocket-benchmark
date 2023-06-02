@@ -72,6 +72,27 @@ func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
 	return ports, nil
 }
 
+func GetFrameworkServerAddrs(framework string) ([]string, error) {
+	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]string, 0, len(ports))
+	for _, port := range ports {
+		addrs = append(addrs, fmt.Sprintf(":%d", port))
+	}
+	return addrs, nil
+}
+
+func GetFrameworkPidServerAddrs(framework string) (string, error) {
+	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return "", err
+	}
+	addr := fmt.Sprintf(":%d", ports[len(ports)-1]+1)
+	return addr, nil
+}
+
 func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
