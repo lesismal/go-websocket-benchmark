@@ -26,6 +26,8 @@ var (
 	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.HertzUpgrader{}
+
+	chExit = make(chan struct{})
 )
 
 func main() {
@@ -61,6 +63,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+	close(chExit)
 }
 
 func startServers(addrs []string) {
@@ -69,6 +72,10 @@ func startServers(addrs []string) {
 			srv := server.New(server.WithHostPorts(addr))
 			srv.GET("/ws", onWebsocket)
 			srv.GET("/pid", onServerPid)
+			go func() {
+				<-chExit
+				srv.Close()
+			}()
 			srv.Spin()
 		}(v)
 	}
