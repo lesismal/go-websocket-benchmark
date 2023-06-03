@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
-	"github.com/libp2p/go-reuseport"
 )
 
 var (
@@ -58,7 +58,7 @@ func startServers(addrs []string) *nbhttp.Engine {
 		Handler:                 mux,
 		IOMod:                   nbhttp.IOModNonBlocking,
 		ReleaseWebsocketPayload: true,
-		Listen:                  reuseport.Listen,
+		Listen:                  frameworks.Listen,
 	})
 
 	err := engine.Start()

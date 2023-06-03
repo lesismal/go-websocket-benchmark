@@ -71,12 +71,12 @@ func (cs *Connections) Run() {
 		}()
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
-		for {
+		for i := 1; true; i++ {
 			select {
 			case <-done:
 				return
 			case <-ticker.C:
-				logging.Printf("%v Connected ...\n", atomic.LoadUint32(&cs.Success))
+				logging.Printf("%03d secons passed, %v Connected ...", i, atomic.LoadUint32(&cs.Success))
 			}
 		}
 	}()
