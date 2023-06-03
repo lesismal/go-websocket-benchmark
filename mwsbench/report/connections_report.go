@@ -8,11 +8,6 @@ var (
 
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
-	Connections int    `json:"Conns" md:"Connections"`
-	Concurrency int    `json:"Concurrency" md:"Concurrency"`
-	Success     uint32 `json:"Success" md:"Success"`
-	Failed      uint32 `json:"Failed" md:"Failed"`
-	Used        int64  `json:"Used" md:"Used" fmt:"duration"`
 	TPS         int64  `json:"TPS" md:"TPS"`
 	Min         int64  `json:"Min" md:"Min" fmt:"duration"`
 	Avg         int64  `json:"Avg" md:"Avg" fmt:"duration"`
@@ -22,6 +17,11 @@ type ConnectionsReport struct {
 	TP90        int64  `json:"TP90" md:"TP90" fmt:"duration"`
 	TP95        int64  `json:"TP95" md:"TP95" fmt:"duration"`
 	TP99        int64  `json:"TP99" md:"TP99" fmt:"duration"`
+	Used        int64  `json:"Used" md:"Used" fmt:"duration"`
+	Total       int    `json:"Total" md:"Total"`
+	Success     uint32 `json:"Success" md:"Success"`
+	Failed      uint32 `json:"Failed" md:"Failed"`
+	Concurrency int    `json:"Concurrency" md:"Concurrency"`
 }
 
 func (r *ConnectionsReport) Type() string {

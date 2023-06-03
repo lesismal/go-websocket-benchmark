@@ -98,11 +98,6 @@ func (cs *Connections) Stop() {
 func (cs *Connections) Report() report.Report {
 	return &report.ConnectionsReport{
 		Framework:   cs.Framework,
-		Connections: cs.NumConnections,
-		Concurrency: cs.Concurrency,
-		Success:     cs.Success,
-		Failed:      cs.Failed,
-		Used:        int64(cs.Calculator.Used),
 		TPS:         cs.Calculator.TPS(),
 		Min:         cs.Calculator.Min,
 		Avg:         cs.Calculator.Avg,
@@ -112,6 +107,11 @@ func (cs *Connections) Report() report.Report {
 		TP90:        cs.Calculator.TPN(90),
 		TP95:        cs.Calculator.TPN(95),
 		TP99:        cs.Calculator.TPN(99),
+		Used:        int64(cs.Calculator.Used),
+		Total:       cs.NumConnections,
+		Success:     cs.Success,
+		Failed:      cs.Failed,
+		Concurrency: cs.Concurrency,
 	}
 }
 
