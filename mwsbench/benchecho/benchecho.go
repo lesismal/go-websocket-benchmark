@@ -130,6 +130,9 @@ func (bm *BenchEcho) init() {
 	if bm.Concurrency <= 0 {
 		bm.Concurrency = runtime.NumCPU() * 1000
 	}
+	if bm.Concurrency > len(bm.ConnsMap) {
+		bm.Concurrency = len(bm.ConnsMap)
+	}
 	if bm.Payload <= 0 {
 		bm.Payload = 1024
 	}

@@ -116,8 +116,14 @@ func (cs *Connections) Report() report.Report {
 }
 
 func (cs *Connections) init() {
+	if cs.NumConnections <= 0 {
+		cs.NumConnections = 1000
+	}
 	if cs.Concurrency <= 0 {
 		cs.Concurrency = runtime.NumCPU() * 1000
+	}
+	if cs.Concurrency > cs.NumConnections {
+		cs.Concurrency = cs.NumConnections
 	}
 	if cs.DialTimeout <= 0 {
 		cs.DialTimeout = time.Second * 1
