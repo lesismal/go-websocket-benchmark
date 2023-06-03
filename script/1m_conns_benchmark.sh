@@ -22,8 +22,9 @@ echo $line
 
 . ./script/server.sh nbio_nonblocking
 
-echo $line
+# echo $line
 
 ./script/client.sh -f=nbio_nonblocking -c=1000000 -n=5000000 -b=1024
 
-echo $line
+# echo $line
+

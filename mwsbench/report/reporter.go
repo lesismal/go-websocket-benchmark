@@ -9,6 +9,7 @@ import (
 )
 
 type Report interface {
+	Type() string
 	Name() string
 	Headers() []string
 	Fields() []string

@@ -28,7 +28,7 @@ var (
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")
 
 	// BenchEcho
-	echoConcurrency = flag.Int("bc", 5000, "goroutine num")
+	echoConcurrency = flag.Int("bc", 10000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
 	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
@@ -52,7 +52,7 @@ func main() {
 	logging.Print(logging.LongLine)
 	defer logging.Print(logging.LongLine)
 
-	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
+	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times\n", *framework, *numConnections, *payload, *echoTimes)
 	logging.Print(logging.ShortLine)
 
 	cs := connections.New(*framework, *ip, *numConnections)
@@ -79,8 +79,10 @@ func main() {
 
 	logging.Print(logging.ShortLine)
 	logging.Print(csReport.String())
+	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 	logging.Print(bmReport.String())
+	logging.Print("\n")
 }
 
 func generateReports() {
