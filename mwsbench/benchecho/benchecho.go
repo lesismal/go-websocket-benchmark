@@ -61,9 +61,9 @@ func (bm *BenchEcho) Run() {
 	bm.init()
 	defer bm.clean()
 
-	logging.Printf("warmup for %d times ...", bm.WarmupTimes)
+	logging.Printf("Warmup for %d times ...", bm.WarmupTimes)
 	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
-	logging.Printf("warmup for %d times done", bm.WarmupTimes)
+	logging.Printf("Warmup for %d times done", bm.WarmupTimes)
 
 	// delay 1 second
 	chCounterStart := make(chan struct{})
@@ -79,9 +79,9 @@ func (bm *BenchEcho) Run() {
 		close(chCounterStart)
 	})
 
-	logging.Printf("benchmark for %d times ...", bm.Total)
+	logging.Printf("Benchmark for %d times ...", bm.Total)
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
-	logging.Printf("benchmark for %d times done", bm.Total)
+	logging.Printf("Benchmark for %d times done", bm.Total)
 
 	<-chCounterStart
 	bm.PsCounter.Stop()
@@ -209,7 +209,6 @@ func (bm *BenchEcho) doOnce() error {
 		return err
 	}
 	chResponse := conn.Session().(chan report.EchoSession)
-
 	echo := <-chResponse
 	defer mempool.Free(echo.Bytes)
 	if echo.MT != websocket.BinaryMessage {
