@@ -22,7 +22,7 @@ var (
 
 	// Connection
 	numConnections    = flag.Int("c", 5000, "client num")
-	dialConcurrency   = flag.Int("dc", 2000, "goroutine num")
+	dialConcurrency   = flag.Int("dc", 5000, "goroutine num")
 	dialTimeout       = flag.Duration("dt", 5*time.Second, "client dial timeout")
 	dialRetries       = flag.Int("dr", 5, "client dial retry count")
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")

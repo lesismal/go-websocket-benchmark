@@ -13,9 +13,10 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 
+	"go-websocket-benchmark/frameworks"
+
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
-	"github.com/libp2p/go-reuseport"
 )
 
 var (
@@ -52,7 +53,7 @@ func startServers(addrs []string) []net.Listener {
 			// Addr:    addr,
 			Handler: mux,
 		}
-		ln, err := reuseport.Listen("tcp", addr)
+		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
 			logging.Fatalf("Listen failed: %v", err)
 		}

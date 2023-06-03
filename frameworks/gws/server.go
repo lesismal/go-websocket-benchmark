@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
-	"github.com/libp2p/go-reuseport"
 	"github.com/lxzan/gws"
 )
 
@@ -40,7 +40,7 @@ func main() {
 	go func() {
 		mux := &http.ServeMux{}
 		mux.HandleFunc("/pid", onServerPid)
-		ln, err := reuseport.Listen("tcp", pidServerAddr)
+		ln, err := frameworks.Listen("tcp", pidServerAddr)
 		if err != nil {
 			logging.Fatalf("Listen failed: %v", err)
 		}
@@ -61,7 +61,7 @@ func startServers(addrs []string) []net.Listener {
 	lns := make([]net.Listener, 0, len(addrs))
 	for _, addr := range addrs {
 		server := gws.NewServer(new(Handler), &gws.ServerOption{})
-		ln, err := reuseport.Listen("tcp", addr)
+		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
 			logging.Fatalf("Listen failed: %v", err)
 		}
