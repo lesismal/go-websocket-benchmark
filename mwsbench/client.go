@@ -17,7 +17,7 @@ var (
 	memLimit = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 
 	// Server Side
-	framework = flag.String("f", config.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
+	framework = flag.String("f", config.NbioStd, `framework, e.g. "gorilla"`)
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
@@ -49,6 +49,12 @@ func main() {
 
 	debug.SetMemoryLimit(*memLimit)
 
+	logging.Print(logging.LongLine)
+	defer logging.Print(logging.LongLine)
+
+	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
+	logging.Print(logging.ShortLine)
+
 	cs := connections.New(*framework, *ip, *numConnections)
 	cs.Concurrency = *dialConcurrency
 	cs.DialTimeout = *dialTimeout
@@ -71,16 +77,10 @@ func main() {
 	bmReport := bm.Report()
 	report.ToFile(bmReport, *preffix, *suffix)
 
-	logging.Print(logging.LongLine)
-	logging.Print("\n")
-	logging.Print(csReport.String())
-	logging.Print("\n")
 	logging.Print(logging.ShortLine)
-	logging.Print("\n")
+	logging.Print(csReport.String())
+	logging.Print(logging.ShortLine)
 	logging.Print(bmReport.String())
-	logging.Print("\n")
-	logging.Print(logging.LongLine)
-	logging.Print("\n")
 }
 
 func generateReports() {

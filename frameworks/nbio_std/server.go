@@ -33,9 +33,9 @@ func main() {
 		c.WriteMessage(messageType, data)
 	})
 
-	addrs, err := config.GetFrameworkServerAddrs(config.NbioBasedonStdhttp)
+	addrs, err := config.GetFrameworkServerAddrs(config.NbioStd)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioBasedonStdhttp, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioStd, err)
 	}
 	lns := startServers(addrs)
 

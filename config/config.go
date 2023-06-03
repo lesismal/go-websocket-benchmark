@@ -15,9 +15,9 @@ const (
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
-	GwsBasedonStdhttp  = "gws_std"
+	GwsStd             = "gws_std"
 	Hertz              = "hertz"
-	NbioBasedonStdhttp = "nbio_std"
+	NbioStd            = "nbio_std"
 	NbioModBlocking    = "nbio_blocking"
 	NbioModMixed       = "nbio_mixed"
 	NbioModNonblocking = "nbio_nonblocking"
@@ -30,9 +30,9 @@ var Ports = map[string]string{
 	Gobwas:             "11001:11050",
 	Gorilla:            "13001:13050",
 	Gws:                "14001:14050",
-	GwsBasedonStdhttp:  "15001:15050",
+	GwsStd:             "15001:15050",
 	Hertz:              "16001:16050",
-	NbioBasedonStdhttp: "17001:17050",
+	NbioStd:            "17001:17050",
 	NbioModBlocking:    "18001:18050",
 	NbioModMixed:       "19001:19050",
 	NbioModNonblocking: "20001:20050",
@@ -45,9 +45,9 @@ var FrameworkList = []string{
 	Gobwas,
 	Gorilla,
 	Gws,
-	GwsBasedonStdhttp,
+	GwsStd,
 	Hertz,
-	NbioBasedonStdhttp,
+	NbioStd,
 	NbioModBlocking,
 	NbioModMixed,
 	NbioModNonblocking,
