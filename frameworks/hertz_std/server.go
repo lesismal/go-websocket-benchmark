@@ -83,12 +83,12 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 			for {
 				mt, message, err := c.ReadMessage()
 				if err != nil {
-					log.Printf("read message failed: %v", err)
+					// log.Printf("read message failed: %v", err)
 					return
 				}
 				err = c.WriteMessage(mt, message)
 				if err != nil {
-					log.Printf("write failed: %v", err)
+					// log.Printf("write failed: %v", err)
 					return
 				}
 			}
@@ -98,7 +98,7 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 		for {
 			mt, reader, err := c.NextReader()
 			if err != nil {
-				log.Printf("read failed: %v", err)
+				// log.Printf("read failed: %v", err)
 				return
 			}
 			// Here assume the ws message coming is the same size as the `readBuffer`;
@@ -106,12 +106,12 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 			// But it's not fair to others considering real scenarios.
 			n, err := io.ReadAtLeast(reader, buffer, *readBufferSize)
 			if err != nil || n <= 0 {
-				log.Printf("read at least failed: %v, %v", n, err)
+				// log.Printf("read at least failed: %v, %v", n, err)
 				break
 			}
 			err = c.WriteMessage(mt, buffer[:n])
 			if err != nil {
-				log.Printf("write failed: %v", err)
+				// log.Printf("write failed: %v", err)
 				return
 			}
 		}

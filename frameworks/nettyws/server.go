@@ -53,7 +53,7 @@ func startServers(addrs []string) []*nettyws.Websocket {
 			conn.Write(data)
 		}
 		go func() {
-			logging.Fatalf("server exit: %v", ws.Listen())
+			logging.Printf("server exit: %v", ws.Listen())
 		}()
 	}
 	return svrs

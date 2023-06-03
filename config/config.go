@@ -27,17 +27,17 @@ const (
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
 	Gobwas:             "11001:11050",
-	Gorilla:            "13001:13050",
-	Gws:                "14001:14050",
-	GwsStd:             "15001:15050",
-	Hertz:              "16001:16050",
-	HertzStd:           "17001:17050",
-	NbioStd:            "18001:18050",
-	NbioModBlocking:    "19001:19050",
-	NbioModMixed:       "20001:20050",
-	NbioModNonblocking: "21001:21050",
-	GoNettyWs:          "12001:12050",
-	Nhooyr:             "23001:23050",
+	Gorilla:            "12001:12050",
+	Gws:                "13001:13050",
+	GwsStd:             "14001:14050",
+	Hertz:              "15001:15050",
+	HertzStd:           "16001:16050",
+	NbioStd:            "17001:17050",
+	NbioModBlocking:    "18001:18050",
+	NbioModMixed:       "19001:19050",
+	NbioModNonblocking: "20001:20050",
+	GoNettyWs:          "21001:21050",
+	Nhooyr:             "22001:22050",
 }
 
 var FrameworkList = []string{

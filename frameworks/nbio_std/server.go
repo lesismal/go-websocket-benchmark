@@ -63,7 +63,7 @@ func startServers(addrs []string) []net.Listener {
 		}
 		lns = append(lns, ln)
 		go func() {
-			logging.Fatalf("server exit: %v", server.Serve(ln))
+			logging.Printf("server exit: %v", server.Serve(ln))
 		}()
 	}
 	return lns

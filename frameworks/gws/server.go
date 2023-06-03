@@ -36,10 +36,16 @@ func main() {
 	if err != nil {
 		logging.Fatalf("GetFrameworkPidServerAddrs(%v) failed: %v", config.Gws, err)
 	}
+	var pidLn net.Listener
 	go func() {
 		mux := &http.ServeMux{}
 		mux.HandleFunc("/pid", onServerPid)
-		log.Fatalf("pid server exit: %v", http.ListenAndServe(pidServerAddr, mux))
+		ln, err := reuseport.Listen("tcp", pidServerAddr)
+		if err != nil {
+			logging.Fatalf("Listen failed: %v", err)
+		}
+		pidLn = ln
+		log.Printf("pid server exit: %v", http.Serve(ln, mux))
 	}()
 
 	interrupt := make(chan os.Signal, 1)
@@ -48,6 +54,7 @@ func main() {
 	for _, ln := range lns {
 		ln.Close()
 	}
+	pidLn.Close()
 }
 
 func startServers(addrs []string) []net.Listener {
@@ -60,7 +67,7 @@ func startServers(addrs []string) []net.Listener {
 		}
 		lns = append(lns, ln)
 		go func() {
-			logging.Fatalf("server exit: %v", server.RunListener(ln))
+			logging.Printf("server exit: %v", server.RunListener(ln))
 		}()
 	}
 	return lns
