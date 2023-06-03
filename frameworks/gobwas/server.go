@@ -58,7 +58,7 @@ func startServers(addrs []string) []net.Listener {
 		}
 		lns = append(lns, ln)
 		go func() {
-			logging.Fatalf("server exit: %v", server.Serve(ln))
+			logging.Printf("server exit: %v", server.Serve(ln))
 		}()
 	}
 	return lns
@@ -71,7 +71,8 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
-		log.Fatalf("UpgradeHTTP failed: %v", err)
+		log.Printf("UpgradeHTTP failed: %v", err)
+		return
 	}
 
 	c.SetReadDeadline(time.Time{})
@@ -80,12 +81,12 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		for {
 			msg, op, err := wsutil.ReadClientData(c)
 			if err != nil {
-				log.Printf("read failed: %v", err)
+				// log.Printf("read failed: %v", err)
 				return
 			}
 			err = wsutil.WriteServerMessage(c, op, msg)
 			if err != nil {
-				log.Printf("write failed: %v", err)
+				// log.Printf("write failed: %v", err)
 				return
 			}
 		}
