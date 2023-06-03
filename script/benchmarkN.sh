@@ -24,7 +24,7 @@ echo $line
 . ./script/killall.sh
 sleep 1
 . ./script/servers.sh
-sleep 1
+sleep 2
 echo $line
 for f in ${frameworks[@]}; do
     echo "run ${f} server on cpu 0-${server_cpu_num}"
@@ -32,7 +32,7 @@ for f in ${frameworks[@]}; do
     for c in ${Connections[@]}; do
         for b in ${BodySize[@]}; do
             for n in ${BenchTime[@]}; do
-                echo $line
+                # echo $line
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
                 . ./script/client.sh -f=$f -c=$c -b=$b -n=$n -suffix=${suffix}
@@ -46,11 +46,11 @@ done
 for c in ${Connections[@]}; do
     for b in ${BodySize[@]}; do
         for n in ${BenchTime[@]}; do
-            echo $line
+            # echo $line
             suffix="_${c}_${b}_${n}"
             . ./script/report.sh -suffix=${suffix} $1 $2 $3 $4 $5 $6 $7 $8 $9
         done
     done
 done
-echo $line
+# echo $line
 

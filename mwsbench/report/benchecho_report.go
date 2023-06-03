@@ -32,6 +32,10 @@ type BenchEchoReport struct {
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration"`
 }
 
+func (r *BenchEchoReport) Type() string {
+	return "BenchEcho"
+}
+
 func (r *BenchEchoReport) Name() string {
 	return fmt.Sprintf("%s-BenchEcho", r.Framework)
 }

@@ -58,7 +58,7 @@ func ObjFieldValues(obj interface{}) []string {
 	return values
 }
 
-func ObjString(obj interface{}) string {
+func ObjString(obj Report) string {
 	ret := ""
 	headers := []string{}
 	values := []string{}
@@ -68,7 +68,8 @@ func ObjString(obj interface{}) string {
 		typ = typ.Elem()
 		value = value.Elem()
 	}
-	maxHeaderLen := 0
+	typHeader := "Benchmark Type"
+	maxHeaderLen := len(typHeader)
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		header := field.Tag.Get("md")
@@ -103,13 +104,21 @@ func ObjString(obj interface{}) string {
 			}
 		}
 	}
+	frameworkHeader := ""
 	for i, v := range headers {
+		isFramework := v == "Framework"
 		for len(v) < maxHeaderLen {
 			v += " "
+		}
+		if isFramework {
+			frameworkHeader = v
 		}
 		headers[i] = v
 	}
 	for i, v := range headers {
+		if v == frameworkHeader {
+			ret += typHeader + ": " + obj.Type() + "\n"
+		}
 		ret += v + ": " + values[i]
 		if i != len(headers)-1 {
 			ret += "\n"

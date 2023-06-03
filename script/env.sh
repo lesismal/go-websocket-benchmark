@@ -13,7 +13,7 @@ limit_cpu_client="taskset -c ${client_cpu_num}-$((total_cpu_num - 1))"
 # echo "limit_cpu_server: ${server_cpu_num}, ${limit_cpu_server}"
 # echo "limit_cpu_client: ${client_cpu_num}, ${limit_cpu_client}"
 
-line="--------------------------------"
+line="------------------------------------------------"
 
 clean() {
     rm -rf ./output
@@ -41,3 +41,4 @@ print_env() {
     echo
     go env
 }
+
