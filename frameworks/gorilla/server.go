@@ -101,19 +101,27 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	buffer := make([]byte, *readBufferSize)
+	var nread int
+	var buffer = make([]byte, *readBufferSize)
+	var readBuffer = buffer
 	for {
 		mt, reader, err := c.NextReader()
 		if err != nil {
-			log.Printf("read failed: %v", err)
+			// log.Printf("read failed: %v", err)
 			return
 		}
-		n, err := io.ReadAtLeast(reader, buffer, *readBufferSize)
-		if err != nil || n <= 0 {
-			// log.Printf("read at least failed: %v, %v", n, err)
-			break
+		for {
+			if nread == len(readBuffer) {
+				readBuffer = append(readBuffer, buffer...)
+			}
+			n, err := reader.Read(readBuffer[nread:])
+			nread += n
+			if err == io.EOF {
+				break
+			}
 		}
-		err = c.WriteMessage(mt, buffer[:n])
+		err = c.WriteMessage(mt, readBuffer[:nread])
+		nread = 0
 		if err != nil {
 			// log.Printf("write failed: %v", err)
 			return

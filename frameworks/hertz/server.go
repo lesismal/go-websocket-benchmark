@@ -92,22 +92,27 @@ func onWebsocket(c context.Context, ctx *app.RequestContext) {
 			}
 		}
 
-		buffer := make([]byte, *readBufferSize)
+		var nread int
+		var buffer = make([]byte, *readBufferSize)
+		var readBuffer = buffer
 		for {
 			mt, reader, err := c.NextReader()
 			if err != nil {
 				// log.Printf("read failed: %v", err)
 				return
 			}
-			// Here assume the ws message coming is the same size as the `readBuffer`;
-			// This is to help to increase the framework's benchmark report as high as possible;
-			// But it's not fair to others considering real scenarios.
-			n, err := io.ReadAtLeast(reader, buffer, *readBufferSize)
-			if err != nil || n <= 0 {
-				log.Printf("read at least failed: %v, %v", n, err)
-				break
+			for {
+				if nread == len(readBuffer) {
+					readBuffer = append(readBuffer, buffer...)
+				}
+				n, err := reader.Read(readBuffer[nread:])
+				nread += n
+				if err == io.EOF {
+					break
+				}
 			}
-			err = c.WriteMessage(mt, buffer[:n])
+			err = c.WriteMessage(mt, readBuffer[:nread])
+			nread = 0
 			if err != nil {
 				// log.Printf("write failed: %v", err)
 				return
