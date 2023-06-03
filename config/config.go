@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
 const (
@@ -15,9 +13,10 @@ const (
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
-	GwsBasedonStdhttp  = "gws_std"
+	GwsStd             = "gws_std"
 	Hertz              = "hertz"
-	NbioBasedonStdhttp = "nbio_std"
+	HertzStd           = "hertz_std"
+	NbioStd            = "nbio_std"
 	NbioModBlocking    = "nbio_blocking"
 	NbioModMixed       = "nbio_mixed"
 	NbioModNonblocking = "nbio_nonblocking"
@@ -28,16 +27,17 @@ const (
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
 	Gobwas:             "11001:11050",
-	Gorilla:            "13001:13050",
-	Gws:                "14001:14050",
-	GwsBasedonStdhttp:  "15001:15050",
-	Hertz:              "16001:16050",
-	NbioBasedonStdhttp: "17001:17050",
+	Gorilla:            "12001:12050",
+	Gws:                "13001:13050",
+	GwsStd:             "14001:14050",
+	Hertz:              "15001:15050",
+	HertzStd:           "16001:16050",
+	NbioStd:            "17001:17050",
 	NbioModBlocking:    "18001:18050",
 	NbioModMixed:       "19001:19050",
 	NbioModNonblocking: "20001:20050",
-	GoNettyWs:          "12001:12050",
-	Nhooyr:             "21001:21050",
+	GoNettyWs:          "21001:21050",
+	Nhooyr:             "22001:22050",
 }
 
 var FrameworkList = []string{
@@ -45,9 +45,10 @@ var FrameworkList = []string{
 	Gobwas,
 	Gorilla,
 	Gws,
-	GwsBasedonStdhttp,
+	GwsStd,
 	Hertz,
-	NbioBasedonStdhttp,
+	HertzStd,
+	NbioStd,
 	NbioModBlocking,
 	NbioModMixed,
 	NbioModNonblocking,
@@ -126,9 +127,4 @@ func GetFrameworkPid(framework, ip string) (int, error) {
 	}
 	pid, err := strconv.Atoi(string(body))
 	return pid, err
-}
-
-type EchoSession struct {
-	MT    websocket.MessageType
-	Bytes []byte
 }

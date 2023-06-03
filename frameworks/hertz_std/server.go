@@ -16,6 +16,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/cloudwego/hertz/pkg/network/standard"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -39,9 +40,9 @@ func main() {
 		log.Printf("readBufferSize: %v, will handle reading by NextReader()", *readBufferSize)
 	}
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Hertz)
+	addrs, err := config.GetFrameworkServerAddrs(config.HertzStd)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Hertz, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.HertzStd, err)
 	}
 	srvs := startServers(addrs)
 
@@ -56,7 +57,8 @@ func main() {
 func startServers(addrs []string) []*server.Hertz {
 	srvs := make([]*server.Hertz, 0, len(addrs))
 	for _, addr := range addrs {
-		srv := server.New(server.WithHostPorts(addr))
+		srv := server.New(server.WithHostPorts(addr),
+			server.WithTransport(standard.NewTransporter))
 		srvs = append(srvs, srv)
 		go func() {
 			srv.GET("/ws", onWebsocket)
