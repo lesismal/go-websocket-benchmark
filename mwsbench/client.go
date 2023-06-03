@@ -28,7 +28,7 @@ var (
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")
 
 	// BenchEcho
-	echoConcurrency = flag.Int("bc", 10000, "goroutine num")
+	echoConcurrency = flag.Int("bc", 50000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
 	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
