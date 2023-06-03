@@ -35,6 +35,7 @@ func main() {
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
+	upgrader.BlockingModAsyncWrite = false
 
 	addrs, err := config.GetFrameworkServerAddrs(config.NbioModMixed)
 	if err != nil {
