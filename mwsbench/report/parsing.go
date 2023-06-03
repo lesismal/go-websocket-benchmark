@@ -115,6 +115,9 @@ func ObjString(obj Report) string {
 		}
 		headers[i] = v
 	}
+	for len(typHeader) < maxHeaderLen {
+		typHeader += " "
+	}
 	for i, v := range headers {
 		if v == frameworkHeader {
 			ret += typHeader + ": " + obj.Type() + "\n"
