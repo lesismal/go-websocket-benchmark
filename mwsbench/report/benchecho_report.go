@@ -17,13 +17,6 @@ type EchoSession struct {
 
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
-	Connections int     `json:"Conns" md:"Conns"`
-	Concurrency int     `json:"Concurrency" md:"Concurrency"`
-	Payload     int     `json:"Payload" md:"Payload"`
-	Total       int     `json:"Total" md:"Total"`
-	Success     int64   `json:"Success" md:"Success"`
-	Failed      int64   `json:"Failed" md:"Failed"`
-	Used        int64   `json:"Used" md:"Used" fmt:"duration"`
 	TPS         int64   `json:"TPS" md:"TPS"`
 	Min         int64   `json:"Min" md:"Min" fmt:"duration"`
 	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration"`
@@ -33,6 +26,13 @@ type BenchEchoReport struct {
 	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration"`
 	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration"`
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration"`
+	Used        int64   `json:"Used" md:"Used" fmt:"duration"`
+	Total       int     `json:"Total" md:"Total"`
+	Success     int64   `json:"Success" md:"Success"`
+	Failed      int64   `json:"Failed" md:"Failed"`
+	Connections int     `json:"Conns" md:"Conns"`
+	Concurrency int     `json:"Concurrency" md:"Concurrency"`
+	Payload     int     `json:"Payload" md:"Payload"`
 	CPUMin      float64 `json:"CPUMin" md:"CPU Min" fmt:"cpu"`
 	CPUAvg      float64 `json:"CPUAvg" md:"CPU Avg" fmt:"cpu"`
 	CPUMax      float64 `json:"CPUMax" md:"CPU Max" fmt:"cpu"`
