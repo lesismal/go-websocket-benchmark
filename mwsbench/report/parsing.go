@@ -68,7 +68,7 @@ func ObjString(obj Report) string {
 		typ = typ.Elem()
 		value = value.Elem()
 	}
-	typHeader := "Benchmark Type"
+	typHeader := "BenchType"
 	maxHeaderLen := len(typHeader)
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)

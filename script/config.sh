@@ -12,6 +12,7 @@ frameworks=(
     "gws"
     "gws_std"
     "hertz"
+    "hertz_std"
     "nbio_std"
     "nbio_blocking"
     "nbio_mixed"

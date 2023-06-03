@@ -62,9 +62,9 @@ func (bm *BenchEcho) Run() {
 	bm.init()
 	defer bm.clean()
 
-	logging.Printf("warmup for %d times ...\n", bm.WarmupTimes)
+	logging.Printf("warmup for %d times ...", bm.WarmupTimes)
 	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
-	logging.Printf("warmup for %d times done\n", bm.WarmupTimes)
+	logging.Printf("warmup for %d times done", bm.WarmupTimes)
 
 	// delay 1 second
 	chCounterStart := make(chan struct{})
@@ -80,65 +80,12 @@ func (bm *BenchEcho) Run() {
 		close(chCounterStart)
 	})
 
-	logging.Printf("benchmark for %d times ...\n", bm.Total)
+	logging.Printf("benchmark for %d times ...", bm.Total)
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
-	logging.Printf("benchmark for %d times done\n", bm.Total)
+	logging.Printf("benchmark for %d times done", bm.Total)
 
 	<-chCounterStart
 	bm.PsCounter.Stop()
-
-	// 	logging.Printf("Benchmark: %s\n", bm.Framework)
-	// 	logging.Printf("Conns    : %d\n", len(bm.ConnsMap))
-	// 	logging.Printf("Payload  : %d\n", bm.Payload)
-	// 	logging.Println(bm.Calculator.String())
-	// 	logging.Printf(`CPU MIN  : %.2f%%
-	// CPU AVG  : %.2f%%
-	// CPU MAX  : %.2f%%
-	// MEM MIN  : %v
-	// MEM AVG  : %v
-	// MEM MAX  : %v
-	// `,
-	// 		bm.PsCounter.CPUMin(),
-	// 		bm.PsCounter.CPUAvg(),
-	// 		bm.PsCounter.CPUMax(),
-	// 		perf.I2MemString(bm.PsCounter.MEMRSSMin()),
-	// 		perf.I2MemString(bm.PsCounter.MEMRSSAvg()),
-	// 		perf.I2MemString(bm.PsCounter.MEMRSSMax()))
-
-	// report := &FullReport{
-	// 	Framework:   *framework,
-	// 	Connections: *numClient,
-	// 	Payload:     *payloadSize,
-	// 	Total:       int64(bm.Calculator.Total),
-	// 	Success:     bm.Calculator.Success,
-	// 	Failed:      bm.Calculator.Failed,
-	// 	TimeUsed:    bm.Calculator.Used,
-	// 	Min:         bm.Calculator.Min,
-	// 	Avg:         bm.Calculator.Avg,
-	// 	Max:         bm.Calculator.Max,
-	// 	TPS:         bm.Calculator.TPS(),
-	// 	TP50:        bm.Calculator.TPN(50),
-	// 	TP75:        bm.Calculator.TPN(75),
-	// 	TP90:        bm.Calculator.TPN(90),
-	// 	TP95:        bm.Calculator.TPN(95),
-	// 	TP99:        bm.Calculator.TPN(99),
-	// 	CPUMin:      psCounter.CPUMin(),
-	// 	CPUAvg:      psCounter.CPUAvg(),
-	// 	CPUMax:      psCounter.CPUMax(),
-	// 	MEMRSSMin:   psCounter.MEMRSSMin(),
-	// 	MEMRSSAvg:   psCounter.MEMRSSAvg(),
-	// 	MEMRSSMax:   psCounter.MEMRSSMax(),
-	// }
-	// b, err := json.Marshal(report)
-	// if err != nil {
-	// 	logging.Fatalf("Marshal Report failed: %v", err)
-	// }
-	// err = os.WriteFile("./output/report/"+*preffix+*framework+*suffix+".json", b, 0666)
-	// if err != nil {
-	// 	logging.Fatalf("Write Report failed: %v", err)
-	// }
-	// fmt.Println("-------------------------")
-
 }
 
 func (bm *BenchEcho) Stop() {
