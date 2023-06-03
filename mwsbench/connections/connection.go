@@ -59,7 +59,6 @@ func (cs *Connections) Run() {
 	cs.init()
 	defer cs.clean()
 
-	// logging.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
 	logging.Printf("Dial Connections: [%v]", cs.NumConnections)
 	logging.Printf("Dial Concurrency: [%v]", cs.Concurrency)
 	done := make(chan struct{})
@@ -71,6 +70,7 @@ func (cs *Connections) Run() {
 			close(logCone)
 		}()
 		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-done:
