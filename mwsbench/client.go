@@ -30,7 +30,6 @@ var (
 	// BenchEcho
 	echoConcurrency = flag.Int("bc", 10000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
-	batch           = flag.Int("bn", 1, `batch send times`)
 	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
 
@@ -67,7 +66,6 @@ func main() {
 	bm := benchecho.New(*framework, *echoTimes, *ip, cs.ConnsMap)
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
-	bm.Batch = *batch
 	bm.Total = *echoTimes
 	bm.Limit = *tpsLimit
 	bm.Run()

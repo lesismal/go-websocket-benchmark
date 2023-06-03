@@ -26,7 +26,6 @@ type BenchEcho struct {
 	Total       int
 	Concurrency int
 	Payload     int
-	Batch       int
 	Limit       int
 	Percents    []int
 	PsInterval  time.Duration
@@ -136,9 +135,6 @@ func (bm *BenchEcho) init() {
 	if bm.Payload <= 0 {
 		bm.Payload = 1024
 	}
-	if bm.Batch <= 0 {
-		bm.Batch = 1
-	}
 	if bm.PsInterval <= 0 {
 		bm.PsInterval = time.Second
 	}
@@ -205,33 +201,22 @@ func (bm *BenchEcho) doOnce() error {
 		bm.chConns <- conn
 	}()
 
-	var err error
-	buffers := make([][]byte, 0, bm.Batch)
-	for i := 0; i < bm.Batch; i++ {
-		buffer := bm.getBuffer()
-		buffers = append(buffers, buffer)
-		err = conn.WriteMessage(websocket.BinaryMessage, buffer)
-		if err != nil {
-			return err
-		}
+	bm.limitFn()
+
+	buffer := bm.getBuffer()
+	err := conn.WriteMessage(websocket.BinaryMessage, buffer)
+	if err != nil {
+		return err
 	}
 	chResponse := conn.Session().(chan report.EchoSession)
 
-	for i := 0; i < bm.Batch; i++ {
-		bm.limitFn()
-		func() {
-			echo := <-chResponse
-			defer mempool.Free(echo.Bytes)
-			if echo.MT != websocket.BinaryMessage {
-				err = errors.New("invalid message type")
-			}
-			if !bytes.Equal(buffers[i], echo.Bytes) {
-				err = errors.New("respons data is not equal to origin")
-			}
-		}()
-		if err != nil {
-			return err
-		}
+	echo := <-chResponse
+	defer mempool.Free(echo.Bytes)
+	if echo.MT != websocket.BinaryMessage {
+		return errors.New("invalid message type")
+	}
+	if !bytes.Equal(buffer, echo.Bytes) {
+		return errors.New("respons data is not equal to origin")
 	}
 
 	return nil
