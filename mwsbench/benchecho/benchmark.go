@@ -216,7 +216,7 @@ func (bm *BenchEcho) init() {
 
 	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
 	if err != nil {
-		logging.Fatalf("BenchEcho GetFrameworkPid failed: %v", err)
+		logging.Fatalf("BenchEcho GetFrameworkPid(%v) failed: %v", bm.Framework, err)
 	}
 	psCounter, err := perf.NewPSCounter(serverPid)
 	if err != nil {

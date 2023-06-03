@@ -29,9 +29,9 @@ var (
 func main() {
 	flag.Parse()
 
-	addrs, err := config.GetFrameworkServerAddrs(config.GwsBasedonStdhttp)
+	addrs, err := config.GetFrameworkServerAddrs(config.GwsStd)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.GwsBasedonStdhttp, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.GwsStd, err)
 	}
 	lns := startServers(addrs)
 
