@@ -24,6 +24,10 @@ type ConnectionsReport struct {
 	TP99        int64  `json:"TP99" md:"TP99" fmt:"duration"`
 }
 
+func (r *ConnectionsReport) Type() string {
+	return "Connections"
+}
+
 func (r *ConnectionsReport) Name() string {
 	return fmt.Sprintf("%s-Connections", r.Framework)
 }

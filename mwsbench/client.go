@@ -17,7 +17,7 @@ var (
 	memLimit = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 
 	// Server Side
-	framework = flag.String("f", config.NbioBasedonStdhttp, `framework, e.g. "gorilla"`)
+	framework = flag.String("f", config.NbioStd, `framework, e.g. "gorilla"`)
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
@@ -28,7 +28,7 @@ var (
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")
 
 	// BenchEcho
-	echoConcurrency = flag.Int("bc", 5000, "goroutine num")
+	echoConcurrency = flag.Int("bc", 50000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
 	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
@@ -48,6 +48,12 @@ func main() {
 	}
 
 	debug.SetMemoryLimit(*memLimit)
+
+	logging.Print(logging.LongLine)
+	defer logging.Print(logging.LongLine)
+
+	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
+	logging.Print(logging.ShortLine)
 
 	cs := connections.New(*framework, *ip, *numConnections)
 	cs.Concurrency = *dialConcurrency
@@ -71,20 +77,16 @@ func main() {
 	bmReport := bm.Report()
 	report.ToFile(bmReport, *preffix, *suffix)
 
-	logging.Print(logging.LongLine)
-	logging.Print("\n")
+	logging.Print(logging.ShortLine)
 	logging.Print(csReport.String())
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
-	logging.Print("\n")
 	logging.Print(bmReport.String())
-	logging.Print("\n")
-	logging.Print(logging.LongLine)
 	logging.Print("\n")
 }
 
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix)
+	data := report.GenerateConnectionsReports(*preffix, *suffix, nil)
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
@@ -92,7 +94,7 @@ func generateReports() {
 	logging.Print(data)
 	logging.Print("\n")
 
-	data = report.GenerateBenchEchoReports(*preffix, *suffix)
+	data = report.GenerateBenchEchoReports(*preffix, *suffix, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)

@@ -1,10 +1,19 @@
 package report
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/lesismal/nbio/nbhttp/websocket"
+)
 
 var (
 	BenchEchoReportMarkdownHeaders = []string{}
 )
+
+type EchoSession struct {
+	MT    websocket.MessageType
+	Bytes []byte
+}
 
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
@@ -30,6 +39,10 @@ type BenchEchoReport struct {
 	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration"`
 	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration"`
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration"`
+}
+
+func (r *BenchEchoReport) Type() string {
+	return "BenchEcho"
 }
 
 func (r *BenchEchoReport) Name() string {

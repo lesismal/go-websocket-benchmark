@@ -1,8 +1,8 @@
 #!/bin/bash
 
-Connections=(5000 10000)
-BodySize=(1024)
-BenchTime=(1000000)
+Connections=(5000 50000)
+BodySize=(512 1024)
+BenchTime=(2000000)
 SleepTime=5
 
 frameworks=(
@@ -12,6 +12,7 @@ frameworks=(
     "gws"
     "gws_std"
     "hertz"
+    "hertz_std"
     "nbio_std"
     "nbio_blocking"
     "nbio_mixed"

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,50 +27,50 @@ var (
 func main() {
 	flag.Parse()
 
-	// ports := strings.Split(config.Ports[config.Gws], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.Gws)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Gws, err)
 	}
-	startServers(addrs)
+	lns := startServers(addrs)
 	pidServerAddr, err := config.GetFrameworkPidServerAddrs(config.Gws)
 	if err != nil {
 		logging.Fatalf("GetFrameworkPidServerAddrs(%v) failed: %v", config.Gws, err)
 	}
+	var pidLn net.Listener
 	go func() {
 		mux := &http.ServeMux{}
 		mux.HandleFunc("/pid", onServerPid)
-		log.Fatalf("pid server exit: %v", http.ListenAndServe(pidServerAddr, mux))
+		ln, err := reuseport.Listen("tcp", pidServerAddr)
+		if err != nil {
+			logging.Fatalf("Listen failed: %v", err)
+		}
+		pidLn = ln
+		log.Printf("pid server exit: %v", http.Serve(ln, mux))
 	}()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+	for _, ln := range lns {
+		ln.Close()
+	}
+	pidLn.Close()
 }
 
-func startServers(addrs []string) {
-	for _, v := range addrs {
-		go func(addr string) {
-			server := gws.NewServer(new(Handler), &gws.ServerOption{})
-			ln, err := reuseport.Listen("tcp", addr)
-			if err != nil {
-				logging.Fatalf("Listen failed: %v", err)
-			}
-			logging.Fatalf("server exit: %v", server.RunListener(ln))
-		}(v)
+func startServers(addrs []string) []net.Listener {
+	lns := make([]net.Listener, 0, len(addrs))
+	for _, addr := range addrs {
+		server := gws.NewServer(new(Handler), &gws.ServerOption{})
+		ln, err := reuseport.Listen("tcp", addr)
+		if err != nil {
+			logging.Fatalf("Listen failed: %v", err)
+		}
+		lns = append(lns, ln)
+		go func() {
+			logging.Printf("server exit: %v", server.RunListener(ln))
+		}()
 	}
+	return lns
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {

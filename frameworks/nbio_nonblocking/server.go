@@ -36,35 +36,23 @@ func main() {
 		c.WriteMessage(messageType, data)
 	})
 
-	// ports := strings.Split(config.Ports[config.NbioModNonblocking], ":")
-	// minPort, err := strconv.Atoi(ports[0])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// maxPort, err := strconv.Atoi(ports[1])
-	// if err != nil {
-	// 	log.Fatalf("invalid port range: %v, %v", ports, err)
-	// }
-	// addrs := []string{}
-	// for i := minPort; i <= maxPort; i++ {
-	// 	addrs = append(addrs, fmt.Sprintf(":%d", i))
-	// }
 	addrs, err := config.GetFrameworkServerAddrs(config.NbioModNonblocking)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModNonblocking, err)
 	}
-	startServers(addrs)
+	engine := startServers(addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+	engine.Stop()
 }
 
-func startServers(addrs []string) {
+func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	mux.HandleFunc("/pid", onServerPid)
-	svr := nbhttp.NewEngine(nbhttp.Config{
+	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
 		Handler:                 mux,
@@ -73,11 +61,12 @@ func startServers(addrs []string) {
 		Listen:                  reuseport.Listen,
 	})
 
-	err := svr.Start()
+	err := engine.Start()
 	if err != nil {
-		log.Printf("nbio.Start failed: %v", err)
-		return
+		log.Fatalf("nbio.Start failed: %v", err)
 	}
+
+	return engine
 }
 
 func onServerPid(w http.ResponseWriter, r *http.Request) {
