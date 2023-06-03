@@ -25,6 +25,9 @@ func Markdown(reports []Report, filter func(string) bool) string {
 	if len(reports) == 0 {
 		return ""
 	}
+	if filter == nil {
+		filter = func(string) bool { return true }
+	}
 
 	table := perf.NewTable()
 	table.SetTitle(Headers(reports[0], filter))
@@ -60,21 +63,35 @@ func Fields(r Report, filter func(string) bool) []string {
 	return filtFieldsByHeaders(r.Headers(), r.Fields(), filter)
 }
 
-func GenerateConnectionsReports(preffix, suffix string) string {
+func GenerateConnectionsReports(preffix, suffix string, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &ConnectionsReport{Framework: framework}
 	}
-	return generateReports(preffix, suffix, create)
+	return GenerateReports(preffix, suffix, create, filter)
 }
 
-func GenerateBenchEchoReports(preffix, suffix string) string {
+func GenerateBenchEchoReports(preffix, suffix string, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &BenchEchoReport{Framework: framework}
 	}
-	return generateReports(preffix, suffix, create)
+	return GenerateReports(preffix, suffix, create, filter)
 }
 
-func generateReports(preffix, suffix string, create func(framework string) Report) string {
+func ReadConnectionsReports(preffix, suffix string) []Report {
+	create := func(framework string) Report {
+		return &ConnectionsReport{Framework: framework}
+	}
+	return ReadReports(preffix, suffix, create)
+}
+
+func ReadBenchEchoReports(preffix, suffix string) []Report {
+	create := func(framework string) Report {
+		return &BenchEchoReport{Framework: framework}
+	}
+	return ReadReports(preffix, suffix, create)
+}
+
+func ReadReports(preffix, suffix string, create func(framework string) Report) []Report {
 	reports := make([]Report, 0, len(config.FrameworkList))
 	var reportItem Report
 	for _, v := range config.FrameworkList {
@@ -94,14 +111,12 @@ func generateReports(preffix, suffix string, create func(framework string) Repor
 		reports = append(reports, reportItem)
 	}
 
-	table := perf.NewTable()
-	table.SetTitle(reportItem.Headers())
+	return reports
+}
 
-	for _, v := range reports {
-		table.AddRow(v.Fields())
-	}
-
-	return table.Markdown()
+func GenerateReports(preffix, suffix string, create func(framework string) Report, filter func(string) bool) string {
+	reports := ReadReports(preffix, suffix, create)
+	return Markdown(reports, filter)
 }
 
 // func Join(reports []Report) Report {
