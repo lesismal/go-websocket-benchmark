@@ -30,6 +30,7 @@ var (
 	// BenchEcho
 	echoConcurrency = flag.Int("bc", 10000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
+	batch           = flag.Int("bn", 1, `batch send times`)
 	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
 
@@ -66,6 +67,7 @@ func main() {
 	bm := benchecho.New(*framework, *echoTimes, *ip, cs.ConnsMap)
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
+	bm.Batch = *batch
 	bm.Total = *echoTimes
 	bm.Limit = *tpsLimit
 	bm.Run()
@@ -86,7 +88,7 @@ func main() {
 }
 
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix)
+	data := report.GenerateConnectionsReports(*preffix, *suffix, nil)
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
@@ -94,7 +96,7 @@ func generateReports() {
 	logging.Print(data)
 	logging.Print("\n")
 
-	data = report.GenerateBenchEchoReports(*preffix, *suffix)
+	data = report.GenerateBenchEchoReports(*preffix, *suffix, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)

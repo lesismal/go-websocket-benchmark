@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
 const (
@@ -129,9 +127,4 @@ func GetFrameworkPid(framework, ip string) (int, error) {
 	}
 	pid, err := strconv.Atoi(string(body))
 	return pid, err
-}
-
-type EchoSession struct {
-	MT    websocket.MessageType
-	Bytes []byte
 }
