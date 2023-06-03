@@ -17,6 +17,7 @@ const (
 	Gws                = "gws"
 	GwsStd             = "gws_std"
 	Hertz              = "hertz"
+	HertzStd           = "hertz_std"
 	NbioStd            = "nbio_std"
 	NbioModBlocking    = "nbio_blocking"
 	NbioModMixed       = "nbio_mixed"
@@ -32,12 +33,13 @@ var Ports = map[string]string{
 	Gws:                "14001:14050",
 	GwsStd:             "15001:15050",
 	Hertz:              "16001:16050",
-	NbioStd:            "17001:17050",
-	NbioModBlocking:    "18001:18050",
-	NbioModMixed:       "19001:19050",
-	NbioModNonblocking: "20001:20050",
+	HertzStd:           "17001:17050",
+	NbioStd:            "18001:18050",
+	NbioModBlocking:    "19001:19050",
+	NbioModMixed:       "20001:20050",
+	NbioModNonblocking: "21001:21050",
 	GoNettyWs:          "12001:12050",
-	Nhooyr:             "21001:21050",
+	Nhooyr:             "23001:23050",
 }
 
 var FrameworkList = []string{
@@ -47,6 +49,7 @@ var FrameworkList = []string{
 	Gws,
 	GwsStd,
 	Hertz,
+	HertzStd,
 	NbioStd,
 	NbioModBlocking,
 	NbioModMixed,

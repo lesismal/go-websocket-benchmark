@@ -60,14 +60,14 @@ func (cs *Connections) Run() {
 	defer cs.clean()
 
 	// logging.Printf("To   Framework  : [%v]", strings.ToUpper(cs.Framework))
-	logging.Printf("New  Connections: [%v]\n", cs.NumConnections)
-	logging.Printf("Dial Concurrency: [%v]\n", cs.Concurrency)
+	logging.Printf("Dial Connections: [%v]", cs.NumConnections)
+	logging.Printf("Dial Concurrency: [%v]", cs.Concurrency)
 	done := make(chan struct{})
 	logCone := make(chan struct{})
 
 	go func() {
 		defer func() {
-			logging.Printf("Connections done: %v Success, %v Failed\n", cs.Success, cs.Failed)
+			logging.Printf("Connections done: %v Success, %v Failed", cs.Success, cs.Failed)
 			close(logCone)
 		}()
 		ticker := time.NewTicker(time.Second)
@@ -81,7 +81,7 @@ func (cs *Connections) Run() {
 		}
 	}()
 
-	logging.Printf("Connections start ...\n")
+	logging.Printf("Connections start ...")
 	cs.Calculator.Benchmark(cs.Concurrency, cs.NumConnections, cs.doOnce, cs.Percents)
 
 	close(done)
@@ -136,7 +136,7 @@ func (cs *Connections) init() {
 
 	addrs, err := config.GetFrameworkBenchmarkAddrs(cs.Framework, cs.Ip)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs failed: %v", err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", cs.Framework, err)
 	}
 	cs.serverAddrs = addrs
 

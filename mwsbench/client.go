@@ -52,7 +52,7 @@ func main() {
 	logging.Print(logging.LongLine)
 	defer logging.Print(logging.LongLine)
 
-	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times\n", *framework, *numConnections, *payload, *echoTimes)
+	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
 	logging.Print(logging.ShortLine)
 
 	cs := connections.New(*framework, *ip, *numConnections)
