@@ -90,16 +90,14 @@ func generateReports() {
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
-	logging.Print("\n")
+	logging.Printf("[%vConnections%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
-	logging.Print("\n")
 
 	data = report.GenerateBenchEchoReports(*preffix, *suffix, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
-	logging.Print("\n")
+	logging.Printf("[%vBenchEcho%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
-	logging.Print("\n")
 	logging.Print(logging.LongLine)
 }
