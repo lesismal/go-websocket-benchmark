@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
 	github.com/lesismal/nbio v1.3.17-0.20230602053808-bded71394a33
-	github.com/lesismal/perf v0.0.0-20230603052519-fa1f46c00874
+	github.com/lesismal/perf v0.0.0-20230604160652-d690627583c3
 	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.5.3
 	golang.org/x/time v0.3.0
