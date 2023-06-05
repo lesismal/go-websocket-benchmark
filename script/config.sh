@@ -19,5 +19,4 @@ frameworks=(
     "nbio_std"
     "nettyws"
     "nhooyr"
-    "libwebsocket"
 )
