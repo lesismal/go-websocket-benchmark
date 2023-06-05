@@ -14,8 +14,7 @@ require (
 	github.com/lesismal/perf v0.0.0-20230604160652-d690627583c3
 	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.5.3
-	github.com/shuLhan/share v0.47.0
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7
 )
 
@@ -50,8 +49,7 @@ require (
 	github.com/valyala/fasthttp v1.47.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
