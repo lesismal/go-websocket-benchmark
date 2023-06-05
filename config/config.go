@@ -16,7 +16,6 @@ const (
 	GwsStd             = "gws_std"
 	Hertz              = "hertz"
 	HertzStd           = "hertz_std"
-	Libwebsocket       = "libwebsocket"
 	NbioModBlocking    = "nbio_blocking"
 	NbioModMixed       = "nbio_mixed"
 	NbioModNonblocking = "nbio_nonblocking"
@@ -39,7 +38,6 @@ var Ports = map[string]string{
 	NbioStd:            "20001:20050",
 	GoNettyWs:          "21001:21050",
 	Nhooyr:             "22001:22050",
-	Libwebsocket:       "23001:23050",
 }
 
 var FrameworkList = []string{
@@ -56,7 +54,6 @@ var FrameworkList = []string{
 	NbioStd,
 	GoNettyWs,
 	Nhooyr,
-	Libwebsocket,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
