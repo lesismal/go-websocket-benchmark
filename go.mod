@@ -14,6 +14,7 @@ require (
 	github.com/lesismal/perf v0.0.0-20230604160652-d690627583c3
 	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.5.3
+	github.com/soypat/peasocket v0.0.0-20230122152014-4fdb28226419
 	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7
 )
