@@ -22,7 +22,7 @@ var (
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
-	numConnections    = flag.Int("c", 1, "client num")
+	numConnections    = flag.Int("c", 10000, "client num")
 	dialConcurrency   = flag.Int("dc", 2000, "goroutine num")
 	dialTimeout       = flag.Duration("dt", 5*time.Second, "client dial timeout")
 	dialRetries       = flag.Int("dr", 5, "client dial retry count")
