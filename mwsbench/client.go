@@ -22,17 +22,24 @@ var (
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
-	numConnections    = flag.Int("c", 10000, "client num")
-	dialConcurrency   = flag.Int("dc", 2000, "goroutine num")
-	dialTimeout       = flag.Duration("dt", 5*time.Second, "client dial timeout")
-	dialRetries       = flag.Int("dr", 5, "client dial retry count")
-	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client dial retry interval")
+	numConnections    = flag.Int("c", 10000, "client: num of connections")
+	dialConcurrency   = flag.Int("dc", 2000, "client: dial concurrency: how many goroutines used to do dialing")
+	dialTimeout       = flag.Duration("dt", 5*time.Second, "client: dial timeout")
+	dialRetries       = flag.Int("dr", 5, "client: dial retry times")
+	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client; dial retry interval")
+
+	// BenchEcho && BenchRate
+	payload = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
 
 	// BenchEcho
-	echoConcurrency = flag.Int("bc", 50000, "goroutine num")
-	payload         = flag.Int("b", 1024, `payload size`)
-	echoTimes       = flag.Int("n", 1000, `benchmark times`)
-	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
+	echoConcurrency = flag.Int("ec", 50000, "benchecho: concurrency: how many goroutines used to do the echo test")
+	echoTimes       = flag.Int("en", 1000, `benchecho: benchmark times`)
+	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
+
+	// BenchRate
+	rateConnConcurrency = flag.Int("rc", 10, "benchrate: how many request message can be sent to 1 conn before response")
+	rateDuration        = flag.Duration("rd", time.Second*10, `benchrate: how long to spend to do the test`)
+	rateSendLimit       = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
 	// for report generation
 	genReport = flag.Bool("r", false, `make report`)
@@ -68,15 +75,15 @@ func main() {
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
 	bm.Total = *echoTimes
-	bm.Limit = *tpsLimit
+	bm.Limit = *echoTPSLimit
 	bm.Run()
 	defer bm.Stop()
 
-	br := benchrate.New(*framework, *echoTimes, *ip, cs.NBConns())
-	br.Concurrency = *echoConcurrency
+	br := benchrate.New(*framework, *ip, cs.NBConns())
+	br.ConnConcurrency = *rateConnConcurrency
 	br.Payload = *payload
-	br.Total = *echoTimes
-	br.Limit = *tpsLimit
+	br.Duration = *rateDuration
+	br.SendLimit = *rateSendLimit
 	br.Run()
 	defer br.Stop()
 
@@ -113,6 +120,14 @@ func generateReports() {
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
 	logging.Printf("[%vBenchEcho%v] Report\n", *preffix, *suffix)
+	logging.Print(data)
+	logging.Print(logging.LongLine)
+
+	data = report.GenerateBenchRateReports(*preffix, *suffix, nil)
+	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
+	report.WriteFile(filename, data)
+	logging.Print(logging.LongLine)
+	logging.Printf("[%BenchRate%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
 	logging.Print(logging.LongLine)
 }

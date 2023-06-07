@@ -77,6 +77,13 @@ func GenerateBenchEchoReports(preffix, suffix string, filter func(string) bool) 
 	return GenerateReports(preffix, suffix, create, filter)
 }
 
+func GenerateBenchRateReports(preffix, suffix string, filter func(string) bool) string {
+	create := func(framework string) Report {
+		return &BenchRateReport{Framework: framework}
+	}
+	return GenerateReports(preffix, suffix, create, filter)
+}
+
 func ReadConnectionsReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
 		return &ConnectionsReport{Framework: framework}

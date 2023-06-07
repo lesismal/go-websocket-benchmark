@@ -31,11 +31,13 @@ type BenchEcho struct {
 	Percents    []int
 	PsInterval  time.Duration
 
-	OutPreffix string
-	OutSuffix  string
+	// OutPreffix string
+	// OutSuffix  string
 
 	Calculator *perf.Calculator
-	PsCounter  *perf.PSCounter
+
+	ServerPid int
+	PsCounter *perf.PSCounter
 
 	ConnsMap map[*websocket.Conn]struct{}
 
@@ -64,13 +66,13 @@ func (bm *BenchEcho) Run() {
 	bm.init()
 	defer bm.clean()
 
-	logging.Printf("Warmup for %d times ...", bm.WarmupTimes)
+	logging.Printf("BenchEcho Warmup for %d times ...", bm.WarmupTimes)
 	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
-	logging.Printf("Warmup for %d times done", bm.WarmupTimes)
+	logging.Printf("BenchEcho Warmup for %d times done", bm.WarmupTimes)
 
 	// delay 1 second
 	chCounterStart := make(chan struct{})
-	time.AfterFunc(time.Second, func() {
+	go func() {
 		bm.PsCounter.Start(perf.PSCountOptions{
 			CountCPU: true,
 			CountMEM: true,
@@ -80,11 +82,11 @@ func (bm *BenchEcho) Run() {
 		})
 		time.Sleep(bm.PsInterval)
 		close(chCounterStart)
-	})
+	}()
 
-	logging.Printf("Benchmark for %d times ...", bm.Total)
+	logging.Printf("BenchEcho for %d times ...", bm.Total)
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
-	logging.Printf("Benchmark for %d times done", bm.Total)
+	logging.Printf("BenchEcho for %d times done", bm.Total)
 
 	<-chCounterStart
 	bm.PsCounter.Stop()
@@ -172,8 +174,9 @@ func (bm *BenchEcho) init() {
 
 	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
 	if err != nil {
-		logging.Fatalf("BenchEcho  GetFrameworkPid(%v) failed: %v", bm.Framework, err)
+		logging.Fatalf("BenchEcho GetFrameworkPid(%v) failed: %v", bm.Framework, err)
 	}
+	bm.ServerPid = serverPid
 	psCounter, err := perf.NewPSCounter(serverPid)
 	if err != nil {
 		panic(err)
@@ -189,14 +192,6 @@ func (bm *BenchEcho) clean() {
 	bm.bufferIdx = 0
 	bm.limitFn = func() {}
 }
-
-// func (bm *BenchEcho) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-// 	ch, _ := c.Session().(chan report.EchoSession)
-// 	ch <- report.EchoSession{
-// 		MT:    mt,
-// 		Bytes: b,
-// 	}
-// }
 
 func (bm *BenchEcho) getWriteBuffer() []byte {
 	return bm.wbuffers[uint32(rand.Intn(len(bm.wbuffers)))%uint32(len(bm.wbuffers))]
