@@ -12,9 +12,10 @@ import (
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/report"
 
+	"github.com/gorilla/websocket"
 	nblog "github.com/lesismal/nbio/logging"
 	"github.com/lesismal/nbio/nbhttp"
-	"github.com/lesismal/nbio/nbhttp/websocket"
+	nbws "github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/perf"
 )
 
@@ -38,7 +39,7 @@ type Connections struct {
 	Calculator *perf.Calculator
 
 	Engine   *nbhttp.Engine
-	Upgrader *websocket.Upgrader
+	Upgrader *nbws.Upgrader
 
 	mux          sync.Mutex
 	serverIdx    uint32
@@ -86,6 +87,11 @@ func (cs *Connections) Run() {
 
 	close(done)
 	<-logCone
+}
+
+func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
+	conns := map[*nbws.Conn]struct{}{}
+	return conns
 }
 
 func (cs *Connections) Stop() {
@@ -174,10 +180,10 @@ func (cs *Connections) startEngine() {
 	}
 	cs.Engine = engine
 
-	upgrader := websocket.NewUpgrader()
-	upgrader.Engine = engine
-	upgrader.OnMessage(func(c *websocket.Conn, mt websocket.MessageType, b []byte) {})
-	cs.Upgrader = upgrader
+	// upgrader := websocket.NewUpgrader()
+	// upgrader.Engine = engine
+	// upgrader.OnMessage(func(c *websocket.Conn, mt websocket.MessageType, b []byte) {})
+	// cs.Upgrader = upgrader
 
 	time.Sleep(time.Second)
 }
@@ -194,9 +200,7 @@ begin:
 		for i := 0; i < cs.RetryTimes; i++ {
 			addr := cs.serverAddrs[atomic.AddUint32(&cs.serverIdx, 1)%uint32(len(cs.serverAddrs))]
 			dialer := &websocket.Dialer{
-				Engine:      cs.Engine,
-				Upgrader:    cs.Upgrader,
-				DialTimeout: cs.DialTimeout,
+				HandshakeTimeout: cs.DialTimeout,
 			}
 			conn, _, err := dialer.Dial(addr, nil)
 			if err == nil {

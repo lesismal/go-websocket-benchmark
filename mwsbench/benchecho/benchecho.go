@@ -5,16 +5,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"runtime"
+	"sync"
 	"time"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/report"
 
-	"github.com/lesismal/nbio/mempool"
-	"github.com/lesismal/nbio/nbhttp/websocket"
+	"github.com/gorilla/websocket"
 	"github.com/lesismal/perf"
 	"golang.org/x/time/rate"
 )
@@ -38,12 +39,14 @@ type BenchEcho struct {
 
 	ConnsMap map[*websocket.Conn]struct{}
 
-	buffers   [][]byte
+	wbuffers  [][]byte
 	bufferIdx uint32
 
 	chConns chan *websocket.Conn
 
 	limitFn func()
+
+	rbufferPool *sync.Pool
 }
 
 func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}) *BenchEcho {
@@ -135,6 +138,12 @@ func (bm *BenchEcho) init() {
 	if bm.Payload <= 0 {
 		bm.Payload = 1024
 	}
+	bm.rbufferPool = &sync.Pool{
+		New: func() any {
+			buf := make([]byte, bm.Payload)
+			return &buf
+		},
+	}
 	if bm.PsInterval <= 0 {
 		bm.PsInterval = time.Second
 	}
@@ -149,17 +158,15 @@ func (bm *BenchEcho) init() {
 		}
 	}
 
-	bm.buffers = make([][]byte, 1024)
-	for i := 0; i < len(bm.buffers); i++ {
+	bm.wbuffers = make([][]byte, 1024)
+	for i := 0; i < len(bm.wbuffers); i++ {
 		buffer := make([]byte, bm.Payload)
 		rand.Read(buffer)
-		bm.buffers[i] = buffer
+		bm.wbuffers[i] = buffer
 	}
 
 	bm.chConns = make(chan *websocket.Conn, len(bm.ConnsMap))
 	for c := range bm.ConnsMap {
-		c.SetSession(make(chan report.EchoSession, 1))
-		c.OnMessage(bm.onMessage)
 		bm.chConns <- c
 	}
 
@@ -178,21 +185,21 @@ func (bm *BenchEcho) init() {
 
 func (bm *BenchEcho) clean() {
 	bm.chConns = nil
-	bm.buffers = nil
+	bm.wbuffers = nil
 	bm.bufferIdx = 0
 	bm.limitFn = func() {}
 }
 
-func (bm *BenchEcho) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	ch, _ := c.Session().(chan report.EchoSession)
-	ch <- report.EchoSession{
-		MT:    mt,
-		Bytes: b,
-	}
-}
+// func (bm *BenchEcho) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
+// 	ch, _ := c.Session().(chan report.EchoSession)
+// 	ch <- report.EchoSession{
+// 		MT:    mt,
+// 		Bytes: b,
+// 	}
+// }
 
-func (bm *BenchEcho) getBuffer() []byte {
-	return bm.buffers[uint32(rand.Intn(len(bm.buffers)))%uint32(len(bm.buffers))]
+func (bm *BenchEcho) getWriteBuffer() []byte {
+	return bm.wbuffers[uint32(rand.Intn(len(bm.wbuffers)))%uint32(len(bm.wbuffers))]
 }
 
 func (bm *BenchEcho) doOnce() error {
@@ -203,18 +210,37 @@ func (bm *BenchEcho) doOnce() error {
 
 	bm.limitFn()
 
-	buffer := bm.getBuffer()
-	err := conn.WriteMessage(websocket.BinaryMessage, buffer)
+	wbuffer := bm.getWriteBuffer()
+	err := conn.WriteMessage(websocket.BinaryMessage, wbuffer)
 	if err != nil {
 		return err
 	}
-	chResponse := conn.Session().(chan report.EchoSession)
-	echo := <-chResponse
-	defer mempool.Free(echo.Bytes)
-	if echo.MT != websocket.BinaryMessage {
+
+	nread := 0
+	rbuffer := bm.rbufferPool.Get().(*[]byte)
+	defer bm.rbufferPool.Put(rbuffer)
+	readBuffer := *rbuffer
+	mt, reader, err := conn.NextReader()
+	if err != nil {
+		return err
+	}
+	for {
+		if nread == len(readBuffer) {
+			readBuffer = append(readBuffer, (*rbuffer)...)
+		}
+		n, err := reader.Read(readBuffer[nread:])
+		nread += n
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if mt != websocket.BinaryMessage {
 		return errors.New("invalid message type")
 	}
-	if !bytes.Equal(buffer, echo.Bytes) {
+	if !bytes.Equal(wbuffer, readBuffer[:nread]) {
 		return errors.New("respons data is not equal to origin")
 	}
 
