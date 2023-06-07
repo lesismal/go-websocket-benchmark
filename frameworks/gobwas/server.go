@@ -70,7 +70,7 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, _, _, err := ws.UpgradeHTTP(r, w)
+	c, brw, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		log.Printf("UpgradeHTTP failed: %v", err)
 		return
@@ -80,7 +80,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer c.Close()
 		for {
-			msg, op, err := wsutil.ReadClientData(c)
+			msg, op, err := wsutil.ReadClientData(brw)
 			if err != nil {
 				// log.Printf("read failed: %v", err)
 				return
