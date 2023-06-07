@@ -8,6 +8,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/benchecho"
+	"go-websocket-benchmark/mwsbench/benchrate"
 	"go-websocket-benchmark/mwsbench/connections"
 	"go-websocket-benchmark/mwsbench/report"
 )
@@ -21,7 +22,7 @@ var (
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
-	numConnections    = flag.Int("c", 5000, "client num")
+	numConnections    = flag.Int("c", 1, "client num")
 	dialConcurrency   = flag.Int("dc", 2000, "goroutine num")
 	dialTimeout       = flag.Duration("dt", 5*time.Second, "client dial timeout")
 	dialRetries       = flag.Int("dr", 5, "client dial retry count")
@@ -30,7 +31,7 @@ var (
 	// BenchEcho
 	echoConcurrency = flag.Int("bc", 50000, "goroutine num")
 	payload         = flag.Int("b", 1024, `payload size`)
-	echoTimes       = flag.Int("n", 1000000, `benchmark times`)
+	echoTimes       = flag.Int("n", 1000, `benchmark times`)
 	tpsLimit        = flag.Int("l", 0, `max benchmark tps`)
 
 	// for report generation
@@ -63,7 +64,7 @@ func main() {
 	cs.Run()
 	defer cs.Stop()
 
-	bm := benchecho.New(*framework, *echoTimes, *ip, cs.ConnsMap)
+	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns())
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
 	bm.Total = *echoTimes
@@ -71,17 +72,31 @@ func main() {
 	bm.Run()
 	defer bm.Stop()
 
+	br := benchrate.New(*framework, *echoTimes, *ip, cs.NBConns())
+	br.Concurrency = *echoConcurrency
+	br.Payload = *payload
+	br.Total = *echoTimes
+	br.Limit = *tpsLimit
+	br.Run()
+	defer br.Stop()
+
 	csReport := cs.Report()
 	report.ToFile(csReport, *preffix, *suffix)
 
 	bmReport := bm.Report()
 	report.ToFile(bmReport, *preffix, *suffix)
 
+	brReport := br.Report()
+	report.ToFile(brReport, *preffix, *suffix)
+
 	logging.Print(logging.ShortLine)
 	logging.Print(csReport.String())
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 	logging.Print(bmReport.String())
+	logging.Print("\n")
+	logging.Print(logging.ShortLine)
+	logging.Print(brReport.String())
 	logging.Print("\n")
 }
 

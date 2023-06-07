@@ -13,6 +13,7 @@ import (
 	"go-websocket-benchmark/mwsbench/report"
 
 	"github.com/gorilla/websocket"
+	"github.com/lesismal/nbio"
 	nblog "github.com/lesismal/nbio/logging"
 	"github.com/lesismal/nbio/nbhttp"
 	nbws "github.com/lesismal/nbio/nbhttp/websocket"
@@ -34,7 +35,7 @@ type Connections struct {
 	Failed  uint32
 
 	// All connected connections
-	ConnsMap map[*websocket.Conn]struct{}
+	connsMap map[*websocket.Conn]struct{}
 
 	Calculator *perf.Calculator
 
@@ -52,7 +53,7 @@ func New(framework, ip string, numConns int) *Connections {
 		Framework:      framework,
 		Ip:             ip,
 		NumConnections: numConns,
-		ConnsMap:       map[*websocket.Conn]struct{}{},
+		connsMap:       map[*websocket.Conn]struct{}{},
 	}
 }
 
@@ -89,13 +90,32 @@ func (cs *Connections) Run() {
 	<-logCone
 }
 
+func (cs *Connections) Conns() map[*websocket.Conn]struct{} {
+	return cs.connsMap
+}
+
 func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 	conns := map[*nbws.Conn]struct{}{}
+	for c := range cs.connsMap {
+		nbc, err := cs.Engine.AddConn(c.UnderlyingConn())
+		if err != nil {
+			logging.Fatalf("cs.Engine.AddConn failed: %v", err)
+		}
+		nbwsc := nbws.NewConn(cs.Upgrader, nbc, "", false, false)
+		parser := &nbhttp.Parser{
+			Execute: nbc.Execute,
+		}
+		nbc.OnData(func(v *nbio.Conn, data []byte) {
+			nbwsc.Read(parser, data)
+		})
+		conns[nbwsc] = struct{}{}
+	}
+	cs.connsMap = nil
 	return conns
 }
 
 func (cs *Connections) Stop() {
-	for c := range cs.ConnsMap {
+	for c := range cs.connsMap {
 		c.Close()
 	}
 	cs.Engine.Shutdown(context.Background())
@@ -180,10 +200,10 @@ func (cs *Connections) startEngine() {
 	}
 	cs.Engine = engine
 
-	// upgrader := websocket.NewUpgrader()
-	// upgrader.Engine = engine
-	// upgrader.OnMessage(func(c *websocket.Conn, mt websocket.MessageType, b []byte) {})
-	// cs.Upgrader = upgrader
+	upgrader := nbws.NewUpgrader()
+	upgrader.Engine = engine
+	upgrader.OnMessage(func(c *nbws.Conn, mt nbws.MessageType, b []byte) {})
+	cs.Upgrader = upgrader
 
 	time.Sleep(time.Second)
 }
@@ -207,7 +227,7 @@ begin:
 				conn.SetReadDeadline(time.Time{})
 				atomic.AddUint32(&cs.Success, 1)
 				cs.mux.Lock()
-				cs.ConnsMap[conn] = struct{}{}
+				cs.connsMap[conn] = struct{}{}
 				cs.mux.Unlock()
 				goto begin
 			}
