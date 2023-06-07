@@ -19,6 +19,12 @@ func init() {
 		header := typ.Field(i).Tag.Get("md")
 		BenchEchoReportMarkdownHeaders = append(BenchEchoReportMarkdownHeaders, header)
 	}
+
+	typ = reflect.TypeOf(BenchRateReport{})
+	for i := 0; i < typ.NumField(); i++ {
+		header := typ.Field(i).Tag.Get("md")
+		BenchRateReportMarkdownHeaders = append(BenchRateReportMarkdownHeaders, header)
+	}
 }
 
 func ObjFieldValues(obj interface{}) []string {
