@@ -152,12 +152,11 @@ func (br *BenchRate) init() {
 	br.wbuffer = make([]byte, br.Payload)
 	rand.Read(br.wbuffer)
 
-	window := 3
-	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap)*window)
+	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap)*br.ConnConcurrency)
 	for c := range br.ConnsMap {
 		c.OnMessage(br.onMessage)
 	}
-	for i := 0; i < window; i++ {
+	for i := 0; i < br.ConnConcurrency; i++ {
 		for c := range br.ConnsMap {
 			br.chConns <- c
 		}
