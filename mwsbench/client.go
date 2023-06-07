@@ -33,7 +33,7 @@ var (
 
 	// BenchEcho
 	echoConcurrency = flag.Int("ec", 50000, "benchecho: concurrency: how many goroutines used to do the echo test")
-	echoTimes       = flag.Int("en", 1000, `benchecho: benchmark times`)
+	echoTimes       = flag.Int("en", 2000000, `benchecho: benchmark times`)
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate

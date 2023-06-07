@@ -185,6 +185,9 @@ func (br *BenchRate) getWriteBuffer() []byte {
 
 func (br *BenchRate) doOnce() error {
 	conn := <-br.chConns
+	defer func() {
+		br.chConns <- conn
+	}()
 
 	br.limitFn()
 
@@ -202,5 +205,4 @@ func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []
 		atomic.AddInt64(&br.recvTimes, 1)
 		atomic.AddInt64(&br.recvBytes, int64(len(b)))
 	}
-	br.chConns <- c
 }
