@@ -85,11 +85,12 @@ func (br *BenchRate) Run() {
 		close(chCounterStart)
 	})
 
-	done := make(chan struct{}, 0)
+	done := make(chan struct{})
 	time.AfterFunc(time.Second*10, func() {
 		close(done)
 	})
 	for i := 0; i < br.Concurrency; i++ {
+		// for i := 0; i < 1; i++ {
 		go func() {
 			for {
 				select {
@@ -166,12 +167,14 @@ func (br *BenchRate) init() {
 		br.Percents = []int{50, 75, 90, 95, 99}
 	}
 
-	if br.Limit <= 0 {
-		br.Limit = 1000000
-	}
-	limiter := rate.NewLimiter(rate.Every(1*time.Second), br.Limit)
-	br.limitFn = func() {
-		limiter.Wait(context.Background())
+	// if br.Limit <= 0 {
+	// 	br.Limit = 500000
+	// }
+	if br.Limit > 0 {
+		limiter := rate.NewLimiter(rate.Every(1*time.Second), br.Limit)
+		br.limitFn = func() {
+			limiter.Wait(context.Background())
+		}
 	}
 
 	br.wbuffers = make([][]byte, 1024)
@@ -181,10 +184,15 @@ func (br *BenchRate) init() {
 		br.wbuffers[i] = buffer
 	}
 
-	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap))
+	window := 3
+	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap)*window)
 	for c := range br.ConnsMap {
 		c.OnMessage(br.onMessage)
-		br.chConns <- c
+	}
+	for i := 0; i < window; i++ {
+		for c := range br.ConnsMap {
+			br.chConns <- c
+		}
 	}
 
 	serverPid, err := config.GetFrameworkPid(br.Framework, br.Ip)
@@ -202,25 +210,17 @@ func (br *BenchRate) init() {
 
 func (br *BenchRate) clean() {
 	br.chConns = nil
-	br.wbuffers = nil
+	// br.wbuffers = nil
 	br.bufferIdx = 0
 	br.limitFn = func() {}
 }
 
-func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	atomic.AddInt64(&br.recvTimes, 1)
-	atomic.AddInt64(&br.recvBytes, int64(len(b)))
-}
-
 func (br *BenchRate) getWriteBuffer() []byte {
-	return br.wbuffers[uint32(rand.Intn(len(br.wbuffers)))%uint32(len(br.wbuffers))]
+	return br.wbuffers[atomic.AddUint32(&br.bufferIdx, 1)%uint32(len(br.wbuffers))]
 }
 
 func (br *BenchRate) doOnce() error {
 	conn := <-br.chConns
-	defer func() {
-		br.chConns <- conn
-	}()
 
 	br.limitFn()
 
@@ -229,5 +229,14 @@ func (br *BenchRate) doOnce() error {
 		atomic.AddInt64(&br.sendTimes, 1)
 		atomic.AddInt64(&br.sendBytes, int64(br.Payload))
 	}
+	// if err != nil {
+	// 	panic(err)
+	// }
 	return err
+}
+
+func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
+	atomic.AddInt64(&br.recvTimes, 1)
+	atomic.AddInt64(&br.recvBytes, int64(len(b)))
+	br.chConns <- c
 }

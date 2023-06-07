@@ -102,6 +102,7 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 			logging.Fatalf("cs.Engine.AddConn failed: %v", err)
 		}
 		nbwsc := nbws.NewConn(cs.Upgrader, nbc, "", false, false)
+		nbwsc.SetClient(true)
 		parser := &nbhttp.Parser{
 			Execute: nbc.Execute,
 		}
