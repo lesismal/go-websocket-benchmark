@@ -16,7 +16,7 @@ type BenchRateReport struct {
 	RecvTimes       int64   `json:"RecvTimes" md:"Packet Recv"`
 	RecvBytes       int64   `json:"RecvBytes" md:"Bytes Recv" fmt:"mem"`
 	Connections     int     `json:"Conns" md:"Conns"`
-	ConnConcurrency int     `json:"ConnConcurrency" md:"ConnConcurrency"`
+	ConnConcurrency int     `json:"ConnConcurrency" md:"ConnRate"`
 	Payload         int     `json:"Payload" md:"Payload"`
 	CPUMin          float64 `json:"CPUMin" md:"CPU Min" fmt:"cpu"`
 	CPUAvg          float64 `json:"CPUAvg" md:"CPU Avg" fmt:"cpu"`

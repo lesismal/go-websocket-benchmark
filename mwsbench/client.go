@@ -22,7 +22,7 @@ var (
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
-	numConnections    = flag.Int("c", 10000, "client: num of connections")
+	numConnections    = flag.Int("c", 5000, "client: num of connections")
 	dialConcurrency   = flag.Int("dc", 2000, "client: dial concurrency: how many goroutines used to do dialing")
 	dialTimeout       = flag.Duration("dt", 5*time.Second, "client: dial timeout")
 	dialRetries       = flag.Int("dr", 5, "client: dial retry times")
@@ -37,7 +37,7 @@ var (
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate
-	rateConnConcurrency = flag.Int("rc", 10, "benchrate: how many request message can be sent to 1 conn before response")
+	rateConnConcurrency = flag.Int("rc", 5, "benchrate: how many request message can be sent to 1 conn before response")
 	rateDuration        = flag.Duration("rd", time.Second*10, `benchrate: how long to spend to do the test`)
 	rateSendLimit       = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
