@@ -40,7 +40,7 @@ var (
 	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
 	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
 	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
-	rateSendRate    = flag.Int("rr", 50, "benchrate: how many request message can be sent to 1 conn every second")
+	rateSendRate    = flag.Int("rr", 100, "benchrate: how many request message can be sent to 1 conn every second")
 	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
 	// for report generation
