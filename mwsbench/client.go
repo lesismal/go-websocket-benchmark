@@ -37,9 +37,10 @@ var (
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate
-	rateConnConcurrency = flag.Int("rc", 5, "benchrate: how many request message can be sent to 1 conn before response")
-	rateDuration        = flag.Duration("rd", time.Second*10, `benchrate: how long to spend to do the test`)
-	rateSendLimit       = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
+	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
+	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
+	rateSendRate    = flag.Int("rr", 50, "benchrate: how many request message can be sent to 1 conn every second")
+	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
 	// for report generation
 	genReport = flag.Bool("r", false, `make report`)
@@ -80,9 +81,10 @@ func main() {
 	defer bm.Stop()
 
 	br := benchrate.New(*framework, *ip, cs.NBConns())
-	br.ConnConcurrency = *rateConnConcurrency
+	br.Concurrency = *rateConcurrency
+	br.Duration = time.Second * time.Duration(*rateDuration)
+	br.SendRate = *rateSendRate
 	br.Payload = *payload
-	br.Duration = *rateDuration
 	br.SendLimit = *rateSendLimit
 	br.Run()
 	defer br.Stop()

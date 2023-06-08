@@ -24,7 +24,6 @@ echo $line
 
 # echo $line
 
-./script/client.sh -f=nbio_nonblocking -c=1000000 -n=5000000 -b=1024
+./script/client.sh -f=nbio_nonblocking -c=1000000 -en=5000000 -b=1024 -rr=1
 
 # echo $line
-
