@@ -22,11 +22,10 @@ echo $line
 
 echo $line
 
-. ./script/clients.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
+. ./script/clients.sh -rate=true $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 # echo $line
 
 . ./script/report.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 echo $line
-
