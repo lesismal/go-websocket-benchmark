@@ -50,6 +50,12 @@ type BenchRate struct {
 	recvBytes int64
 }
 
+type Conn struct {
+	net.Conn
+	sendCnt int64
+	recvCnt int64
+}
+
 func New(framework string, ip string, connsMap map[*websocket.Conn]struct{}) *BenchRate {
 	bm := &BenchRate{
 		Framework: framework,
@@ -86,12 +92,16 @@ func (br *BenchRate) Run() {
 
 	wg := sync.WaitGroup{}
 
-	connTeams := make([][]net.Conn, br.Concurrency)
+	connTeams := make([][]*Conn, br.Concurrency)
 	cnt := 0
 	for wsc := range br.ConnsMap {
 		cnt++
 		idx := cnt % len(connTeams)
-		connTeams[idx] = append(connTeams[idx], wsc.Conn)
+		conn := &Conn{
+			Conn: wsc.Conn,
+		}
+		connTeams[idx] = append(connTeams[idx], conn)
+		wsc.SetSession(conn)
 	}
 	for i := 0; i < br.Concurrency; i++ {
 		wg.Add(1)
@@ -210,19 +220,24 @@ func (br *BenchRate) getWriteBuffer() []byte {
 	return br.wbuffer
 }
 
-func (br *BenchRate) doOnce(conns []net.Conn) {
+func (br *BenchRate) doOnce(conns []*Conn) {
 	for _, conn := range conns {
-		br.limitFn()
-		_, err := conn.Write(br.batchBuffer)
-		if err == nil {
-			atomic.AddInt64(&br.sendTimes, int64(br.batch))
-			atomic.AddInt64(&br.sendBytes, int64(br.batch*br.Payload))
+		if atomic.LoadInt64(&conn.sendCnt)-atomic.LoadInt64(&conn.recvCnt)+int64(br.batch) < int64(br.batch*5) {
+			br.limitFn()
+			_, err := conn.Write(br.batchBuffer)
+			if err == nil {
+				atomic.AddInt64(&br.sendTimes, int64(br.batch))
+				atomic.AddInt64(&br.sendBytes, int64(br.batch*br.Payload))
+				atomic.AddInt64(&conn.sendCnt, int64(br.batch))
+			}
 		}
 	}
 }
 
 func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
 	if mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
+		conn := c.Session().(*Conn)
+		atomic.AddInt64(&conn.recvCnt, 1)
 		atomic.AddInt64(&br.recvTimes, 1)
 		atomic.AddInt64(&br.recvBytes, int64(len(b)))
 	}
