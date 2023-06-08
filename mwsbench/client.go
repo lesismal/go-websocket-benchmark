@@ -77,6 +77,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 	logging.Print(csReport.String())
 	logging.Print("\n")
+	logging.Print(logging.ShortLine)
 
 	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns())
 	bm.Concurrency = *echoConcurrency
@@ -103,8 +104,10 @@ func main() {
 		defer br.Stop()
 		brReport := br.Report()
 		report.ToFile(brReport, *preffix, *suffix)
+		logging.Print(logging.ShortLine)
 		logging.Print(brReport.String())
 		logging.Print("\n")
+		logging.Print(logging.ShortLine)
 	}
 }
 
