@@ -43,7 +43,6 @@ func startServers(addrs []string) []*nettyws.Websocket {
 		serveMux.HandleFunc("/pid", onServerPid)
 
 		var ws = nettyws.NewWebsocket(
-			fmt.Sprintf("%s/ws", addr),
 			nettyws.WithServeMux(serveMux),
 			nettyws.WithBinary(),
 			nettyws.WithBufferSize(2048, 2048),
@@ -52,8 +51,9 @@ func startServers(addrs []string) []*nettyws.Websocket {
 		ws.OnData = func(conn nettyws.Conn, data []byte) {
 			conn.Write(data)
 		}
+		addr := fmt.Sprintf("%s/ws", addr)
 		go func() {
-			logging.Printf("server exit: %v", ws.Listen())
+			logging.Printf("server exit: %v", ws.Listen(addr))
 		}()
 	}
 	return svrs
