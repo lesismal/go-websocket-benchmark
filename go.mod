@@ -6,7 +6,7 @@ require (
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
-	github.com/go-netty/go-netty-ws v0.0.0-20230607133609-3a3e69113a1b
+	github.com/go-netty/go-netty-ws v0.0.0-20230609110133-51861cf6ab29
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
@@ -25,8 +25,8 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cloudwego/netpoll v0.3.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/go-netty/go-netty v1.4.0 // indirect
-	github.com/go-netty/go-netty-transport v1.4.0 // indirect
+	github.com/go-netty/go-netty v1.6.0 // indirect
+	github.com/go-netty/go-netty-transport v1.6.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
