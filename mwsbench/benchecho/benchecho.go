@@ -13,6 +13,7 @@ import (
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
 
 	"github.com/gorilla/websocket"
@@ -41,7 +42,8 @@ type BenchEcho struct {
 
 	ConnsMap map[*websocket.Conn]struct{}
 
-	wbuffers  [][]byte
+	pbuffers  [][]byte // payload buffers
+	wbuffers  [][]byte // send buffers
 	bufferIdx uint32
 
 	chConns chan *websocket.Conn
@@ -160,11 +162,13 @@ func (bm *BenchEcho) init() {
 		}
 	}
 
+	bm.pbuffers = make([][]byte, 1024)
 	bm.wbuffers = make([][]byte, 1024)
-	for i := 0; i < len(bm.wbuffers); i++ {
+	for i := 0; i < len(bm.pbuffers); i++ {
 		buffer := make([]byte, bm.Payload)
 		rand.Read(buffer)
-		bm.wbuffers[i] = buffer
+		bm.pbuffers[i] = buffer
+		bm.wbuffers[i] = protocol.EncodeClientMessage(websocket.BinaryMessage, buffer)
 	}
 
 	bm.chConns = make(chan *websocket.Conn, len(bm.ConnsMap))
@@ -193,8 +197,9 @@ func (bm *BenchEcho) clean() {
 	bm.limitFn = func() {}
 }
 
-func (bm *BenchEcho) getWriteBuffer() []byte {
-	return bm.wbuffers[uint32(rand.Intn(len(bm.wbuffers)))%uint32(len(bm.wbuffers))]
+func (bm *BenchEcho) getBuffers() ([]byte, []byte) {
+	idx := uint32(rand.Intn(len(bm.wbuffers))) % uint32(len(bm.wbuffers))
+	return bm.pbuffers[idx], bm.wbuffers[idx]
 }
 
 func (bm *BenchEcho) doOnce() error {
@@ -205,8 +210,8 @@ func (bm *BenchEcho) doOnce() error {
 
 	bm.limitFn()
 
-	wbuffer := bm.getWriteBuffer()
-	err := conn.WriteMessage(websocket.BinaryMessage, wbuffer)
+	pbuffer, wbuffer := bm.getBuffers()
+	_, err := conn.UnderlyingConn().Write(wbuffer)
 	if err != nil {
 		return err
 	}
@@ -235,7 +240,7 @@ func (bm *BenchEcho) doOnce() error {
 	if mt != websocket.BinaryMessage {
 		return errors.New("invalid message type")
 	}
-	if !bytes.Equal(wbuffer, readBuffer[:nread]) {
+	if !bytes.Equal(pbuffer, readBuffer[:nread]) {
 		return errors.New("respons data is not equal to origin")
 	}
 
