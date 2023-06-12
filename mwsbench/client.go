@@ -37,9 +37,11 @@ var (
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate
-	rateConnConcurrency = flag.Int("rc", 5, "benchrate: how many request message can be sent to 1 conn before response")
-	rateDuration        = flag.Duration("rd", time.Second*10, `benchrate: how long to spend to do the test`)
-	rateSendLimit       = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
+	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
+	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
+	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
+	rateSendRate    = flag.Int("rr", 100, "benchrate: how many request message can be sent to 1 conn every second")
+	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
 	// for report generation
 	genReport = flag.Bool("r", false, `make report`)
@@ -70,6 +72,12 @@ func main() {
 	cs.RetryInterval = *dialRetryInterval
 	cs.Run()
 	defer cs.Stop()
+	csReport := cs.Report()
+	report.ToFile(csReport, *preffix, *suffix)
+	logging.Print(logging.ShortLine)
+	logging.Print(csReport.String())
+	logging.Print("\n")
+	logging.Print(logging.ShortLine)
 
 	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns())
 	bm.Concurrency = *echoConcurrency
@@ -78,33 +86,29 @@ func main() {
 	bm.Limit = *echoTPSLimit
 	bm.Run()
 	defer bm.Stop()
-
-	br := benchrate.New(*framework, *ip, cs.NBConns())
-	br.ConnConcurrency = *rateConnConcurrency
-	br.Payload = *payload
-	br.Duration = *rateDuration
-	br.SendLimit = *rateSendLimit
-	br.Run()
-	defer br.Stop()
-
-	csReport := cs.Report()
-	report.ToFile(csReport, *preffix, *suffix)
-
 	bmReport := bm.Report()
 	report.ToFile(bmReport, *preffix, *suffix)
-
-	brReport := br.Report()
-	report.ToFile(brReport, *preffix, *suffix)
-
-	logging.Print(logging.ShortLine)
-	logging.Print(csReport.String())
-	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 	logging.Print(bmReport.String())
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
-	logging.Print(brReport.String())
-	logging.Print("\n")
+
+	if *rateEnabled {
+		br := benchrate.New(*framework, *ip, cs.NBConns())
+		br.Concurrency = *rateConcurrency
+		br.Duration = time.Second * time.Duration(*rateDuration)
+		br.SendRate = *rateSendRate
+		br.Payload = *payload
+		br.SendLimit = *rateSendLimit
+		br.Run()
+		defer br.Stop()
+		brReport := br.Report()
+		report.ToFile(brReport, *preffix, *suffix)
+		logging.Print(logging.ShortLine)
+		logging.Print(brReport.String())
+		logging.Print("\n")
+		logging.Print(logging.ShortLine)
+	}
 }
 
 func generateReports() {
@@ -127,7 +131,7 @@ func generateReports() {
 	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
-	logging.Printf("[%BenchRate%v] Report\n", *preffix, *suffix)
+	logging.Printf("[%vBenchRate%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
 	logging.Print(logging.LongLine)
 }
