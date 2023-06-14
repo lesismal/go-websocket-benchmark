@@ -11,7 +11,7 @@ require (
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.3.17-0.20230607071043-3f051fa22d15
+	github.com/lesismal/nbio v1.3.17-0.20230614094246-14330a308627
 	github.com/lesismal/perf v0.0.0-20230606082148-9c91a5b8290c
 	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.5.3
