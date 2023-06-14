@@ -14,20 +14,23 @@ import (
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
+	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mrb", 4096, `max read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	payload = flag.Int("b", 1024, `read buffer size`)
+	_       = flag.Int("mrb", 4096, `max read buffer size`)
+	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.NewUpgrader()
 )
 
 func main() {
 	flag.Parse()
+
+	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
 
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
