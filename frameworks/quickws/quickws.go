@@ -14,32 +14,22 @@ import (
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
-	"github.com/lesismal/nbio/mempool"
-	"github.com/lesismal/nbio/nbhttp/websocket"
+	"github.com/antlabs/quickws"
 )
 
 var (
-	payload = flag.Int("b", 1024, `read buffer size`)
-	_       = flag.Int("mrb", 4096, `max read buffer size`)
-	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
-
-	upgrader = websocket.NewUpgrader()
+	_ = flag.Int("b", 1024, `read buffer size`)
+	_ = flag.Int("mrb", 4096, `max read buffer size`)
+	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
 	flag.Parse()
 
-	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
-
-	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
-		c.WriteMessage(messageType, data)
-	})
-	upgrader.BlockingModAsyncWrite = false
-
-	addrs, err := config.GetFrameworkServerAddrs(config.NbioStd)
+	addrs, err := config.GetFrameworkServerAddrs(config.Quickws)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioStd, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Quickws, err)
 	}
 	lns := startServers(addrs)
 
@@ -78,10 +68,24 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
+	c, err := quickws.Upgrade(w, r,
+		// quickws.WithServerDecompression(),
+		// quickws.WithServerIgnorePong(),
+		quickws.WithServerCallback(&Handler{}),
+		quickws.WithServerReadTimeout(5*time.Second),
+	)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	c.SetReadDeadline(time.Time{})
+	//c.SetReadDeadline(time.Time{})
+	c.ReadLoop()
+}
+
+type Handler struct {
+	quickws.DefCallback
+}
+
+func (h *Handler) OnMessage(c *quickws.Conn, op quickws.Opcode, msg []byte) {
+	_ = c.WriteMessage(op, msg)
 }

@@ -90,12 +90,12 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		for {
 			mt, message, err := c.ReadMessage()
 			if err != nil {
-				// log.Printf("read message failed: %v", err)
+				log.Printf("read message failed: %v", err)
 				return
 			}
 			err = c.WriteMessage(mt, message)
 			if err != nil {
-				// log.Printf("write failed: %v", err)
+				log.Printf("write failed: %v", err)
 				return
 			}
 		}
@@ -107,7 +107,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, reader, err := c.NextReader()
 		if err != nil {
-			// log.Printf("read failed: %v", err)
+			log.Printf("read failed: %v", err)
 			return
 		}
 		for {
@@ -123,7 +123,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		err = c.WriteMessage(mt, readBuffer[:nread])
 		nread = 0
 		if err != nil {
-			// log.Printf("write failed: %v", err)
+			log.Printf("write failed: %v", err)
 			return
 		}
 	}

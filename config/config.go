@@ -22,6 +22,7 @@ const (
 	NbioStd            = "nbio_std"
 	GoNettyWs          = "nettyws"
 	Nhooyr             = "nhooyr"
+	Quickws            = "quickws"
 )
 
 var Ports = map[string]string{
@@ -38,6 +39,7 @@ var Ports = map[string]string{
 	NbioStd:            "20001:20050",
 	GoNettyWs:          "21001:21050",
 	Nhooyr:             "22001:22050",
+	Quickws:            "23001:23050",
 }
 
 var FrameworkList = []string{
@@ -54,6 +56,7 @@ var FrameworkList = []string{
 	NbioStd,
 	GoNettyWs,
 	Nhooyr,
+	Quickws,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
