@@ -14,7 +14,7 @@ require (
 	github.com/lesismal/nbio v1.3.17-0.20230614094246-14330a308627
 	github.com/lesismal/perf v0.0.0-20230606082148-9c91a5b8290c
 	github.com/libp2p/go-reuseport v0.3.0
-	github.com/lxzan/gws v1.5.3
+	github.com/lxzan/gws v1.6.0
 	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7
 )
@@ -34,7 +34,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/henrylee2cn/ameda v1.4.10 // indirect
 	github.com/henrylee2cn/goutil v0.0.0-20210127050712-89660552f6f8 // indirect
-	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/compress v1.16.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.14 // indirect
 	github.com/lesismal/llib v1.1.12 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
