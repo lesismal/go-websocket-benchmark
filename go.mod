@@ -3,14 +3,15 @@ module go-websocket-benchmark
 go 1.19
 
 require (
+	github.com/antlabs/quickws v0.0.8-0.20230614150852-d3ec7cc65ecb
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
-	github.com/go-netty/go-netty-ws v0.0.0-20230602062057-8b582e1ac4a5
+	github.com/go-netty/go-netty-ws v0.0.0-20230614121829-93079e5c1a9e
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.3.17-0.20230602053808-bded71394a33
+	github.com/lesismal/nbio v1.3.17-0.20230614094246-14330a308627
 	github.com/lesismal/perf v0.0.0-20230606082148-9c91a5b8290c
 	github.com/libp2p/go-reuseport v0.3.0
 	github.com/lxzan/gws v1.6.0
@@ -25,8 +26,8 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cloudwego/netpoll v0.3.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/go-netty/go-netty v1.2.0 // indirect
-	github.com/go-netty/go-netty-transport v1.2.0 // indirect
+	github.com/go-netty/go-netty v1.6.2 // indirect
+	github.com/go-netty/go-netty-transport v1.6.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect

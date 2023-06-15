@@ -35,7 +35,7 @@ for f in ${frameworks[@]}; do
                 # echo $line
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
-                . ./script/client.sh -f=$f -c=$c -b=$b -n=$n -suffix=${suffix}
+                . ./script/client.sh -f=$f -c=$c -b=$b -n=$n -suffix=${suffix} -rate=true
                 sleep $SleepTime
             done
         done
@@ -53,4 +53,3 @@ for c in ${Connections[@]}; do
     done
 done
 # echo $line
-
