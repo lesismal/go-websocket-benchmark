@@ -68,10 +68,10 @@ github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aev
 github.com/go-errors/errors v1.0.1/go.mod h1:f4zRHt4oKfwPJE5k8C9vpYG+aDHdBFUsgrm6/TyX73Q=
 github.com/go-netty/go-netty v1.6.2 h1:5iDpr1K0QRsER9YP4HVIxGH+kzZHH8g/0q9Q2HNE/r0=
 github.com/go-netty/go-netty v1.6.2/go.mod h1:6JFBrWKbLTnPA6BOruhWCcXifoalc4TqqMqXZ1760Mw=
-github.com/go-netty/go-netty-transport v1.6.3 h1:H3HIvulpO4lQzCNqBBLelz+mnBE4jTbaSRlzp9mxa2g=
-github.com/go-netty/go-netty-transport v1.6.3/go.mod h1:PxmYY0I6UDZKjG78aAP4SCAHBFEHvu0bz/veT+qglmA=
-github.com/go-netty/go-netty-ws v0.0.0-20230614121829-93079e5c1a9e h1:lHtgpRtw3lAdlc3918BnkysGMgvhgVurQPmuIkIgHVI=
-github.com/go-netty/go-netty-ws v0.0.0-20230614121829-93079e5c1a9e/go.mod h1:50mYXZqRPnszC4EdyDVFG8MrrjA0fILvO9xFtV4COmg=
+github.com/go-netty/go-netty-transport v1.6.4 h1:FyiGDouYcIFF+0AGD3v1C+3QGFd5vu6l/m1844Mgsgw=
+github.com/go-netty/go-netty-transport v1.6.4/go.mod h1:PxmYY0I6UDZKjG78aAP4SCAHBFEHvu0bz/veT+qglmA=
+github.com/go-netty/go-netty-ws v0.0.0-20230619104314-e65544ee576a h1:9Qse6Dj9D9JWXPOa6/pESVvhycdGNoZGdEs0hsNiwok=
+github.com/go-netty/go-netty-ws v0.0.0-20230619104314-e65544ee576a/go.mod h1:qOJdAiQb0M6cLExiQek94PR6ycjXYMpc+uNGO44Ar4Q=
 github.com/go-ole/go-ole v1.2.6 h1:/Fpf6oFPoeFik9ty7siob0G6Ke8QvQEuVcuChpwXzpY=
 github.com/go-ole/go-ole v1.2.6/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=
 github.com/go-playground/assert/v2 v2.0.1/go.mod h1:VDjEfimB/XKnb+ZQfWdccd7VUvScMdVu0Titje2rxJ4=
@@ -156,8 +156,6 @@ github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
-github.com/klauspost/compress v1.16.5 h1:IFV2oUNUzZaz+XyusxpLzpzS8Pt5rh0Z16For/djlyI=
-github.com/klauspost/compress v1.16.5/go.mod h1:ntbaceVETuRiXiv4DpjP66DpAtAGkEQskQzEyD//IeE=
 github.com/klauspost/compress v1.16.6 h1:91SKEy4K37vkp255cJ8QesJhjyRO0hn9i9G0GoUwLsk=
 github.com/klauspost/compress v1.16.6/go.mod h1:ntbaceVETuRiXiv4DpjP66DpAtAGkEQskQzEyD//IeE=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
@@ -180,8 +178,6 @@ github.com/libp2p/go-reuseport v0.3.0 h1:iiZslO5byUYZEg9iCwJGf5h+sf1Agmqx2V2FDjP
 github.com/libp2p/go-reuseport v0.3.0/go.mod h1:laea40AimhtfEqysZ71UpYj4S+R9VpH8PgqLo7L+SwI=
 github.com/lucas-clemente/quic-go v0.28.0/go.mod h1:oGz5DKK41cJt5+773+BSO9BXDsREY4HLf7+0odGAPO0=
 github.com/lunixbochs/vtclean v1.0.0/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm/+2c2E2WMI=
-github.com/lxzan/gws v1.5.3 h1:1dV/9mkTQRtOLb1Fse90+Mb9e3G8chZ6BLmShW3fBEc=
-github.com/lxzan/gws v1.5.3/go.mod h1:dsC6S7kJNh+iWqqu2HiO8tnNCji04HwyJCYfTOS+6iY=
 github.com/lxzan/gws v1.6.0 h1:2H8PyjBxqsknMOdBYRBVkWqTp/6ruohiuhuDBh1thwk=
 github.com/lxzan/gws v1.6.0/go.mod h1:dsC6S7kJNh+iWqqu2HiO8tnNCji04HwyJCYfTOS+6iY=
 github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
