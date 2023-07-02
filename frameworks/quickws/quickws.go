@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
+
+	//"time"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
@@ -71,14 +72,15 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, err := quickws.Upgrade(w, r,
 		// quickws.WithServerDecompression(),
 		// quickws.WithServerIgnorePong(),
+		quickws.WithWindowsMultipleTimesPayloadSize(2.0),
 		quickws.WithServerCallback(&Handler{}),
-		quickws.WithServerReadTimeout(5*time.Second),
+		// quickws.WithServerReadTimeout(5*time.Second),
 	)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	//c.SetReadDeadline(time.Time{})
+	// c.SetReadDeadline(time.Time{})
 	c.ReadLoop()
 }
 
