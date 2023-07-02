@@ -1,9 +1,9 @@
 module go-websocket-benchmark
 
-go 1.19
+go 1.20
 
 require (
-	github.com/antlabs/quickws v0.0.8-0.20230614150852-d3ec7cc65ecb
+	github.com/antlabs/quickws v0.0.8-0.20230701114026-a7de5b82f1b6
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
@@ -21,6 +21,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/antlabs/wsutil v0.0.6 // indirect
 	github.com/bytedance/go-tagexpr/v2 v2.9.2 // indirect
 	github.com/bytedance/sonic v1.8.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
