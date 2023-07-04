@@ -81,7 +81,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// c.SetReadDeadline(time.Time{})
-	c.ReadLoop()
+	c.StartReadLoop()
 }
 
 type Handler struct {
