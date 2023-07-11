@@ -86,6 +86,8 @@ func (h *Handler) OnOpen(c *gws.Conn) {
 }
 
 func (h *Handler) OnMessage(c *gws.Conn, message *gws.Message) {
-	defer message.Close()
-	_ = c.WriteMessage(message.Opcode, message.Bytes())
+	c.PushTask(func() {
+		_ = c.WriteMessage(message.Opcode, message.Bytes())
+		_ = message.Close()
+	})
 }
