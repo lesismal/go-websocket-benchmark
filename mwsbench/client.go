@@ -41,6 +41,7 @@ var (
 	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
 	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
 	rateSendRate    = flag.Int("rr", 100, "benchrate: how many request message can be sent to 1 conn every second")
+	rateBatchSize   = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
 	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
 	// for report generation
@@ -98,6 +99,7 @@ func main() {
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate
+		br.BatchSize = *rateBatchSize
 		br.Payload = *payload
 		br.SendLimit = *rateSendLimit
 		br.Run()

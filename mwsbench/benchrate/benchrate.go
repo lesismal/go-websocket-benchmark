@@ -25,6 +25,7 @@ type BenchRate struct {
 	Duration    time.Duration
 	Concurrency int
 	SendRate    int
+	BatchSize   int
 	Payload     int
 	SendLimit   int
 	PsInterval  time.Duration
@@ -172,7 +173,7 @@ func (br *BenchRate) init() {
 	br.wbuffer = make([]byte, br.Payload)
 	rand.Read(br.wbuffer)
 	message := protocol.EncodeClientMessage(websocket.BinaryMessage, br.wbuffer)
-	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, 1024*8)
+	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, br.BatchSize)
 	// br.batchBuffer, br.batch, br.tickRate = message, 1, br.SendRate
 	if br.tickRate <= 0 || len(br.batchBuffer) == 0 {
 		logging.Fatalf("BenchRate get wrong tickRate: %v, or batchBuffer: %v", br.tickRate, len(br.batchBuffer))
