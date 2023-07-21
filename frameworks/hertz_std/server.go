@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -21,6 +22,7 @@ import (
 )
 
 var (
+	nodelay           = flag.Bool("nodelay", true, `tcp nodelay`)
 	readBufferSize    = flag.Int("b", 1024, `read buffer size`)
 	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
 	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
@@ -75,7 +77,8 @@ func onServerPid(c context.Context, ctx *app.RequestContext) {
 
 func onWebsocket(c context.Context, ctx *app.RequestContext) {
 	upgradeErr := upgrader.Upgrade(ctx, func(c *websocket.Conn) {
-		_ = c.SetReadDeadline(time.Time{})
+		frameworks.SetNoDelay(c.NetConn(), *nodelay)
+		c.SetReadDeadline(time.Time{})
 		defer c.Close()
 
 		// avoid connections hold large buffer

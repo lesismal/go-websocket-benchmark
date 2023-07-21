@@ -21,6 +21,7 @@ import (
 )
 
 var (
+	nodelay  = flag.Bool("nodelay", true, `tcp nodelay`)
 	payload  = flag.Int("b", 1024, `read buffer size`)
 	_        = flag.Int("mrb", 4096, `max read buffer size`)
 	memLimit = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
@@ -85,5 +86,6 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
+	frameworks.SetNoDelay(c.Conn, *nodelay)
 	c.SetReadDeadline(time.Time{})
 }

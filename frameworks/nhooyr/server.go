@@ -19,6 +19,7 @@ import (
 )
 
 var (
+	nodelay           = flag.Bool("nodelay", true, `tcp nodelay`)
 	readBufferSize    = flag.Int("b", 1024, `read buffer size`)
 	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
 	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
@@ -57,6 +58,11 @@ func startServers(addrs []string) []net.Listener {
 		server := http.Server{
 			Addr:    addr,
 			Handler: mux,
+			ConnState: func(c net.Conn, state http.ConnState) {
+				if http.StateHijacked == state {
+					frameworks.SetNoDelay(c, *nodelay)
+				}
+			},
 		}
 		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
@@ -79,6 +85,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	// frameworks.SetNoDelay(c.Reader(context.Background())., *nodelay)
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
 	if *readBufferSize > *maxReadBufferSize {
