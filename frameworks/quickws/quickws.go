@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	//"time"
 
@@ -19,10 +20,11 @@ import (
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mrb", 4096, `max read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	nodelay = flag.Bool("nodelay", true, `tcp nodelay`)
+	_       = flag.Int("b", 1024, `read buffer size`)
+	_       = flag.Int("mrb", 4096, `max read buffer size`)
+	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
@@ -51,6 +53,11 @@ func startServers(addrs []string) []net.Listener {
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,
+			ConnState: func(c net.Conn, state http.ConnState) {
+				if http.StateHijacked == state {
+					frameworks.SetNoDelay(c, *nodelay)
+				}
+			},
 		}
 		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
@@ -80,7 +87,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	// c.SetReadDeadline(time.Time{})
+	c.SetDeadline(time.Time{})
 	c.StartReadLoop()
 }
 

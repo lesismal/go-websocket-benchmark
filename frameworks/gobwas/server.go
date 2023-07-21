@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mrb", 4096, `max read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	nodelay = flag.Bool("nodelay", true, `tcp nodelay`)
+	_       = flag.Int("b", 1024, `read buffer size`)
+	_       = flag.Int("mrb", 4096, `max read buffer size`)
+	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
@@ -75,7 +76,7 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("UpgradeHTTP failed: %v", err)
 		return
 	}
-
+	frameworks.SetNoDelay(c, *nodelay)
 	c.SetReadDeadline(time.Time{})
 	go func() {
 		defer c.Close()

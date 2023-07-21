@@ -18,10 +18,11 @@ import (
 )
 
 var (
-	_ = flag.Int("b", 1024, `read buffer size`)
-	_ = flag.Int("mrb", 4096, `max read buffer size`)
-	_ = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
-	_ = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	nodelay = flag.Bool("nodelay", true, `tcp nodelay`)
+	_       = flag.Int("b", 1024, `read buffer size`)
+	_       = flag.Int("mrb", 4096, `max read buffer size`)
+	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
 func main() {
@@ -82,6 +83,7 @@ type Handler struct {
 }
 
 func (h *Handler) OnOpen(c *gws.Conn) {
+	frameworks.SetNoDelay(c.NetConn(), *nodelay)
 	c.SetReadDeadline(time.Time{})
 }
 
