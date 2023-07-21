@@ -70,10 +70,10 @@ github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aev
 github.com/go-errors/errors v1.0.1/go.mod h1:f4zRHt4oKfwPJE5k8C9vpYG+aDHdBFUsgrm6/TyX73Q=
 github.com/go-netty/go-netty v1.6.3 h1:bx1G6T24tBEbZNleotXDg7a0nnDMO7dPNyHnf1aplTE=
 github.com/go-netty/go-netty v1.6.3/go.mod h1:6JFBrWKbLTnPA6BOruhWCcXifoalc4TqqMqXZ1760Mw=
-github.com/go-netty/go-netty-transport v1.7.1 h1:2sTkr7c5keqmPzXxLFLW0E41sJdRjs30dfl/YgRmarw=
-github.com/go-netty/go-netty-transport v1.7.1/go.mod h1:Yd5N7u9wG6XGI2S5sIOi5XRkUgUgDcDfnl0PCCAa9U0=
-github.com/go-netty/go-netty-ws v0.0.0-20230713083910-f26cb56ec066 h1:M+Tlz+uOmoHGt3yQh/VXa2Tyjuxs57JI4bnaGldSfEA=
-github.com/go-netty/go-netty-ws v0.0.0-20230713083910-f26cb56ec066/go.mod h1:Z2Ha9cErGUcH11mT3U3OBIxrenCjfWttm17kaFumjnE=
+github.com/go-netty/go-netty-transport v1.7.2 h1:bYi9eNuX00kVfcIgxt8LjD5qLUrdh/6UKUnwVm5F5lw=
+github.com/go-netty/go-netty-transport v1.7.2/go.mod h1:Yd5N7u9wG6XGI2S5sIOi5XRkUgUgDcDfnl0PCCAa9U0=
+github.com/go-netty/go-netty-ws v0.0.0-20230721103817-77540a7051d8 h1:JIhfZrCGe0d/DeGHi+zZjfPWRVgnrDsILnoAtCVGXq4=
+github.com/go-netty/go-netty-ws v0.0.0-20230721103817-77540a7051d8/go.mod h1:cPqhq2XdjX6GxvxNO0oBOLoM+SvThbD1IRDJvve9OEA=
 github.com/go-ole/go-ole v1.2.6 h1:/Fpf6oFPoeFik9ty7siob0G6Ke8QvQEuVcuChpwXzpY=
 github.com/go-ole/go-ole v1.2.6/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=
 github.com/go-playground/assert/v2 v2.0.1/go.mod h1:VDjEfimB/XKnb+ZQfWdccd7VUvScMdVu0Titje2rxJ4=
