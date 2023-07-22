@@ -46,6 +46,7 @@ func startServers(addrs []string) []*nettyws.Websocket {
 		var ws = nettyws.NewWebsocket(
 			nettyws.WithServeMux(serveMux),
 			nettyws.WithBinary(),
+			nettyws.WithNoDelay(*nodelay),
 			nettyws.WithBufferSize(2048, 0),
 		)
 		svrs = append(svrs, ws)
