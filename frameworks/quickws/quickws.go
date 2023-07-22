@@ -27,8 +27,20 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
+var upgrader *quickws.UpgradeServer
+
 func main() {
 	flag.Parse()
+
+	opt := []quickws.ServerOption{
+		// quickws.WithServerIgnorePong(),
+		quickws.WithServerCallback(&Handler{}),
+	}
+
+	if !*nodelay {
+		opt = append(opt, quickws.WithServerTCPDelay())
+	}
+	upgrader = quickws.NewUpgrade(opt...)
 
 	addrs, err := config.GetFrameworkServerAddrs(config.Quickws)
 	if err != nil {
@@ -53,11 +65,6 @@ func startServers(addrs []string) []net.Listener {
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,
-			ConnState: func(c net.Conn, state http.ConnState) {
-				if http.StateHijacked == state {
-					frameworks.SetNoDelay(c, *nodelay)
-				}
-			},
 		}
 		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
@@ -76,13 +83,7 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := quickws.Upgrade(w, r,
-		// quickws.WithServerDecompression(),
-		// quickws.WithServerIgnorePong(),
-		quickws.WithWindowsMultipleTimesPayloadSize(2.0),
-		quickws.WithServerCallback(&Handler{}),
-		// quickws.WithServerReadTimeout(5*time.Second),
-	)
+	c, err := upgrader.Upgrade(w, r)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return
