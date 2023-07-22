@@ -7,7 +7,7 @@ require (
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
-	github.com/go-netty/go-netty-ws v0.0.0-20230721103817-77540a7051d8
+	github.com/go-netty/go-netty-ws v0.0.0-20230722044636-bc79ae960cbb
 	github.com/gobwas/ws v1.2.1
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
