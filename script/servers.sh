@@ -5,5 +5,6 @@
 # start all servers together, else it would hard to bind addr and start failed after some benchmark
 for f in ${frameworks[@]}; do
     echo
-    ./script/server.sh $f
+    # $1 nodelay
+    ./script/server.sh $f $1
 done

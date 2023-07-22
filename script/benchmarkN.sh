@@ -23,7 +23,7 @@ echo $line
 
 . ./script/killall.sh
 sleep 1
-. ./script/servers.sh
+. ./script/servers.sh $1
 sleep 2
 echo $line
 for f in ${frameworks[@]}; do

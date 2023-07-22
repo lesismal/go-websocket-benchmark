@@ -32,7 +32,6 @@ func main() {
 	flag.Parse()
 
 	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
-
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})

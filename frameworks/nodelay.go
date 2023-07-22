@@ -5,8 +5,8 @@ import (
 )
 
 func SetNoDelay(c net.Conn, nodelay bool) {
-	cc, ok := c.(interface{ SetNodelay(bool) error })
+	cc, ok := c.(interface{ SetNoDelay(bool) error })
 	if ok {
-		cc.SetNodelay(nodelay)
+		cc.SetNoDelay(nodelay)
 	}
 }
