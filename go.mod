@@ -14,7 +14,7 @@ require (
 	github.com/lesismal/nbio v1.3.17-0.20230614094246-14330a308627
 	github.com/lesismal/perf v0.0.0-20230606082148-9c91a5b8290c
 	github.com/libp2p/go-reuseport v0.3.0
-	github.com/lxzan/gws v1.6.1
+	github.com/lxzan/gws v1.6.2
 	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7
 )
