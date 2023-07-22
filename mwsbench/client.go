@@ -14,6 +14,8 @@ import (
 )
 
 var (
+	_ = flag.Bool("nodelay", true, `tcp nodelay`)
+
 	// Client Proc
 	memLimit = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
 

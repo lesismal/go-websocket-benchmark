@@ -18,7 +18,8 @@ echo $line
 
 echo $line
 
-. ./script/servers.sh
+# $1 nodelay
+. ./script/servers.sh $1
 
 echo $line
 

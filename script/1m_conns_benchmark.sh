@@ -20,7 +20,7 @@ echo $line
 
 echo $line
 
-. ./script/server.sh nbio_nonblocking
+. ./script/server.sh nbio_nonblocking $1
 
 # echo $line
 
