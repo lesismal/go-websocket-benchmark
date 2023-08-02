@@ -86,6 +86,6 @@ type Handler struct {
 }
 
 func (h *Handler) OnMessage(c *gws.Conn, message *gws.Message) {
-	defer message.Close()
 	_ = c.WriteMessage(message.Opcode, message.Bytes())
+	_ = message.Close()
 }
