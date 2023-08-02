@@ -238,7 +238,15 @@ func (br *BenchRate) doOnce(conns []*Conn) {
 }
 
 func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	if br.checkValid && mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
+	if !br.checkValid {
+		conn := c.Session().(*Conn)
+		atomic.AddInt64(&conn.recvCnt, 1)
+		atomic.AddInt64(&br.recvTimes, 1)
+		atomic.AddInt64(&br.recvBytes, int64(len(b)))
+		return
+	}
+
+	if mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
 		conn := c.Session().(*Conn)
 		atomic.AddInt64(&conn.recvCnt, 1)
 		atomic.AddInt64(&br.recvTimes, 1)
