@@ -3,7 +3,7 @@ module go-websocket-benchmark
 go 1.20
 
 require (
-	github.com/antlabs/quickws v0.0.8
+	github.com/antlabs/quickws v0.0.9
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3

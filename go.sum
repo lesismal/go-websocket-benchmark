@@ -11,8 +11,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
-github.com/antlabs/quickws v0.0.8 h1:32xgCekkjTS4/NMJnSlILPSKb0+ve9aiUlr2ekQOk7U=
-github.com/antlabs/quickws v0.0.8/go.mod h1:o+WlC1rP6sjV52pp2Ofr7aD2EkelHQFf4E21EaXM6/M=
+github.com/antlabs/quickws v0.0.9 h1:KwnLT7HwdsWl2HixVumJpy79w2xkUgoqI1BgOg0ilu0=
+github.com/antlabs/quickws v0.0.9/go.mod h1:o+WlC1rP6sjV52pp2Ofr7aD2EkelHQFf4E21EaXM6/M=
 github.com/antlabs/wsutil v0.0.11 h1:T4pTMroxn3VXrDZyj5LvvidXbabaARzQYHQj3rySD3o=
 github.com/antlabs/wsutil v0.0.11/go.mod h1:7ec5eUM7nmKW+Oi6F1I58iatOeL9k+yIsfOh1zh910g=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
