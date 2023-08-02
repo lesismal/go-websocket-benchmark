@@ -39,7 +39,8 @@ type BenchRate struct {
 
 	chConns chan *websocket.Conn
 
-	limitFn func()
+	limitFn    func()
+	checkValid bool
 
 	batch       int
 	batchBuffer []byte
@@ -57,12 +58,13 @@ type Conn struct {
 	recvCnt int64
 }
 
-func New(framework string, ip string, connsMap map[*websocket.Conn]struct{}) *BenchRate {
+func New(framework string, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
 	bm := &BenchRate{
-		Framework: framework,
-		Ip:        ip,
-		ConnsMap:  connsMap,
-		limitFn:   func() {},
+		Framework:  framework,
+		Ip:         ip,
+		ConnsMap:   connsMap,
+		limitFn:    func() {},
+		checkValid: checkValid,
 	}
 	return bm
 }
@@ -236,7 +238,7 @@ func (br *BenchRate) doOnce(conns []*Conn) {
 }
 
 func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	if mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
+	if br.checkValid && mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
 		conn := c.Session().(*Conn)
 		atomic.AddInt64(&conn.recvCnt, 1)
 		atomic.AddInt64(&br.recvTimes, 1)

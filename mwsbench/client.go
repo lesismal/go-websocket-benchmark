@@ -24,14 +24,15 @@ var (
 	ip        = flag.String("ip", "127.0.0.1", `ip, e.g. "127.0.0.1"`)
 
 	// Connection
-	numConnections    = flag.Int("c", 10000, "client: num of connections")
+	numConnections    = flag.Int("c", 1000, "client: num of connections")
 	dialConcurrency   = flag.Int("dc", 2000, "client: dial concurrency: how many goroutines used to do dialing")
 	dialTimeout       = flag.Duration("dt", 5*time.Second, "client: dial timeout")
 	dialRetries       = flag.Int("dr", 5, "client: dial retry times")
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client; dial retry interval")
 
 	// BenchEcho && BenchRate
-	payload = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
+	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
+	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 
 	// BenchEcho
 	echoConcurrency = flag.Int("ec", 50000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -42,7 +43,7 @@ var (
 	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
 	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
 	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
-	rateSendRate    = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
+	rateSendRate    = flag.Int("rr", 500, "benchrate: how many request message can be sent to 1 conn every second")
 	rateBatchSize   = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
 	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 
@@ -82,7 +83,7 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
-	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns())
+	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns(), *checkValid)
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
 	bm.Total = *echoTimes
@@ -97,7 +98,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 
 	if *rateEnabled {
-		br := benchrate.New(*framework, *ip, cs.NBConns())
+		br := benchrate.New(*framework, *ip, cs.NBConns(), *checkValid)
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate

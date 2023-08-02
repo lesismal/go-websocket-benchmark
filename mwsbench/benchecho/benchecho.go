@@ -3,10 +3,11 @@ package benchecho
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	mrand "math/rand"
 	"runtime"
 	"sync"
 	"time"
@@ -50,16 +51,19 @@ type BenchEcho struct {
 
 	limitFn func()
 
+	checkValid bool
+
 	rbufferPool *sync.Pool
 }
 
-func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}) *BenchEcho {
+func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
 	bm := &BenchEcho{
-		Framework: framework,
-		Ip:        ip,
-		Total:     benchmarkTimes,
-		ConnsMap:  connsMap,
-		limitFn:   func() {},
+		Framework:  framework,
+		Ip:         ip,
+		Total:      benchmarkTimes,
+		ConnsMap:   connsMap,
+		limitFn:    func() {},
+		checkValid: checkValid,
 	}
 	return bm
 }
@@ -198,7 +202,7 @@ func (bm *BenchEcho) clean() {
 }
 
 func (bm *BenchEcho) getBuffers() ([]byte, []byte) {
-	idx := uint32(rand.Intn(len(bm.wbuffers))) % uint32(len(bm.wbuffers))
+	idx := uint32(mrand.Intn(len(bm.wbuffers))) % uint32(len(bm.wbuffers))
 	return bm.pbuffers[idx], bm.wbuffers[idx]
 }
 
@@ -237,11 +241,14 @@ func (bm *BenchEcho) doOnce() error {
 			return err
 		}
 	}
-	if mt != websocket.BinaryMessage {
-		return errors.New("invalid message type")
-	}
-	if !bytes.Equal(pbuffer, readBuffer[:nread]) {
-		return errors.New("respons data is not equal to origin")
+
+	if bm.checkValid {
+		if mt != websocket.BinaryMessage {
+			return errors.New("invalid message type")
+		}
+		if !bytes.Equal(pbuffer, readBuffer[:nread]) {
+			return errors.New("respons data is not equal to origin")
+		}
 	}
 
 	return nil
