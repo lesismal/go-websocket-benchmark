@@ -153,7 +153,7 @@ func (br *BenchRate) Report() report.Report {
 		MEMRSSAvg:   br.PsCounter.MEMRSSAvg(),
 		MEMRSSMax:   br.PsCounter.MEMRSSMax(),
 	}
-	r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/int64(time.Second)) / r.CPUAvg
+	r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
 	return r
 }
 
