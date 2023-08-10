@@ -136,7 +136,7 @@ func (br *BenchRate) Stop() {
 }
 
 func (br *BenchRate) Report() report.Report {
-	return &report.BenchRateReport{
+	r := &report.BenchRateReport{
 		Framework:   br.Framework,
 		Duration:    br.Duration.Nanoseconds(),
 		Connections: len(br.ConnsMap),
@@ -153,6 +153,8 @@ func (br *BenchRate) Report() report.Report {
 		MEMRSSAvg:   br.PsCounter.MEMRSSAvg(),
 		MEMRSSMax:   br.PsCounter.MEMRSSMax(),
 	}
+	r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+	return r
 }
 
 func (br *BenchRate) init() {
