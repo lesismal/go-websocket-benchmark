@@ -18,6 +18,7 @@ type EchoSession struct {
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	TPS         int64   `json:"TPS" md:"TPS"`
+	EER         float64 `json:"EER" md:"EER"`
 	Min         int64   `json:"Min" md:"Min" fmt:"duration"`
 	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration"`
 	Max         int64   `json:"Max" md:"Max" fmt:"duration"`

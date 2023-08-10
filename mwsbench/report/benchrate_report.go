@@ -10,6 +10,7 @@ var (
 
 type BenchRateReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
+	EchoEER     float64 `json:"EchoEER" md:"EchoEER"`
 	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration"`
 	SendTimes   int64   `json:"SendTimes" md:"Packet Sent"`
 	SendBytes   int64   `json:"SendBytes" md:"Bytes Sent" fmt:"mem"`
