@@ -103,7 +103,7 @@ func (bm *BenchEcho) Stop() {
 }
 
 func (bm *BenchEcho) Report() report.Report {
-	return &report.BenchEchoReport{
+	r := &report.BenchEchoReport{
 		Framework:   bm.Framework,
 		Connections: len(bm.ConnsMap),
 		Concurrency: bm.Concurrency,
@@ -128,6 +128,8 @@ func (bm *BenchEcho) Report() report.Report {
 		TP95:        bm.Calculator.TPN(95),
 		TP99:        bm.Calculator.TPN(99),
 	}
+	r.EER = float64(r.TPS) / r.CPUAvg
+	return r
 }
 
 func (bm *BenchEcho) init() {
