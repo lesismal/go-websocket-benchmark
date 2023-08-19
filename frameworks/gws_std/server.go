@@ -78,7 +78,9 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	frameworks.SetNoDelay(c.NetConn(), *nodelay)
 	c.SetReadDeadline(time.Time{})
-	c.ReadLoop()
+	go func() {
+		c.ReadLoop()
+	}()
 }
 
 type Handler struct {
