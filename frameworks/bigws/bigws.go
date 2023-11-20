@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -15,7 +16,7 @@ import (
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
-	"github.com/antlabs/quickws"
+	"github.com/antlabs/bigws"
 )
 
 var (
@@ -26,26 +27,31 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
-var upgrader *quickws.UpgradeServer
+var upgrader *bigws.UpgradeServer
 
 func main() {
 	flag.Parse()
 
-	opt := []quickws.ServerOption{
-		// quickws.WithServerIgnorePong(),
-		quickws.WithServerCallback(&Handler{}),
+	var h Handler
+	h.m = bigws.NewMultiEventLoopMust(bigws.WithEventLoops(0), bigws.WithMaxEventNum(1000), bigws.WithLogLevel(slog.LevelError)) // epoll, kqueue
+	h.m.Start()
+	opt := []bigws.ServerOption{
+		// bigws.WithServerIgnorePong(),
+		bigws.WithServerCallback(&Handler{}),
+		bigws.WithServerMultiEventLoop(h.m),
 	}
 
 	if !*nodelay {
-		opt = append(opt, quickws.WithServerTCPDelay())
+		opt = append(opt, bigws.WithServerTCPDelay())
 	}
-	upgrader = quickws.NewUpgrade(opt...)
+	upgrader = bigws.NewUpgrade(opt...)
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Quickws)
+	addrs, err := config.GetFrameworkServerAddrs(config.Bigws)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Quickws, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Bigws, err)
 	}
-	lns := startServers(addrs)
+
+	lns := h.startServers(addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -55,11 +61,11 @@ func main() {
 	}
 }
 
-func startServers(addrs []string) []net.Listener {
+func (h *Handler) startServers(addrs []string) []net.Listener {
 	lns := make([]net.Listener, 0, len(addrs))
 	for _, addr := range addrs {
 		mux := &http.ServeMux{}
-		mux.HandleFunc("/ws", onWebsocket)
+		mux.HandleFunc("/ws", h.onWebsocket)
 		mux.HandleFunc("/pid", onServerPid)
 		server := http.Server{
 			// Addr:    addr,
@@ -81,19 +87,21 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
-func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r)
+func (h *Handler) onWebsocket(w http.ResponseWriter, r *http.Request) {
+	_, err := upgrader.Upgrade(w, r)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	c.StartReadLoop()
+	// c.SetDeadline(time.Time{})
+	// c.StartReadLoop()
 }
 
 type Handler struct {
-	quickws.DefCallback
+	bigws.DefCallback
+	m *bigws.MultiEventLoop
 }
 
-func (h *Handler) OnMessage(c *quickws.Conn, op quickws.Opcode, msg []byte) {
+func (h *Handler) OnMessage(c *bigws.Conn, op bigws.Opcode, msg []byte) {
 	_ = c.WriteMessage(op, msg)
 }
