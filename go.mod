@@ -1,9 +1,12 @@
 module go-websocket-benchmark
 
-go 1.20
+go 1.21
+
+toolchain go1.21.0
 
 require (
-	github.com/antlabs/quickws v0.0.9
+	github.com/antlabs/bigws v0.0.5
+	github.com/antlabs/quickws v0.1.7
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
@@ -21,7 +24,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/antlabs/wsutil v0.0.11 // indirect
+	github.com/antlabs/wsutil v0.1.4 // indirect
 	github.com/bytedance/go-tagexpr/v2 v2.9.2 // indirect
 	github.com/bytedance/sonic v1.8.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -39,6 +42,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/lesismal/llib v1.1.12 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
+	github.com/pawelgaczynski/giouring v0.0.0-20230826085535-69588b89acb9 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/tidwall/gjson v1.13.0 // indirect
@@ -52,6 +56,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
