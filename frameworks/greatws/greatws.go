@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/signal"
 
-	//"time"
-
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
-	"github.com/antlabs/bigws"
+	//"time"
+
+	"github.com/antlabs/greatws"
 )
 
 var (
@@ -27,28 +27,28 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 )
 
-var upgrader *bigws.UpgradeServer
+var upgrader *greatws.UpgradeServer
 
 func main() {
 	flag.Parse()
 
 	var h Handler
-	h.m = bigws.NewMultiEventLoopMust(bigws.WithEventLoops(0), bigws.WithMaxEventNum(1000), bigws.WithLogLevel(slog.LevelError)) // epoll, kqueue
+	h.m = greatws.NewMultiEventLoopMust(greatws.WithEventLoops(0), greatws.WithMaxEventNum(1000), greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
-	opt := []bigws.ServerOption{
-		// bigws.WithServerIgnorePong(),
-		bigws.WithServerCallback(&Handler{}),
-		bigws.WithServerMultiEventLoop(h.m),
+	opt := []greatws.ServerOption{
+		// greatws.WithServerIgnorePong(),
+		greatws.WithServerCallback(&Handler{}),
+		greatws.WithServerMultiEventLoop(h.m),
 	}
 
 	if !*nodelay {
-		opt = append(opt, bigws.WithServerTCPDelay())
+		opt = append(opt, greatws.WithServerTCPDelay())
 	}
-	upgrader = bigws.NewUpgrade(opt...)
+	upgrader = greatws.NewUpgrade(opt...)
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Bigws)
+	addrs, err := config.GetFrameworkServerAddrs(config.Greatws)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Bigws, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Greatws, err)
 	}
 
 	lns := h.startServers(addrs)
@@ -98,10 +98,10 @@ func (h *Handler) onWebsocket(w http.ResponseWriter, r *http.Request) {
 }
 
 type Handler struct {
-	bigws.DefCallback
-	m *bigws.MultiEventLoop
+	greatws.DefCallback
+	m *greatws.MultiEventLoop
 }
 
-func (h *Handler) OnMessage(c *bigws.Conn, op bigws.Opcode, msg []byte) {
+func (h *Handler) OnMessage(c *greatws.Conn, op greatws.Opcode, msg []byte) {
 	_ = c.WriteMessage(op, msg)
 }
