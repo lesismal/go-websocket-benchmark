@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
@@ -33,7 +34,11 @@ func main() {
 	flag.Parse()
 
 	var h Handler
-	h.m = greatws.NewMultiEventLoopMust(greatws.WithEventLoops(0), greatws.WithMaxEventNum(1000), greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
+	h.m = greatws.NewMultiEventLoopMust(
+		greatws.WithEventLoops(runtime.NumCPU()/2), // 控制io go程数
+		greatws.WithBusinessGoNum(100, 100, 10000), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
+		greatws.WithMaxEventNum(1000),
+		greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
 	opt := []greatws.ServerOption{
 		// greatws.WithServerIgnorePong(),
