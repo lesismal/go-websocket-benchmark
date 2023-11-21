@@ -1,7 +1,7 @@
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
-github.com/antlabs/bigws v0.0.5 h1:+KP2/VBcFHOUdOkG7DteEeWZ0ah6RebI/c2c6Tbv5hI=
-github.com/antlabs/bigws v0.0.5/go.mod h1:vvkQM7PoV8mjdF/m0S7GyQzJ6kpIsyAqwrC3vOdEpQs=
+github.com/antlabs/greatws v0.0.6 h1:f4hAtEl4XCsx6UXSjU0SDQ43tOA982auFkrRUUGC+H0=
+github.com/antlabs/greatws v0.0.6/go.mod h1:U9KZqb4w8yK5Sozt0yHgNmuQrFAWrGCXkF0HoXmiHfg=
 github.com/antlabs/quickws v0.1.7 h1:Gt0yT9ZG2nP47zHhB85oeq57Zf2iNMDGpQUn7ru2puY=
 github.com/antlabs/quickws v0.1.7/go.mod h1:Z0cSsS7294etkNnhPYEbTx54Kwe7TXfpojX/36OzGrU=
 github.com/antlabs/wsutil v0.1.4 h1:ALOorVgFRYWenME99xeDsBGF+DblmCfCfm4Y31BbOec=

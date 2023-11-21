@@ -8,7 +8,7 @@ SleepTime=5
 frameworks=(
     "fasthttp"
     "gobwas"
-    "bigws"
+    "greatws"
     "quickws"
     "gorilla"
     "gws"
