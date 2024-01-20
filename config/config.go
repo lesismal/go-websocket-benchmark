@@ -24,6 +24,7 @@ const (
 	Nhooyr             = "nhooyr"
 	Quickws            = "quickws"
 	Greatws            = "greatws"
+	GreatwsEvent       = "greatws_event"
 )
 
 var Ports = map[string]string{
@@ -42,6 +43,7 @@ var Ports = map[string]string{
 	Nhooyr:             "22001:22050",
 	Quickws:            "23001:23050",
 	Greatws:            "24001:24050",
+	GreatwsEvent:       "25001:25050",
 }
 
 var FrameworkList = []string{
@@ -60,6 +62,7 @@ var FrameworkList = []string{
 	Nhooyr,
 	Quickws,
 	Greatws,
+	GreatwsEvent,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
