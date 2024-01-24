@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.21.0
 
 require (
-	github.com/antlabs/greatws v0.1.3
-	github.com/antlabs/quickws v0.1.7
+	github.com/antlabs/greatws v0.1.4
+	github.com/antlabs/quickws v0.1.9
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
 	github.com/fasthttp/websocket v1.5.3
