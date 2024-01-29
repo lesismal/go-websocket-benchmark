@@ -103,11 +103,9 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 		}
 		nbwsc := nbws.NewConn(cs.Upgrader, nbc, "", false, false)
 		nbwsc.SetClient(true)
-		parser := &nbhttp.Parser{
-			Execute: nbc.Execute,
-		}
+		nbwsc.Execute = nbc.Execute
 		nbc.OnData(func(v *nbio.Conn, data []byte) {
-			nbwsc.Read(parser, data)
+			nbwsc.Read(data)
 		})
 		conns[nbwsc] = struct{}{}
 	}
