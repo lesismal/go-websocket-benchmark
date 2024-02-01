@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
+	"github.com/lesismal/nbio"
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
@@ -59,6 +62,26 @@ func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	mux.HandleFunc("/pid", onServerPid)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	// ch := make(chan func(), 1000)
+	// execute := func(f func()) {
+	// 	ch <- f
+	// }
+	// for i := 0; i < 100; i++ {
+	// 	go func() {
+	// 		for f := range ch {
+	// 			defer func() {
+	// 				recover()
+	// 			}()
+	// 			f()
+	// 		}
+	// 	}()
+	// }
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
@@ -66,7 +89,17 @@ func startServers(addrs []string) *nbhttp.Engine {
 		IOMod:                   nbhttp.IOModNonBlocking,
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
+		// ServerExecutor:          execute,
+		EpollMod:     nbio.EPOLLET,
+		EPOLLONESHOT: nbio.EPOLLONESHOT,
 	})
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			runtime.GC()
+		}
+	}()
 
 	err := engine.Start()
 	if err != nil {

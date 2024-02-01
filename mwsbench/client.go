@@ -98,7 +98,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 
 	if *rateEnabled {
-		br := benchrate.New(*framework, *ip, cs.NBConns(), *checkValid)
+		br := benchrate.New(*framework, *ip, cs.Options, cs.NBConns(), *checkValid)
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate

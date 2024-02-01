@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
@@ -31,14 +32,15 @@ var (
 func main() {
 	flag.Parse()
 
-	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
+	mempool.DefaultMemPool = mempool.NewAligned() //mempool.New(*payload+1024, 1024*1024*1024)
 
+	upgrader.KeepaliveTime = 0
+	upgrader.BlockingModAsyncWrite = false
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
-	upgrader.BlockingModAsyncWrite = false
 
-	addrs, err := config.GetFrameworkServerAddrs(config.NbioModBlocking)
+	addrs, err := config.GetFrameworkServerAddrs(config.NbioStd)
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModBlocking, err)
 	}
@@ -54,6 +56,11 @@ func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	mux.HandleFunc("/pid", onServerPid)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
@@ -61,7 +68,9 @@ func startServers(addrs []string) *nbhttp.Engine {
 		IOMod:                   nbhttp.IOModBlocking,
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
+		// BodyAllocator:           mempool.NewAligned(),
 	})
+	upgrader.Engine = engine
 
 	err := engine.Start()
 	if err != nil {
@@ -76,7 +85,7 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
+	c, err := upgrader.UpgradeAndTransferConnToPoller(w, r, nil)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return

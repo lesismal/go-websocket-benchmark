@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -67,11 +68,16 @@ func main() {
 }
 
 func (h *Handler) startServers(addrs []string) []net.Listener {
+	mux := &http.ServeMux{}
+	mux.HandleFunc("/ws", h.onWebsocket)
+	mux.HandleFunc("/pid", onServerPid)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	lns := make([]net.Listener, 0, len(addrs))
 	for _, addr := range addrs {
-		mux := &http.ServeMux{}
-		mux.HandleFunc("/ws", h.onWebsocket)
-		mux.HandleFunc("/pid", onServerPid)
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,

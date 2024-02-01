@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"go-websocket-benchmark/logging"
 
 	"github.com/lesismal/nbio/mempool"
+	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
@@ -31,11 +34,37 @@ var (
 func main() {
 	flag.Parse()
 
-	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
+	mempool.DefaultMemPool = mempool.NewAligned()
+	// debug.SetMemoryLimit(1024 * 1024 * 512)
+
+	ch := make(chan func(), 100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			for f := range ch {
+				f()
+			}
+		}()
+	}
+	goFunc := func(f func()) {
+		ch <- f
+	}
+	engine := nbhttp.NewEngine(nbhttp.Config{
+		ReleaseWebsocketPayload: true,
+		// EpollMod:                nbio.EPOLLET,
+		// EPOLLONESHOT:            nbio.EPOLLONESHOT,
+		ServerExecutor: goFunc,
+	})
+	err := engine.Start()
+	if err != nil {
+		panic(err)
+	}
+	upgrader.Engine = engine
+	upgrader.KeepaliveTime = 0
+	upgrader.BlockingModAsyncWrite = false
+
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
-	upgrader.BlockingModAsyncWrite = false
 
 	addrs, err := config.GetFrameworkServerAddrs(config.NbioStd)
 	if err != nil {
@@ -46,17 +75,27 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
+
 	for _, ln := range lns {
 		ln.Close()
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	engine.Shutdown(ctx)
 }
 
 func startServers(addrs []string) []net.Listener {
+	mux := &http.ServeMux{}
+	mux.HandleFunc("/ws", onWebsocket)
+	mux.HandleFunc("/pid", onServerPid)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	lns := make([]net.Listener, 0, len(addrs))
 	for _, addr := range addrs {
-		mux := &http.ServeMux{}
-		mux.HandleFunc("/ws", onWebsocket)
-		mux.HandleFunc("/pid", onServerPid)
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,
@@ -78,7 +117,7 @@ func onServerPid(w http.ResponseWriter, r *http.Request) {
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
+	c, err := upgrader.UpgradeAndTransferConnToPoller(w, r, nil)
 	if err != nil {
 		log.Printf("upgrade failed: %v", err)
 		return
