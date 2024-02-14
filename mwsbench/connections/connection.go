@@ -191,7 +191,7 @@ func (cs *Connections) startEngine() {
 	nblog.Output = logging.Output
 	nblog.SetLevel(nblog.LevelError)
 
-	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client"})
+	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client", NPoller: 2})
 	err := engine.Start()
 	if err != nil {
 		logging.Fatalf("nbhttp.Engine.Start failed: %v\n", err)
