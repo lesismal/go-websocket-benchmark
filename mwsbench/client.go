@@ -88,10 +88,10 @@ func main() {
 	if err != nil {
 		logging.Printf("GetFrameworkPid(%v) failed: %v", *framework, err)
 	} else {
-		fmt.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v\n", pprofAddr+"/debug/pprof/profile")
-		fmt.Printf("\tgo tool pprof -http=:6060 ./cpu_profile\n")
-		fmt.Printf("pprof heap:\n\tcurl --output ./mem_profile %v\n", pprofAddr+"/debug/pprof/heap")
-		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile\n")
+		fmt.Printf("pprof cpu :\n  curl --output ./cpu_profile %v\n", pprofAddr+"/debug/pprof/profile")
+		fmt.Printf("  go tool pprof -http=:6060 ./cpu_profile\n")
+		fmt.Printf("pprof heap:\n  curl --output ./mem_profile %v\n", pprofAddr+"/debug/pprof/heap")
+		fmt.Printf("  go tool pprof -http=:6061 ./mem_profile\n")
 		logging.Print(logging.ShortLine)
 	}
 	bm := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
