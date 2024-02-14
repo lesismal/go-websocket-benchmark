@@ -154,6 +154,9 @@ func (br *BenchRate) Report() report.Report {
 		RecvBytes:   br.recvBytes,
 	}
 	if br.PsCounter != nil {
+		r.GoMin = br.PsCounter.NumGoroutineMin()
+		r.GoAvg = br.PsCounter.NumGoroutineAvg()
+		r.GoMax = br.PsCounter.NumGoroutineMax()
 		r.CPUMin = br.PsCounter.CPUMin()
 		r.CPUAvg = br.PsCounter.CPUAvg()
 		r.CPUMax = br.PsCounter.CPUMax()
