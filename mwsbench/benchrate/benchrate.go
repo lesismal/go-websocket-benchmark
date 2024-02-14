@@ -77,15 +77,17 @@ func (br *BenchRate) Run() {
 
 	chCounterStart := make(chan struct{})
 	go func() {
-		br.PsCounter.Start(perf.PSCountOptions{
-			CountCPU: true,
-			CountMEM: true,
-			CountIO:  true,
-			CountNET: true,
-			Interval: br.PsInterval,
-		})
-		time.Sleep(br.PsInterval)
-		close(chCounterStart)
+		if br.PsCounter != nil {
+			br.PsCounter.Start(perf.PSCountOptions{
+				CountCPU: true,
+				CountMEM: true,
+				CountIO:  true,
+				CountNET: true,
+				Interval: br.PsInterval,
+			})
+			time.Sleep(br.PsInterval)
+			close(chCounterStart)
+		}
 	}()
 
 	done := make(chan struct{})
@@ -129,8 +131,10 @@ func (br *BenchRate) Run() {
 
 	logging.Printf("BenchRate for %.2f seconds done", br.Duration.Seconds())
 
-	<-chCounterStart
-	br.PsCounter.Stop()
+	if br.PsCounter != nil {
+		<-chCounterStart
+		br.PsCounter.Stop()
+	}
 }
 
 func (br *BenchRate) Stop() {
@@ -148,14 +152,16 @@ func (br *BenchRate) Report() report.Report {
 		SendBytes:   br.sendBytes,
 		RecvTimes:   br.recvTimes,
 		RecvBytes:   br.recvBytes,
-		CPUMin:      br.PsCounter.CPUMin(),
-		CPUAvg:      br.PsCounter.CPUAvg(),
-		CPUMax:      br.PsCounter.CPUMax(),
-		MEMRSSMin:   br.PsCounter.MEMRSSMin(),
-		MEMRSSAvg:   br.PsCounter.MEMRSSAvg(),
-		MEMRSSMax:   br.PsCounter.MEMRSSMax(),
 	}
-	r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+	if br.PsCounter != nil {
+		r.CPUMin = br.PsCounter.CPUMin()
+		r.CPUAvg = br.PsCounter.CPUAvg()
+		r.CPUMax = br.PsCounter.CPUMax()
+		r.MEMRSSMin = br.PsCounter.MEMRSSMin()
+		r.MEMRSSAvg = br.PsCounter.MEMRSSAvg()
+		r.MEMRSSMax = br.PsCounter.MEMRSSMax()
+		r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+	}
 	return r
 }
 
@@ -211,9 +217,10 @@ func (br *BenchRate) init() {
 	br.ServerPid = serverPid
 	psCounter, err := perf.NewPSCounter(serverPid)
 	if err != nil {
-		panic(err)
+		logging.Printf("perf.NewPSCounter failed: %v", err)
+	} else {
+		br.PsCounter = psCounter
 	}
-	br.PsCounter = psCounter
 }
 
 func (br *BenchRate) clean() {
