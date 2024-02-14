@@ -23,7 +23,7 @@ var (
 	nodelay  = flag.Bool("nodelay", true, `tcp nodelay`)
 	payload  = flag.Int("b", 1024, `read buffer size`)
 	_        = flag.Int("mrb", 4096, `max read buffer size`)
-	memLimit = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
+	memLimit = flag.Int64("m", 1024*1024*1024*1, `memory limit`)
 	_        = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 
 	upgrader = websocket.NewUpgrader()
