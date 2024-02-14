@@ -69,6 +69,21 @@ func main() {
 	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
 	logging.Print(logging.ShortLine)
 
+	serverPid, pprofAddr, err := config.GetFrameworkPid(*framework, *ip)
+	if err != nil {
+		logging.Printf("GetFrameworkPid(%v) failed: %v", *framework, err)
+	} else {
+		// mux.HandleFunc("/debug/pprof/", pprof.Index)
+		// mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		// mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		// mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		// mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		logging.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v", pprofAddr+"/debug/pprof/profile")
+		logging.Printf("\tgo tool pprof -http=:6060 ./cpu_profile")
+		logging.Printf("pprof heap:\n\tcurl --output ./mem_profile %v", pprofAddr+"/debug/pprof/heap")
+		logging.Printf("\tgo tool pprof -http=:6061 ./mem_profile")
+	}
+
 	cs := connections.New(*framework, *ip, *numConnections)
 	cs.Concurrency = *dialConcurrency
 	cs.DialTimeout = *dialTimeout
@@ -83,7 +98,7 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
-	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns(), *checkValid)
+	bm := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
 	bm.Total = *echoTimes
@@ -98,7 +113,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 
 	if *rateEnabled {
-		br := benchrate.New(*framework, *ip, cs.Options, cs.NBConns(), *checkValid)
+		br := benchrate.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate

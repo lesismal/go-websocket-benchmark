@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
@@ -59,7 +58,7 @@ type Conn struct {
 	recvCnt int64
 }
 
-func New(framework string, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
+func New(framework string, serverPid int, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
 	bm := &BenchRate{
 		Framework:  framework,
 		Ip:         ip,
@@ -67,6 +66,7 @@ func New(framework string, ip string, options *websocket.Options, connsMap map[*
 		limitFn:    func() {},
 		checkValid: checkValid,
 		wsOptions:  options,
+		ServerPid:  serverPid,
 	}
 	return bm
 }
@@ -213,12 +213,7 @@ func (br *BenchRate) init() {
 		}
 	}
 
-	serverPid, err := config.GetFrameworkPid(br.Framework, br.Ip)
-	if err != nil {
-		logging.Fatalf("BenchRate GetFrameworkPid(%v) failed: %v", br.Framework, err)
-	}
-	br.ServerPid = serverPid
-	psCounter, err := perf.NewPSCounter(serverPid)
+	psCounter, err := perf.NewPSCounter(br.ServerPid)
 	if err != nil {
 		logging.Printf("perf.NewPSCounter failed: %v", err)
 	} else {

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
@@ -56,7 +55,7 @@ type BenchEcho struct {
 	rbufferPool *sync.Pool
 }
 
-func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
+func New(framework string, serverPid int, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
 	bm := &BenchEcho{
 		Framework:  framework,
 		Ip:         ip,
@@ -64,6 +63,7 @@ func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocke
 		ConnsMap:   connsMap,
 		limitFn:    func() {},
 		checkValid: checkValid,
+		ServerPid:  serverPid,
 	}
 	return bm
 }
@@ -192,12 +192,7 @@ func (bm *BenchEcho) init() {
 		bm.chConns <- c
 	}
 
-	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
-	if err != nil {
-		logging.Fatalf("BenchEcho GetFrameworkPid(%v) failed: %v", bm.Framework, err)
-	}
-	bm.ServerPid = serverPid
-	psCounter, err := perf.NewPSCounter(serverPid)
+	psCounter, err := perf.NewPSCounter(bm.ServerPid)
 	if err != nil {
 		logging.Printf("perf.NewPSCounter failed: %v", err)
 	} else {
