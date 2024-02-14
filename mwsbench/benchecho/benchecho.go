@@ -128,9 +128,9 @@ func (bm *BenchEcho) Report() report.Report {
 		TP99: bm.Calculator.TPN(99),
 	}
 	if bm.PsCounter != nil {
-		r.GoMin = bm.PsCounter.NumGoroutineMin()
-		r.GoAvg = bm.PsCounter.NumGoroutineAvg()
-		r.GoMax = bm.PsCounter.NumGoroutineMax()
+		// r.GoMin = bm.PsCounter.NumGoroutineMin()
+		// r.GoAvg = bm.PsCounter.NumGoroutineAvg()
+		// r.GoMax = bm.PsCounter.NumGoroutineMax()
 		r.CPUMin = bm.PsCounter.CPUMin()
 		r.CPUAvg = bm.PsCounter.CPUAvg()
 		r.CPUMax = bm.PsCounter.CPUMax()
