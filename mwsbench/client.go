@@ -91,7 +91,8 @@ func main() {
 		fmt.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v\n", pprofAddr+"/debug/pprof/profile")
 		fmt.Printf("\tgo tool pprof -http=:6060 ./cpu_profile\n")
 		fmt.Printf("pprof heap:\n\tcurl --output ./mem_profile %v\n", pprofAddr+"/debug/pprof/heap")
-		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile\n\n")
+		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile\n")
+		logging.Println(logging.ShortLine)
 	}
 	bm := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
 	bm.Concurrency = *echoConcurrency
