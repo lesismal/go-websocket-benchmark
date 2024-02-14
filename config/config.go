@@ -115,10 +115,10 @@ func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	return addrs, nil
 }
 
-func GetFrameworkPid(framework, ip string) (int, error) {
+func GetFrameworkPid(framework, ip string) (int, string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	pidPort := ports[len(ports)-1]
 	if framework == Gws {
@@ -128,12 +128,15 @@ func GetFrameworkPid(framework, ip string) (int, error) {
 
 	res, err := http.Get(serverAddr)
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	pid, err := strconv.Atoi(string(body))
-	return pid, err
+
+	pprofAddr := fmt.Sprintf("http://%v:%v", ip, pidPort)
+
+	return pid, pprofAddr, err
 }
