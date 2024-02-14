@@ -39,6 +39,7 @@ func main() {
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
+	upgrader.KeepaliveTime = 0
 
 	addrs, err := config.GetFrameworkServerAddrs(config.NbioModNonblocking)
 	if err != nil {
