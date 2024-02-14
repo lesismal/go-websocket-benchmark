@@ -39,8 +39,8 @@ type Connections struct {
 
 	Calculator *perf.Calculator
 
-	Engine   *nbhttp.Engine
-	Upgrader *nbws.Upgrader
+	Engine  *nbhttp.Engine
+	Options *nbws.Options
 
 	mux          sync.Mutex
 	serverIdx    uint32
@@ -101,8 +101,7 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 		if err != nil {
 			logging.Fatalf("cs.Engine.AddConn failed: %v", err)
 		}
-		nbwsc := nbws.NewConn(cs.Upgrader, nbc, "", false, false)
-		nbwsc.SetClient(true)
+		nbwsc := nbws.NewClientConn(cs.Options, nbc, "", false, false)
 		nbwsc.Execute = nbc.Execute
 		nbc.OnData(func(v *nbio.Conn, data []byte) {
 			nbwsc.Read(data)
@@ -199,10 +198,10 @@ func (cs *Connections) startEngine() {
 	}
 	cs.Engine = engine
 
-	upgrader := nbws.NewUpgrader()
-	upgrader.Engine = engine
-	upgrader.OnMessage(func(c *nbws.Conn, mt nbws.MessageType, b []byte) {})
-	cs.Upgrader = upgrader
+	options := nbws.NewOptions()
+	options.Engine = engine
+	options.OnMessage(func(c *nbws.Conn, mt nbws.MessageType, b []byte) {})
+	cs.Options = options
 
 	time.Sleep(time.Second)
 }

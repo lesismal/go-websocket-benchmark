@@ -14,7 +14,7 @@ require (
 	github.com/gobwas/ws v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.3.20-0.20240129181835-2f764a426365
+	github.com/lesismal/nbio v1.4.0
 	github.com/lesismal/perf v0.0.0-20230606082148-9c91a5b8290c
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/lxzan/gws v1.6.13
@@ -56,6 +56,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )

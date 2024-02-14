@@ -33,7 +33,8 @@ type BenchRate struct {
 	ServerPid int
 	PsCounter *perf.PSCounter
 
-	ConnsMap map[*websocket.Conn]struct{}
+	wsOptions *websocket.Options
+	ConnsMap  map[*websocket.Conn]struct{}
 
 	wbuffer []byte
 
@@ -58,13 +59,14 @@ type Conn struct {
 	recvCnt int64
 }
 
-func New(framework string, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
+func New(framework string, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
 	bm := &BenchRate{
 		Framework:  framework,
 		Ip:         ip,
 		ConnsMap:   connsMap,
 		limitFn:    func() {},
 		checkValid: checkValid,
+		wsOptions:  options,
 	}
 	return bm
 }
@@ -194,10 +196,8 @@ func (br *BenchRate) init() {
 		}
 	}
 
+	br.wsOptions.OnMessage(br.onMessage)
 	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap)*br.SendRate)
-	for c := range br.ConnsMap {
-		c.OnMessage(br.onMessage)
-	}
 	for i := 0; i < br.SendRate; i++ {
 		for c := range br.ConnsMap {
 			br.chConns <- c
