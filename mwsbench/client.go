@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -78,10 +79,10 @@ func main() {
 		// mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		// mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		// mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		logging.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v", pprofAddr+"/debug/pprof/profile")
-		logging.Printf("\tgo tool pprof -http=:6060 ./cpu_profile")
-		logging.Printf("pprof heap:\n\tcurl --output ./mem_profile %v", pprofAddr+"/debug/pprof/heap")
-		logging.Printf("\tgo tool pprof -http=:6061 ./mem_profile")
+		fmt.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v", pprofAddr+"/debug/pprof/profile")
+		fmt.Printf("\tgo tool pprof -http=:6060 ./cpu_profile")
+		fmt.Printf("pprof heap:\n\tcurl --output ./mem_profile %v", pprofAddr+"/debug/pprof/heap")
+		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile")
 	}
 
 	cs := connections.New(*framework, *ip, *numConnections)
