@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -58,7 +57,7 @@ func main() {
 func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
-	mux.HandleFunc("/pid", onServerPid)
+	frameworks.HandleCommon(mux)
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
@@ -74,10 +73,6 @@ func startServers(addrs []string) *nbhttp.Engine {
 	}
 
 	return engine
-}
-
-func onServerPid(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
