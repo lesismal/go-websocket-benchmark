@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 
 	nettyws "github.com/go-netty/go-netty-ws"
@@ -40,11 +41,10 @@ func main() {
 func startServers(addrs []string) []*nettyws.Websocket {
 	svrs := make([]*nettyws.Websocket, 0, len(addrs))
 	for _, addr := range addrs {
-		var serveMux = http.NewServeMux()
-		serveMux.HandleFunc("/pid", onServerPid)
-
+		var mux = http.NewServeMux()
+		frameworks.HandleCommon(mux)
 		var ws = nettyws.NewWebsocket(
-			nettyws.WithServeMux(serveMux),
+			nettyws.WithServeMux(mux),
 			nettyws.WithBinary(),
 			nettyws.WithNoDelay(*nodelay),
 			nettyws.WithBufferSize(2048, 0),
@@ -59,8 +59,4 @@ func startServers(addrs []string) []*nettyws.Websocket {
 		}()
 	}
 	return svrs
-}
-
-func onServerPid(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%d", os.Getpid())
 }

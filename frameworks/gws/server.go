@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -40,7 +39,7 @@ func main() {
 	var pidLn net.Listener
 	go func() {
 		mux := &http.ServeMux{}
-		mux.HandleFunc("/pid", onServerPid)
+		frameworks.HandleCommon(mux)
 		ln, err := frameworks.Listen("tcp", pidServerAddr)
 		if err != nil {
 			logging.Fatalf("Listen failed: %v", err)
@@ -72,10 +71,6 @@ func startServers(addrs []string) []net.Listener {
 		}()
 	}
 	return lns
-}
-
-func onServerPid(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 type Handler struct {
