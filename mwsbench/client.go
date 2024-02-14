@@ -79,10 +79,10 @@ func main() {
 		// mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		// mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		// mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		fmt.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v", pprofAddr+"/debug/pprof/profile")
-		fmt.Printf("\tgo tool pprof -http=:6060 ./cpu_profile")
-		fmt.Printf("pprof heap:\n\tcurl --output ./mem_profile %v", pprofAddr+"/debug/pprof/heap")
-		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile")
+		fmt.Printf("pprof cpu :\n\tcurl --output ./cpu_profile %v\n", pprofAddr+"/debug/pprof/profile")
+		fmt.Printf("\tgo tool pprof -http=:6060 ./cpu_profile\n")
+		fmt.Printf("pprof heap:\n\tcurl --output ./mem_profile %v\n", pprofAddr+"/debug/pprof/heap")
+		fmt.Printf("\tgo tool pprof -http=:6061 ./mem_profile\n\n")
 	}
 
 	cs := connections.New(*framework, *ip, *numConnections)
