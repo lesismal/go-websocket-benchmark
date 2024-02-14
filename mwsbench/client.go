@@ -35,13 +35,13 @@ var (
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 
 	// BenchEcho
-	echoConcurrency = flag.Int("ec", 50000, "benchecho: concurrency: how many goroutines used to do the echo test")
+	echoConcurrency = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
 	echoTimes       = flag.Int("en", 2000000, `benchecho: benchmark times`)
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate
 	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
-	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
+	rateConcurrency = flag.Int("rc", 10000, "benchrate: concurrency: how many goroutines used to do the echo test")
 	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
 	rateSendRate    = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
 	rateBatchSize   = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
