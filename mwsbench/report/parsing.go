@@ -79,9 +79,11 @@ func ObjString(obj Report) string {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		header := field.Tag.Get("md")
-		headers = append(headers, header)
-		if len(header) > maxHeaderLen {
-			maxHeaderLen = len(header)
+		if header != "-" {
+			headers = append(headers, header)
+			if len(header) > maxHeaderLen {
+				maxHeaderLen = len(header)
+			}
 		}
 
 		fieldValue := value.FieldByName(field.Name)
