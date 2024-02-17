@@ -11,19 +11,25 @@ func init() {
 	typ := reflect.TypeOf(ConnectionsReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		header := typ.Field(i).Tag.Get("md")
-		ConnectionsReportMarkdownHeaders = append(ConnectionsReportMarkdownHeaders, header)
+		if header != "-" {
+			ConnectionsReportMarkdownHeaders = append(ConnectionsReportMarkdownHeaders, header)
+		}
 	}
 
 	typ = reflect.TypeOf(BenchEchoReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		header := typ.Field(i).Tag.Get("md")
-		BenchEchoReportMarkdownHeaders = append(BenchEchoReportMarkdownHeaders, header)
+		if header != "-" {
+			BenchEchoReportMarkdownHeaders = append(BenchEchoReportMarkdownHeaders, header)
+		}
 	}
 
 	typ = reflect.TypeOf(BenchRateReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		header := typ.Field(i).Tag.Get("md")
-		BenchRateReportMarkdownHeaders = append(BenchRateReportMarkdownHeaders, header)
+		if header != "-" {
+			BenchRateReportMarkdownHeaders = append(BenchRateReportMarkdownHeaders, header)
+		}
 	}
 }
 
@@ -49,6 +55,7 @@ func ObjFieldValues(obj interface{}) []string {
 			}
 		case "duration":
 			values = append(values, perf.I2TimeString(fieldValue.Int()))
+		case "-":
 		default:
 			typName := field.Type.Name()
 			switch typName {
