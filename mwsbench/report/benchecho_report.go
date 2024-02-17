@@ -43,8 +43,8 @@ type BenchEchoReport struct {
 	MEMRSSMin    uint64  `json:"MEMMin" md:"MEM Min" fmt:"mem"`
 	MEMRSSAvg    uint64  `json:"MEMAvg" md:"MEM Avg" fmt:"mem"`
 	MEMRSSMax    uint64  `json:"MEMMax" md:"MEM Max" fmt:"mem"`
-	pprofDataCPU []byte  `json:"-" md:"-"`
-	pprofDataMEM []byte  `json:"-" md:"-"`
+	pprofDataCPU []byte  `json:"-" md:"-" fmt:"-"`
+	pprofDataMEM []byte  `json:"-" md:"-" fmt:"-"`
 }
 
 func (r *BenchEchoReport) Type() string {
