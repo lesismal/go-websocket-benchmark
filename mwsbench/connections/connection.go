@@ -39,8 +39,8 @@ type Connections struct {
 
 	Calculator *perf.Calculator
 
-	Engine   *nbhttp.Engine
-	Upgrader *nbws.Upgrader
+	Engine  *nbhttp.Engine
+	Options *nbws.Options
 
 	mux          sync.Mutex
 	serverIdx    uint32
@@ -101,11 +101,8 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 		if err != nil {
 			logging.Fatalf("cs.Engine.AddConn failed: %v", err)
 		}
-		nbwsc := nbws.NewClientConn(cs.Upgrader, nbc, "", false, false)
-		nbwsc.SetClient(true)
-		// parser := &nbhttp.Parser{
-		// 	Execute: nbc.Execute,
-		// }
+		nbwsc := nbws.NewClientConn(cs.Options, nbc, "", false, false)
+		nbwsc.Execute = nbc.Execute
 		nbc.OnData(func(v *nbio.Conn, data []byte) {
 			nbwsc.Read(data)
 		})
@@ -194,17 +191,17 @@ func (cs *Connections) startEngine() {
 	nblog.Output = logging.Output
 	nblog.SetLevel(nblog.LevelError)
 
-	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client"})
+	engine := nbhttp.NewEngine(nbhttp.Config{Name: "Benchmark-Client", NPoller: 2})
 	err := engine.Start()
 	if err != nil {
 		logging.Fatalf("nbhttp.Engine.Start failed: %v\n", err)
 	}
 	cs.Engine = engine
 
-	upgrader := nbws.NewUpgrader()
-	upgrader.Engine = engine
-	upgrader.OnMessage(func(c *nbws.Conn, mt nbws.MessageType, b []byte) {})
-	cs.Upgrader = upgrader
+	options := nbws.NewOptions()
+	options.Engine = engine
+	options.OnMessage(func(c *nbws.Conn, mt nbws.MessageType, b []byte) {})
+	cs.Options = options
 
 	time.Sleep(time.Second)
 }

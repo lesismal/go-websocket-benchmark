@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
@@ -33,7 +32,8 @@ type BenchRate struct {
 	ServerPid int
 	PsCounter *perf.PSCounter
 
-	ConnsMap map[*websocket.Conn]struct{}
+	wsOptions *websocket.Options
+	ConnsMap  map[*websocket.Conn]struct{}
 
 	wbuffer []byte
 
@@ -58,13 +58,15 @@ type Conn struct {
 	recvCnt int64
 }
 
-func New(framework string, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
+func New(framework string, serverPid int, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
 	bm := &BenchRate{
 		Framework:  framework,
 		Ip:         ip,
 		ConnsMap:   connsMap,
 		limitFn:    func() {},
 		checkValid: checkValid,
+		wsOptions:  options,
+		ServerPid:  serverPid,
 	}
 	return bm
 }
@@ -75,15 +77,17 @@ func (br *BenchRate) Run() {
 
 	chCounterStart := make(chan struct{})
 	go func() {
-		br.PsCounter.Start(perf.PSCountOptions{
-			CountCPU: true,
-			CountMEM: true,
-			CountIO:  true,
-			CountNET: true,
-			Interval: br.PsInterval,
-		})
-		time.Sleep(br.PsInterval)
-		close(chCounterStart)
+		if br.PsCounter != nil {
+			br.PsCounter.Start(perf.PSCountOptions{
+				CountCPU: true,
+				CountMEM: true,
+				CountIO:  true,
+				CountNET: true,
+				Interval: br.PsInterval,
+			})
+			time.Sleep(br.PsInterval)
+			close(chCounterStart)
+		}
 	}()
 
 	done := make(chan struct{})
@@ -127,8 +131,10 @@ func (br *BenchRate) Run() {
 
 	logging.Printf("BenchRate for %.2f seconds done", br.Duration.Seconds())
 
-	<-chCounterStart
-	br.PsCounter.Stop()
+	if br.PsCounter != nil {
+		<-chCounterStart
+		br.PsCounter.Stop()
+	}
 }
 
 func (br *BenchRate) Stop() {
@@ -146,14 +152,19 @@ func (br *BenchRate) Report() report.Report {
 		SendBytes:   br.sendBytes,
 		RecvTimes:   br.recvTimes,
 		RecvBytes:   br.recvBytes,
-		CPUMin:      br.PsCounter.CPUMin(),
-		CPUAvg:      br.PsCounter.CPUAvg(),
-		CPUMax:      br.PsCounter.CPUMax(),
-		MEMRSSMin:   br.PsCounter.MEMRSSMin(),
-		MEMRSSAvg:   br.PsCounter.MEMRSSAvg(),
-		MEMRSSMax:   br.PsCounter.MEMRSSMax(),
 	}
-	r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+	if br.PsCounter != nil {
+		// r.GoMin = br.PsCounter.NumGoroutineMin()
+		// r.GoAvg = br.PsCounter.NumGoroutineAvg()
+		// r.GoMax = br.PsCounter.NumGoroutineMax()
+		r.CPUMin = br.PsCounter.CPUMin()
+		r.CPUAvg = br.PsCounter.CPUAvg()
+		r.CPUMax = br.PsCounter.CPUMax()
+		r.MEMRSSMin = br.PsCounter.MEMRSSMin()
+		r.MEMRSSAvg = br.PsCounter.MEMRSSAvg()
+		r.MEMRSSMax = br.PsCounter.MEMRSSMax()
+		r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+	}
 	return r
 }
 
@@ -194,26 +205,20 @@ func (br *BenchRate) init() {
 		}
 	}
 
+	br.wsOptions.OnMessage(br.onMessage)
 	br.chConns = make(chan *websocket.Conn, len(br.ConnsMap)*br.SendRate)
-	for c := range br.ConnsMap {
-		c.OnMessage(br.onMessage)
-	}
 	for i := 0; i < br.SendRate; i++ {
 		for c := range br.ConnsMap {
 			br.chConns <- c
 		}
 	}
 
-	serverPid, err := config.GetFrameworkPid(br.Framework, br.Ip)
+	psCounter, err := perf.NewPSCounter(br.ServerPid)
 	if err != nil {
-		logging.Fatalf("BenchRate GetFrameworkPid(%v) failed: %v", br.Framework, err)
+		logging.Printf("perf.NewPSCounter failed: %v", err)
+	} else {
+		br.PsCounter = psCounter
 	}
-	br.ServerPid = serverPid
-	psCounter, err := perf.NewPSCounter(serverPid)
-	if err != nil {
-		panic(err)
-	}
-	br.PsCounter = psCounter
 }
 
 func (br *BenchRate) clean() {

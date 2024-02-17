@@ -23,7 +23,7 @@ echo $line
 . ./script/server.sh nbio_nonblocking $1
 
 # echo $line
-
+sleep 3
 ./script/client.sh -f=nbio_nonblocking -c=1000000 -en=5000000 -b=1024 -rr=1
 
 # echo $line

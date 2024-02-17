@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
@@ -56,7 +55,7 @@ type BenchEcho struct {
 	rbufferPool *sync.Pool
 }
 
-func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
+func New(framework string, serverPid int, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
 	bm := &BenchEcho{
 		Framework:  framework,
 		Ip:         ip,
@@ -64,6 +63,7 @@ func New(framework string, benchmarkTimes int, ip string, connsMap map[*websocke
 		ConnsMap:   connsMap,
 		limitFn:    func() {},
 		checkValid: checkValid,
+		ServerPid:  serverPid,
 	}
 	return bm
 }
@@ -79,23 +79,27 @@ func (bm *BenchEcho) Run() {
 	// delay 1 second
 	chCounterStart := make(chan struct{})
 	go func() {
-		bm.PsCounter.Start(perf.PSCountOptions{
-			CountCPU: true,
-			CountMEM: true,
-			CountIO:  true,
-			CountNET: true,
-			Interval: bm.PsInterval,
-		})
-		time.Sleep(bm.PsInterval)
-		close(chCounterStart)
+		if bm.PsCounter != nil {
+			bm.PsCounter.Start(perf.PSCountOptions{
+				CountCPU: true,
+				CountMEM: true,
+				CountIO:  true,
+				CountNET: true,
+				Interval: bm.PsInterval,
+			})
+			time.Sleep(bm.PsInterval)
+			close(chCounterStart)
+		}
 	}()
 
 	logging.Printf("BenchEcho for %d times ...", bm.Total)
 	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
 	logging.Printf("BenchEcho for %d times done", bm.Total)
 
-	<-chCounterStart
-	bm.PsCounter.Stop()
+	if bm.PsCounter != nil {
+		<-chCounterStart
+		bm.PsCounter.Stop()
+	}
 }
 
 func (bm *BenchEcho) Stop() {
@@ -112,23 +116,29 @@ func (bm *BenchEcho) Report() report.Report {
 		Success:     bm.Calculator.Success,
 		Failed:      bm.Calculator.Failed,
 		Used:        int64(bm.Calculator.Used),
-		CPUMin:      bm.PsCounter.CPUMin(),
-		CPUAvg:      bm.PsCounter.CPUAvg(),
-		CPUMax:      bm.PsCounter.CPUMax(),
-		MEMRSSMin:   bm.PsCounter.MEMRSSMin(),
-		MEMRSSAvg:   bm.PsCounter.MEMRSSAvg(),
-		MEMRSSMax:   bm.PsCounter.MEMRSSMax(),
-		TPS:         bm.Calculator.TPS(),
-		Min:         bm.Calculator.Min,
-		Avg:         bm.Calculator.Avg,
-		Max:         bm.Calculator.Max,
-		TP50:        bm.Calculator.TPN(50),
-		TP75:        bm.Calculator.TPN(75),
-		TP90:        bm.Calculator.TPN(90),
-		TP95:        bm.Calculator.TPN(95),
-		TP99:        bm.Calculator.TPN(99),
+
+		TPS:  bm.Calculator.TPS(),
+		Min:  bm.Calculator.Min,
+		Avg:  bm.Calculator.Avg,
+		Max:  bm.Calculator.Max,
+		TP50: bm.Calculator.TPN(50),
+		TP75: bm.Calculator.TPN(75),
+		TP90: bm.Calculator.TPN(90),
+		TP95: bm.Calculator.TPN(95),
+		TP99: bm.Calculator.TPN(99),
 	}
-	r.EER = float64(r.TPS) / r.CPUAvg
+	if bm.PsCounter != nil {
+		// r.GoMin = bm.PsCounter.NumGoroutineMin()
+		// r.GoAvg = bm.PsCounter.NumGoroutineAvg()
+		// r.GoMax = bm.PsCounter.NumGoroutineMax()
+		r.CPUMin = bm.PsCounter.CPUMin()
+		r.CPUAvg = bm.PsCounter.CPUAvg()
+		r.CPUMax = bm.PsCounter.CPUMax()
+		r.MEMRSSMin = bm.PsCounter.MEMRSSMin()
+		r.MEMRSSAvg = bm.PsCounter.MEMRSSAvg()
+		r.MEMRSSMax = bm.PsCounter.MEMRSSMax()
+		r.EER = float64(r.TPS) / r.CPUAvg
+	}
 	return r
 }
 
@@ -182,16 +192,12 @@ func (bm *BenchEcho) init() {
 		bm.chConns <- c
 	}
 
-	serverPid, err := config.GetFrameworkPid(bm.Framework, bm.Ip)
+	psCounter, err := perf.NewPSCounter(bm.ServerPid)
 	if err != nil {
-		logging.Fatalf("BenchEcho GetFrameworkPid(%v) failed: %v", bm.Framework, err)
+		logging.Printf("perf.NewPSCounter failed: %v", err)
+	} else {
+		bm.PsCounter = psCounter
 	}
-	bm.ServerPid = serverPid
-	psCounter, err := perf.NewPSCounter(serverPid)
-	if err != nil {
-		panic(err)
-	}
-	bm.PsCounter = psCounter
 
 	bm.Calculator = perf.NewCalculator(fmt.Sprintf("%v-TPS", bm.Framework))
 }

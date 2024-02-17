@@ -24,7 +24,7 @@ echo $line
 . ./script/killall.sh
 sleep 1
 . ./script/servers.sh $1
-sleep 2
+sleep 3
 echo $line
 for f in ${frameworks[@]}; do
     echo "run ${f} server on cpu 0-${server_cpu_num}"

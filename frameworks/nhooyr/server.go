@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -54,7 +53,7 @@ func startServers(addrs []string) []net.Listener {
 	for _, addr := range addrs {
 		mux := &http.ServeMux{}
 		mux.HandleFunc("/ws", onWebsocket)
-		mux.HandleFunc("/pid", onServerPid)
+		frameworks.HandleCommon(mux)
 		server := http.Server{
 			Addr:    addr,
 			Handler: mux,
@@ -74,10 +73,6 @@ func startServers(addrs []string) []net.Listener {
 		}()
 	}
 	return lns
-}
-
-func onServerPid(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
