@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.4.0
+	github.com/lesismal/nbio v1.4.1-0.20240217182152-e18162a63c69
 	github.com/lesismal/perf v0.0.0-20240214093017-1da66d881de1
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/lxzan/gws v1.8.0
