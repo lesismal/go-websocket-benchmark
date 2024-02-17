@@ -40,6 +40,17 @@ func (r *ConnectionsReport) Fields() []string {
 	return ObjFieldValues(r)
 }
 
+func (r *ConnectionsReport) SetPprofData(data []byte) {
+}
+
+func (r *ConnectionsReport) PprofCPU() []byte {
+	return nil
+}
+
+func (r *ConnectionsReport) PprofMEM() []byte {
+	return nil
+}
+
 func (r *ConnectionsReport) String() string {
 	return ObjString(r)
 }
