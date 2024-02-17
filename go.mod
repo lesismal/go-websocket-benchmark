@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.0
 
 require (
-	github.com/antlabs/greatws v0.1.4
+	github.com/antlabs/greatws v0.1.7
 	github.com/antlabs/quickws v0.1.9
 	github.com/bytedance/gopkg v0.0.0-20230531144706-a12972768317
 	github.com/cloudwego/hertz v0.6.4
@@ -17,18 +17,19 @@ require (
 	github.com/lesismal/nbio v1.4.0
 	github.com/lesismal/perf v0.0.0-20240214093017-1da66d881de1
 	github.com/libp2p/go-reuseport v0.4.0
-	github.com/lxzan/gws v1.6.13
+	github.com/lxzan/gws v1.8.0
 	golang.org/x/time v0.3.0
 	nhooyr.io/websocket v1.8.7
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/antlabs/wsutil v0.1.6 // indirect
+	github.com/antlabs/wsutil v0.1.7 // indirect
 	github.com/bytedance/go-tagexpr/v2 v2.9.2 // indirect
 	github.com/bytedance/sonic v1.8.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cloudwego/netpoll v0.3.2 // indirect
+	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-netty/go-netty v1.6.4 // indirect
 	github.com/go-netty/go-netty-transport v1.7.7 // indirect
@@ -38,11 +39,10 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/henrylee2cn/ameda v1.4.10 // indirect
 	github.com/henrylee2cn/goutil v0.0.0-20210127050712-89660552f6f8 // indirect
-	github.com/klauspost/compress v1.16.7 // indirect
+	github.com/klauspost/compress v1.17.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/lesismal/llib v1.1.12 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
-	github.com/pawelgaczynski/giouring v0.0.0-20230826085535-69588b89acb9 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/tidwall/gjson v1.13.0 // indirect
