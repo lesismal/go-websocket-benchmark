@@ -18,6 +18,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/network/standard"
+	"github.com/hertz-contrib/pprof"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -61,6 +62,7 @@ func startServers(addrs []string) []*server.Hertz {
 	for _, addr := range addrs {
 		srv := server.New(server.WithHostPorts(addr),
 			server.WithTransport(standard.NewTransporter))
+		pprof.Register(srv)
 		srvs = append(srvs, srv)
 		go func() {
 			srv.GET("/ws", onWebsocket)

@@ -17,6 +17,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/pprof"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -59,6 +60,7 @@ func startServers(addrs []string) []*server.Hertz {
 	srvs := make([]*server.Hertz, 0, len(addrs))
 	for _, addr := range addrs {
 		srv := server.New(server.WithHostPorts(addr))
+		pprof.Register(srv)
 		srvs = append(srvs, srv)
 		go func() {
 			srv.GET("/ws", onWebsocket)
