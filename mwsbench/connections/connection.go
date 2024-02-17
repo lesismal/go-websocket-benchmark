@@ -101,13 +101,13 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 		if err != nil {
 			logging.Fatalf("cs.Engine.AddConn failed: %v", err)
 		}
-		nbwsc := nbws.NewConn(cs.Upgrader, nbc, "", false, false)
+		nbwsc := nbws.NewClientConn(cs.Upgrader, nbc, "", false, false)
 		nbwsc.SetClient(true)
-		parser := &nbhttp.Parser{
-			Execute: nbc.Execute,
-		}
+		// parser := &nbhttp.Parser{
+		// 	Execute: nbc.Execute,
+		// }
 		nbc.OnData(func(v *nbio.Conn, data []byte) {
-			nbwsc.Read(parser, data)
+			nbwsc.Read(data)
 		})
 		conns[nbwsc] = struct{}{}
 	}
