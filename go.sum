@@ -1,11 +1,11 @@
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
-github.com/antlabs/greatws v0.1.4 h1:QlZc9Cg+yre0zixAMk79cH6AH6o6DUhnORj3rKk2qlM=
-github.com/antlabs/greatws v0.1.4/go.mod h1:fO17xB09xUpPqpGGCHFMhqbWMTkcI5UxKwxKYQOFWuE=
+github.com/antlabs/greatws v0.1.7 h1:s/07kAzW4qFCOdAhyZfEkaSyh1Q2eiPut8lU4OsruLw=
+github.com/antlabs/greatws v0.1.7/go.mod h1:A6ZdyTdwzIU/P75nj+IhI2lcdD2X9gNARIMqeGiwKHU=
 github.com/antlabs/quickws v0.1.9 h1:gNw/YkpwnsIlFvUx8h5edpnp+qgsPksnldz2jszhC88=
 github.com/antlabs/quickws v0.1.9/go.mod h1:GaD8pVfWm5RBFGX8CY9wQ3EQ/FeadTRRBJuT/JUq+oM=
-github.com/antlabs/wsutil v0.1.6 h1:K7wR+EvqQT1Nn7jAKs3dKsGtUykPD2OYlCicv4/tUf8=
-github.com/antlabs/wsutil v0.1.6/go.mod h1:7ec5eUM7nmKW+Oi6F1I58iatOeL9k+yIsfOh1zh910g=
+github.com/antlabs/wsutil v0.1.7 h1:DVxFaS20mw16CMc11EjBIlkZQtcs+X0I1DI/J6l/AoE=
+github.com/antlabs/wsutil v0.1.7/go.mod h1:7ec5eUM7nmKW+Oi6F1I58iatOeL9k+yIsfOh1zh910g=
 github.com/bytedance/go-tagexpr/v2 v2.9.2 h1:QySJaAIQgOEDQBLS3x9BxOWrnhqu5sQ+f6HaZIxD39I=
 github.com/bytedance/go-tagexpr/v2 v2.9.2/go.mod h1:5qsx05dYOiUXOUgnQ7w3Oz8BYs2qtM/bJokdLb79wRM=
 github.com/bytedance/gopkg v0.0.0-20220413063733-65bf48ffb3a7/go.mod h1:2ZlV9BaUH4+NXIBF0aMdKKAnHTzqH+iMU4KUjAbL23Q=
@@ -119,8 +119,6 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/nyaruka/phonenumbers v1.0.55 h1:bj0nTO88Y68KeUQ/n3Lo2KgK7lM1hF7L9NFuwcCl3yg=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=
-github.com/pawelgaczynski/giouring v0.0.0-20230826085535-69588b89acb9 h1:Cu/CW2nKeqXinVjf5Bq1FeBD4jWG/msC5UazjjgAvsU=
-github.com/pawelgaczynski/giouring v0.0.0-20230826085535-69588b89acb9/go.mod h1:HwOQqYv/WE3RMp4iTQsS6ou8WP3wKO9UXD0oDqB3NPU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/savsgio/gotils v0.0.0-20220530130905-52f3993e8d6d/go.mod h1:Gy+0tqhJvgGlqnTF8CVGP0AaGRjwBtXs/a5PA0Y3+A4=
