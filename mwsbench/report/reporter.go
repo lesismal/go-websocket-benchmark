@@ -14,6 +14,8 @@ type Report interface {
 	Headers() []string
 	Fields() []string
 	String() string
+	PprofCPU() []byte
+	PprofMEM() []byte
 }
 
 func JSON(report Report) string {
@@ -47,6 +49,22 @@ func WriteFile(filename, data string) error {
 }
 
 func ToFile(r Report, preffix, suffix string) error {
+	if r.PprofCPU() != nil {
+		cpuPprofFilename := Filename(r.Name(), preffix, suffix+".pprof.cpu")
+		err := os.WriteFile(cpuPprofFilename, r.PprofCPU(), 0666)
+		if err != nil {
+			return err
+		}
+	}
+
+	if r.PprofMEM() != nil {
+		memPprofFilename := Filename(r.Name(), preffix, suffix+".pprof.mem")
+		err := os.WriteFile(memPprofFilename, r.PprofMEM(), 0666)
+		if err != nil {
+			return err
+		}
+	}
+
 	b, err := json.Marshal(r)
 	if err != nil {
 		return err
