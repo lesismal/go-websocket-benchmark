@@ -98,6 +98,7 @@ func ObjString(obj Report) string {
 			}
 		case "duration":
 			values = append(values, perf.I2TimeString(fieldValue.Int()))
+		case "-":
 		default:
 			typName := field.Type.Name()
 			switch typName {
