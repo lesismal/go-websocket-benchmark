@@ -37,12 +37,14 @@ type BenchEchoReport struct {
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`
-	CPUMin    float64 `json:"CPUMin" md:"CPU Min" fmt:"cpu"`
-	CPUAvg    float64 `json:"CPUAvg" md:"CPU Avg" fmt:"cpu"`
-	CPUMax    float64 `json:"CPUMax" md:"CPU Max" fmt:"cpu"`
-	MEMRSSMin uint64  `json:"MEMMin" md:"MEM Min" fmt:"mem"`
-	MEMRSSAvg uint64  `json:"MEMAvg" md:"MEM Avg" fmt:"mem"`
-	MEMRSSMax uint64  `json:"MEMMax" md:"MEM Max" fmt:"mem"`
+	CPUMin       float64 `json:"CPUMin" md:"CPU Min" fmt:"cpu"`
+	CPUAvg       float64 `json:"CPUAvg" md:"CPU Avg" fmt:"cpu"`
+	CPUMax       float64 `json:"CPUMax" md:"CPU Max" fmt:"cpu"`
+	MEMRSSMin    uint64  `json:"MEMMin" md:"MEM Min" fmt:"mem"`
+	MEMRSSAvg    uint64  `json:"MEMAvg" md:"MEM Avg" fmt:"mem"`
+	MEMRSSMax    uint64  `json:"MEMMax" md:"MEM Max" fmt:"mem"`
+	pprofDataCPU []byte  `json:"-" md:"-" fmt:"-"`
+	pprofDataMEM []byte  `json:"-" md:"-" fmt:"-"`
 }
 
 func (r *BenchEchoReport) Type() string {
@@ -59,6 +61,19 @@ func (r *BenchEchoReport) Headers() []string {
 
 func (r *BenchEchoReport) Fields() []string {
 	return ObjFieldValues(r)
+}
+
+func (r *BenchEchoReport) PprofCPU() []byte {
+	return r.pprofDataCPU
+}
+
+func (r *BenchEchoReport) PprofMEM() []byte {
+	return r.pprofDataMEM
+}
+
+func (r *BenchEchoReport) SetPprofData(cpu, mem []byte) {
+	r.pprofDataCPU = cpu
+	r.pprofDataMEM = mem
 }
 
 func (r *BenchEchoReport) String() string {

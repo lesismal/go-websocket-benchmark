@@ -53,10 +53,15 @@ type BenchEcho struct {
 	checkValid bool
 
 	rbufferPool *sync.Pool
+
+	onWarmup     func()
+	onBenchmark  func()
+	pprofDataCPU []byte `json:"-" md:"-"`
+	pprofDataMEM []byte `json:"-" md:"-"`
 }
 
 func New(framework string, serverPid int, benchmarkTimes int, ip string, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchEcho {
-	bm := &BenchEcho{
+	be := &BenchEcho{
 		Framework:  framework,
 		Ip:         ip,
 		Total:      benchmarkTimes,
@@ -65,172 +70,193 @@ func New(framework string, serverPid int, benchmarkTimes int, ip string, connsMa
 		checkValid: checkValid,
 		ServerPid:  serverPid,
 	}
-	return bm
+	return be
 }
 
-func (bm *BenchEcho) Run() {
-	bm.init()
-	defer bm.clean()
+func (be *BenchEcho) Run() {
+	be.init()
+	defer be.clean()
 
-	logging.Printf("BenchEcho Warmup for %d times ...", bm.WarmupTimes)
-	bm.Calculator.Warmup(bm.Concurrency, bm.WarmupTimes, bm.doOnce)
-	logging.Printf("BenchEcho Warmup for %d times done", bm.WarmupTimes)
+	logging.Printf("BenchEcho Warmup for %d times ...", be.WarmupTimes)
+	if be.onWarmup != nil {
+		be.onWarmup()
+	}
+	be.Calculator.Warmup(be.Concurrency, be.WarmupTimes, be.doOnce)
+	logging.Printf("BenchEcho Warmup for %d times done", be.WarmupTimes)
 
 	// delay 1 second
 	chCounterStart := make(chan struct{})
 	go func() {
-		if bm.PsCounter != nil {
-			bm.PsCounter.Start(perf.PSCountOptions{
+		if be.PsCounter != nil {
+			be.PsCounter.Start(perf.PSCountOptions{
 				CountCPU: true,
 				CountMEM: true,
 				CountIO:  true,
 				CountNET: true,
-				Interval: bm.PsInterval,
+				Interval: be.PsInterval,
 			})
-			time.Sleep(bm.PsInterval)
+			time.Sleep(be.PsInterval)
 			close(chCounterStart)
 		}
 	}()
 
-	logging.Printf("BenchEcho for %d times ...", bm.Total)
-	bm.Calculator.Benchmark(bm.Concurrency, bm.Total, bm.doOnce, bm.Percents)
-	logging.Printf("BenchEcho for %d times done", bm.Total)
+	logging.Printf("BenchEcho for %d times ...", be.Total)
+	if be.onBenchmark != nil {
+		be.onBenchmark()
+	}
+	be.Calculator.Benchmark(be.Concurrency, be.Total, be.doOnce, be.Percents)
+	logging.Printf("BenchEcho for %d times done", be.Total)
 
-	if bm.PsCounter != nil {
+	if be.PsCounter != nil {
 		<-chCounterStart
-		bm.PsCounter.Stop()
+		be.PsCounter.Stop()
 	}
 }
 
-func (bm *BenchEcho) Stop() {
+func (be *BenchEcho) Stop() {
 
 }
 
-func (bm *BenchEcho) Report() report.Report {
+func (be *BenchEcho) OnWarmup(f func()) {
+	be.onWarmup = f
+}
+
+func (be *BenchEcho) OnBenchmark(f func()) {
+	be.onBenchmark = f
+}
+
+func (be *BenchEcho) SetPprofData(cpu, mem []byte) {
+	be.pprofDataCPU = cpu
+	be.pprofDataMEM = mem
+}
+
+func (be *BenchEcho) Report() *report.BenchEchoReport {
 	r := &report.BenchEchoReport{
-		Framework:   bm.Framework,
-		Connections: len(bm.ConnsMap),
-		Concurrency: bm.Concurrency,
-		Payload:     bm.Payload,
-		Total:       bm.Total,
-		Success:     bm.Calculator.Success,
-		Failed:      bm.Calculator.Failed,
-		Used:        int64(bm.Calculator.Used),
+		Framework:   be.Framework,
+		Connections: len(be.ConnsMap),
+		Concurrency: be.Concurrency,
+		Payload:     be.Payload,
+		Total:       be.Total,
+		Success:     be.Calculator.Success,
+		Failed:      be.Calculator.Failed,
+		Used:        int64(be.Calculator.Used),
 
-		TPS:  bm.Calculator.TPS(),
-		Min:  bm.Calculator.Min,
-		Avg:  bm.Calculator.Avg,
-		Max:  bm.Calculator.Max,
-		TP50: bm.Calculator.TPN(50),
-		TP75: bm.Calculator.TPN(75),
-		TP90: bm.Calculator.TPN(90),
-		TP95: bm.Calculator.TPN(95),
-		TP99: bm.Calculator.TPN(99),
+		TPS:  be.Calculator.TPS(),
+		Min:  be.Calculator.Min,
+		Avg:  be.Calculator.Avg,
+		Max:  be.Calculator.Max,
+		TP50: be.Calculator.TPN(50),
+		TP75: be.Calculator.TPN(75),
+		TP90: be.Calculator.TPN(90),
+		TP95: be.Calculator.TPN(95),
+		TP99: be.Calculator.TPN(99),
 	}
-	if bm.PsCounter != nil {
-		// r.GoMin = bm.PsCounter.NumGoroutineMin()
-		// r.GoAvg = bm.PsCounter.NumGoroutineAvg()
-		// r.GoMax = bm.PsCounter.NumGoroutineMax()
-		r.CPUMin = bm.PsCounter.CPUMin()
-		r.CPUAvg = bm.PsCounter.CPUAvg()
-		r.CPUMax = bm.PsCounter.CPUMax()
-		r.MEMRSSMin = bm.PsCounter.MEMRSSMin()
-		r.MEMRSSAvg = bm.PsCounter.MEMRSSAvg()
-		r.MEMRSSMax = bm.PsCounter.MEMRSSMax()
+	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
+
+	if be.PsCounter != nil {
+		// r.GoMin = be .PsCounter.NumGoroutineMin()
+		// r.GoAvg = be .PsCounter.NumGoroutineAvg()
+		// r.GoMax = be .PsCounter.NumGoroutineMax()
+		r.CPUMin = be.PsCounter.CPUMin()
+		r.CPUAvg = be.PsCounter.CPUAvg()
+		r.CPUMax = be.PsCounter.CPUMax()
+		r.MEMRSSMin = be.PsCounter.MEMRSSMin()
+		r.MEMRSSAvg = be.PsCounter.MEMRSSAvg()
+		r.MEMRSSMax = be.PsCounter.MEMRSSMax()
 		r.EER = float64(r.TPS) / r.CPUAvg
 	}
 	return r
 }
 
-func (bm *BenchEcho) init() {
-	if bm.WarmupTimes <= 0 {
-		bm.WarmupTimes = len(bm.ConnsMap) * 5
-		if bm.WarmupTimes > 2000000 {
-			bm.WarmupTimes = 2000000
+func (be *BenchEcho) init() {
+	if be.WarmupTimes <= 0 {
+		be.WarmupTimes = len(be.ConnsMap) * 5
+		if be.WarmupTimes > 2000000 {
+			be.WarmupTimes = 2000000
 		}
 	}
-	if bm.Concurrency <= 0 {
-		bm.Concurrency = runtime.NumCPU() * 1000
+	if be.Concurrency <= 0 {
+		be.Concurrency = runtime.NumCPU() * 1000
 	}
-	if bm.Concurrency > len(bm.ConnsMap) {
-		bm.Concurrency = len(bm.ConnsMap)
+	if be.Concurrency > len(be.ConnsMap) {
+		be.Concurrency = len(be.ConnsMap)
 	}
-	if bm.Payload <= 0 {
-		bm.Payload = 1024
+	if be.Payload <= 0 {
+		be.Payload = 1024
 	}
-	bm.rbufferPool = &sync.Pool{
+	be.rbufferPool = &sync.Pool{
 		New: func() any {
-			buf := make([]byte, bm.Payload)
+			buf := make([]byte, be.Payload)
 			return &buf
 		},
 	}
-	if bm.PsInterval <= 0 {
-		bm.PsInterval = time.Second
+	if be.PsInterval <= 0 {
+		be.PsInterval = time.Second
 	}
-	if len(bm.Percents) == 0 {
-		bm.Percents = []int{50, 75, 90, 95, 99}
+	if len(be.Percents) == 0 {
+		be.Percents = []int{50, 75, 90, 95, 99}
 	}
 
-	if bm.Limit > 0 {
-		limiter := rate.NewLimiter(rate.Every(1*time.Second), bm.Limit)
-		bm.limitFn = func() {
+	if be.Limit > 0 {
+		limiter := rate.NewLimiter(rate.Every(1*time.Second), be.Limit)
+		be.limitFn = func() {
 			limiter.Wait(context.Background())
 		}
 	}
 
-	bm.pbuffers = make([][]byte, 1024)
-	bm.wbuffers = make([][]byte, 1024)
-	for i := 0; i < len(bm.pbuffers); i++ {
-		buffer := make([]byte, bm.Payload)
+	be.pbuffers = make([][]byte, 1024)
+	be.wbuffers = make([][]byte, 1024)
+	for i := 0; i < len(be.pbuffers); i++ {
+		buffer := make([]byte, be.Payload)
 		rand.Read(buffer)
-		bm.pbuffers[i] = buffer
-		bm.wbuffers[i] = protocol.EncodeClientMessage(websocket.BinaryMessage, buffer)
+		be.pbuffers[i] = buffer
+		be.wbuffers[i] = protocol.EncodeClientMessage(websocket.BinaryMessage, buffer)
 	}
 
-	bm.chConns = make(chan *websocket.Conn, len(bm.ConnsMap))
-	for c := range bm.ConnsMap {
-		bm.chConns <- c
+	be.chConns = make(chan *websocket.Conn, len(be.ConnsMap))
+	for c := range be.ConnsMap {
+		be.chConns <- c
 	}
 
-	psCounter, err := perf.NewPSCounter(bm.ServerPid)
+	psCounter, err := perf.NewPSCounter(be.ServerPid)
 	if err != nil {
 		logging.Printf("perf.NewPSCounter failed: %v", err)
 	} else {
-		bm.PsCounter = psCounter
+		be.PsCounter = psCounter
 	}
 
-	bm.Calculator = perf.NewCalculator(fmt.Sprintf("%v-TPS", bm.Framework))
+	be.Calculator = perf.NewCalculator(fmt.Sprintf("%v-TPS", be.Framework))
 }
 
-func (bm *BenchEcho) clean() {
-	bm.chConns = nil
-	bm.wbuffers = nil
-	bm.bufferIdx = 0
-	bm.limitFn = func() {}
+func (be *BenchEcho) clean() {
+	be.chConns = nil
+	be.wbuffers = nil
+	be.bufferIdx = 0
+	be.limitFn = func() {}
 }
 
-func (bm *BenchEcho) getBuffers() ([]byte, []byte) {
-	idx := uint32(mrand.Intn(len(bm.wbuffers))) % uint32(len(bm.wbuffers))
-	return bm.pbuffers[idx], bm.wbuffers[idx]
+func (be *BenchEcho) getBuffers() ([]byte, []byte) {
+	idx := uint32(mrand.Intn(len(be.wbuffers))) % uint32(len(be.wbuffers))
+	return be.pbuffers[idx], be.wbuffers[idx]
 }
 
-func (bm *BenchEcho) doOnce() error {
-	conn := <-bm.chConns
+func (be *BenchEcho) doOnce() error {
+	conn := <-be.chConns
 	defer func() {
-		bm.chConns <- conn
+		be.chConns <- conn
 	}()
 
-	bm.limitFn()
+	be.limitFn()
 
-	pbuffer, wbuffer := bm.getBuffers()
+	pbuffer, wbuffer := be.getBuffers()
 	_, err := conn.UnderlyingConn().Write(wbuffer)
 	if err != nil {
 		return err
 	}
 
 	nread := 0
-	rbuffer := bm.rbufferPool.Get().(*[]byte)
-	defer bm.rbufferPool.Put(rbuffer)
+	rbuffer := be.rbufferPool.Get().(*[]byte)
+	defer be.rbufferPool.Put(rbuffer)
 	readBuffer := *rbuffer
 	mt, reader, err := conn.NextReader()
 	if err != nil {
@@ -250,7 +276,7 @@ func (bm *BenchEcho) doOnce() error {
 		}
 	}
 
-	if bm.checkValid {
+	if be.checkValid {
 		if mt != websocket.BinaryMessage {
 			return errors.New("invalid message type")
 		}
