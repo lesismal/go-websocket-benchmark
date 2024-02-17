@@ -38,19 +38,21 @@ var (
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 
 	// BenchEcho
-	echoConcurrency = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
-	echoTimes       = flag.Int("en", 2000000, `benchecho: benchmark times`)
-	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
-	echoPprof       = flag.Bool("ep", true, `benchecho: generate prof report`)
+	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
+	echoTimes         = flag.Int("en", 2000000, `benchecho: benchmark times`)
+	echoTPSLimit      = flag.Int("el", 0, `benchecho: TPS limitation per second`)
+	echoPprof         = flag.Bool("ep", true, `benchecho: generate pprof report`)
+	echoPprofDuration = flag.Int("epd", 5, `benchecho: pprof duration`)
 
 	// BenchRate
-	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
-	rateConcurrency = flag.Int("rc", 10000, "benchrate: concurrency: how many goroutines used to do the echo test")
-	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
-	rateSendRate    = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
-	rateBatchSize   = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
-	rateSendLimit   = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
-	ratePprof       = flag.Bool("rp", false, `benchrate: generate prof report`)
+	rateEnabled       = flag.Bool("rate", false, `benchrate: whether run benchrate`)
+	rateConcurrency   = flag.Int("rc", 10000, "benchrate: concurrency: how many goroutines used to do the echo test")
+	rateDuration      = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
+	rateSendRate      = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
+	rateBatchSize     = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
+	rateSendLimit     = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
+	ratePprof         = flag.Bool("rp", false, `benchrate: generate pprof report`)
+	ratePprofDuration = flag.Int("rpd", 5, `benchrate: pprof duration`)
 
 	// for report generation
 	genReport = flag.Bool("r", false, `make report`)
@@ -88,13 +90,16 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
-	cpuProfileUrl := ""
+	cpuProfileUrlEcho := ""
+	cpuProfileUrlRate := ""
 	memProfileUrl := ""
 	serverPid, pprofAddr, err := config.GetFrameworkPid(*framework, *ip)
 	if err != nil {
 		logging.Printf("GetFrameworkPid(%v) failed: %v", *framework, err)
 	} else {
-		cpuProfileUrl = pprofAddr + "/debug/pprof/profile?seconds=5"
+		cpuProfileUrl := pprofAddr + "/debug/pprof/profile"
+		cpuProfileUrlEcho = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *echoPprofDuration)
+		cpuProfileUrlRate = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *ratePprofDuration)
 		fmt.Printf("pprof cpu :\n  curl --output ./cpu_profile %v\n", cpuProfileUrl)
 		fmt.Printf("  go tool pprof -http=:6060 ./cpu_profile\n")
 		memProfileUrl = pprofAddr + "/debug/pprof/heap"
@@ -110,7 +115,7 @@ func main() {
 	if *echoPprof {
 		be.OnWarmup(func() {
 			time.AfterFunc(time.Second*2, func() {
-				cpu, err := httpGet(cpuProfileUrl)
+				cpu, err := httpGet(cpuProfileUrlEcho)
 				if err != nil {
 					fmt.Printf("BenchEcho: [pprof cpu] httpGet failed: %v\n", err)
 					return
@@ -145,7 +150,7 @@ func main() {
 		if *ratePprof {
 			br.OnBenchmark(func() {
 				time.AfterFunc(time.Second*2, func() {
-					cpu, err := httpGet(cpuProfileUrl)
+					cpu, err := httpGet(cpuProfileUrlRate)
 					if err != nil {
 						fmt.Printf("BenchRate: [pprof cpu] httpGet failed: %v\n", err)
 						return
