@@ -50,6 +50,10 @@ type BenchRate struct {
 	sendBytes int64
 	recvTimes int64
 	recvBytes int64
+
+	onBenchmark  func()
+	pprofDataCPU []byte `json:"-" md:"-"`
+	pprofDataMEM []byte `json:"-" md:"-"`
 }
 
 type Conn struct {
@@ -110,6 +114,11 @@ func (br *BenchRate) Run() {
 		connTeams[idx] = append(connTeams[idx], conn)
 		wsc.SetSession(conn)
 	}
+
+	if br.onBenchmark != nil {
+		br.onBenchmark()
+	}
+
 	for i := 0; i < br.Concurrency; i++ {
 		wg.Add(1)
 		conns := connTeams[i]
@@ -141,7 +150,16 @@ func (br *BenchRate) Stop() {
 
 }
 
-func (br *BenchRate) Report() report.Report {
+func (br *BenchRate) OnBenchmark(f func()) {
+	br.onBenchmark = f
+}
+
+func (br *BenchRate) SetPprofData(cpu, mem []byte) {
+	br.pprofDataCPU = cpu
+	br.pprofDataMEM = mem
+}
+
+func (br *BenchRate) Report() *report.BenchRateReport {
 	r := &report.BenchRateReport{
 		Framework:   br.Framework,
 		Duration:    br.Duration.Nanoseconds(),
@@ -153,6 +171,7 @@ func (br *BenchRate) Report() report.Report {
 		RecvTimes:   br.recvTimes,
 		RecvBytes:   br.recvBytes,
 	}
+	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
 	if br.PsCounter != nil {
 		// r.GoMin = br.PsCounter.NumGoroutineMin()
 		// r.GoAvg = br.PsCounter.NumGoroutineAvg()
