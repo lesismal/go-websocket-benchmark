@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -35,13 +36,13 @@ var (
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 
 	// BenchEcho
-	echoConcurrency = flag.Int("ec", 50000, "benchecho: concurrency: how many goroutines used to do the echo test")
+	echoConcurrency = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
 	echoTimes       = flag.Int("en", 2000000, `benchecho: benchmark times`)
 	echoTPSLimit    = flag.Int("el", 0, `benchecho: TPS limitation per second`)
 
 	// BenchRate
 	rateEnabled     = flag.Bool("rate", false, `benchrate: whether run benchrate`)
-	rateConcurrency = flag.Int("rc", 50000, "benchrate: concurrency: how many goroutines used to do the echo test")
+	rateConcurrency = flag.Int("rc", 10000, "benchrate: concurrency: how many goroutines used to do the echo test")
 	rateDuration    = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
 	rateSendRate    = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
 	rateBatchSize   = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
@@ -83,7 +84,17 @@ func main() {
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
-	bm := benchecho.New(*framework, *echoTimes, *ip, cs.Conns(), *checkValid)
+	serverPid, pprofAddr, err := config.GetFrameworkPid(*framework, *ip)
+	if err != nil {
+		logging.Printf("GetFrameworkPid(%v) failed: %v", *framework, err)
+	} else {
+		fmt.Printf("pprof cpu :\n  curl --output ./cpu_profile %v\n", pprofAddr+"/debug/pprof/profile")
+		fmt.Printf("  go tool pprof -http=:6060 ./cpu_profile\n")
+		fmt.Printf("pprof heap:\n  curl --output ./mem_profile %v\n", pprofAddr+"/debug/pprof/heap")
+		fmt.Printf("  go tool pprof -http=:6061 ./mem_profile\n")
+		logging.Print(logging.ShortLine)
+	}
+	bm := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
 	bm.Concurrency = *echoConcurrency
 	bm.Payload = *payload
 	bm.Total = *echoTimes
@@ -98,7 +109,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 
 	if *rateEnabled {
-		br := benchrate.New(*framework, *ip, cs.NBConns(), *checkValid)
+		br := benchrate.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate

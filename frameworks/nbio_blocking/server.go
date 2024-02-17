@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +35,7 @@ func main() {
 	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.WriteMessage(messageType, data)
 	})
+	upgrader.KeepaliveTime = 0
 	upgrader.BlockingModAsyncWrite = false
 
 	addrs, err := config.GetFrameworkServerAddrs(config.NbioModBlocking)
@@ -53,7 +53,7 @@ func main() {
 func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
-	mux.HandleFunc("/pid", onServerPid)
+	frameworks.HandleCommon(mux)
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
@@ -69,10 +69,6 @@ func startServers(addrs []string) *nbhttp.Engine {
 	}
 
 	return engine
-}
-
-func onServerPid(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%d", os.Getpid())
 }
 
 func onWebsocket(w http.ResponseWriter, r *http.Request) {
