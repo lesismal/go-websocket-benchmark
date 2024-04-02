@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.0.1
-	github.com/lesismal/nbio v1.4.1-0.20240217182152-e18162a63c69
+	github.com/lesismal/nbio v1.5.3-0.20240402073628-1fd013c5307d
 	github.com/lesismal/perf v0.0.0-20240214093017-1da66d881de1
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/lxzan/gws v1.8.0
@@ -44,7 +44,7 @@ require (
 	github.com/henrylee2cn/goutil v0.0.0-20210127050712-89660552f6f8 // indirect
 	github.com/klauspost/compress v1.17.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
-	github.com/lesismal/llib v1.1.12 // indirect
+	github.com/lesismal/llib v1.1.13 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
@@ -58,7 +58,7 @@ require (
 	github.com/valyala/fasthttp v1.47.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
