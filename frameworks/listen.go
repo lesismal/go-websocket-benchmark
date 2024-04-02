@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	reuse = flag.Bool("reuseport", false, `reuse port`)
+	reuse = flag.Bool("reuseport", true, `reuse port`)
 )
 
 func Listen(network, addr string) (net.Listener, error) {
