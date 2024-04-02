@@ -104,7 +104,7 @@ func (cs *Connections) NBConns() map[*nbws.Conn]struct{} {
 		nbwsc := nbws.NewClientConn(cs.Options, nbc, "", false, false)
 		nbwsc.Execute = nbc.Execute
 		nbc.OnData(func(v *nbio.Conn, data []byte) {
-			nbwsc.Read(data)
+			nbwsc.Parse(data)
 		})
 		conns[nbwsc] = struct{}{}
 	}
