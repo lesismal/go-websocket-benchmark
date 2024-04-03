@@ -3,9 +3,11 @@
 . ./script/env.sh
 
 echo $line
+
 . ./script/killall.sh
 
 echo $line
+
 . ./script/clean.sh
 
 echo $line

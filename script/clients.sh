@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./script/env.sh
+# . ./script/env.sh
 
 for f in ${frameworks[@]}; do
     echo

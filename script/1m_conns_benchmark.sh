@@ -12,7 +12,13 @@ echo $line
 
 echo $line
 
-. ./script/env.sh
+frameworks=(
+    "greatws_event"
+    "greatws"
+    "nbio_nonblocking"
+)
+
+print_env
 
 echo $line
 
@@ -20,10 +26,17 @@ echo $line
 
 echo $line
 
-. ./script/server.sh nbio_nonblocking $1
+# $1 nodelay
+. ./script/servers.sh $1
 
-# echo $line
+echo $line
+
 sleep 3
-./script/client.sh -f=nbio_nonblocking -c=1000000 -en=5000000 -b=1024 -rr=1
+
+. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1
 
 # echo $line
+
+. ./script/report.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
+
+echo $line
