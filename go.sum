@@ -95,8 +95,8 @@ github.com/lesismal/perf v0.0.0-20240214093017-1da66d881de1 h1:iE0eusJRiBRIP5wzd
 github.com/lesismal/perf v0.0.0-20240214093017-1da66d881de1/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
 github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQscQm2s=
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
-github.com/lxzan/gws v1.8.1 h1:+Oc2f8U0YUE7mkBKUYUABvszUB9pfTfPQl7C26PW+LE=
-github.com/lxzan/gws v1.8.1/go.mod h1:FcGeRMB7HwGuTvMLR24ku0Zx0p6RXqeKASeMc4VYgi4=
+github.com/lxzan/gws v1.8.3 h1:umX2VLhXj7oVV4Sd2gCuqzrzpVWtqkKMy0tjHBBxXg0=
+github.com/lxzan/gws v1.8.3/go.mod h1:FcGeRMB7HwGuTvMLR24ku0Zx0p6RXqeKASeMc4VYgi4=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/nyaruka/phonenumbers v1.0.55 h1:bj0nTO88Y68KeUQ/n3Lo2KgK7lM1hF7L9NFuwcCl3yg=
