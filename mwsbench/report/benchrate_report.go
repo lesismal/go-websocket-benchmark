@@ -44,8 +44,8 @@ func (r *BenchRateReport) Headers() []string {
 	return BenchRateReportMarkdownHeaders
 }
 
-func (r *BenchRateReport) Fields() []string {
-	return ObjFieldValues(r)
+func (r *BenchRateReport) Fields(enableTPN bool) []string {
+	return ObjFieldValues(r, enableTPN)
 }
 
 func (r *BenchRateReport) SetPprofData(cpu, mem []byte) {
@@ -61,6 +61,6 @@ func (r *BenchRateReport) PprofMEM() []byte {
 	return r.pprofDataMEM
 }
 
-func (r *BenchRateReport) String() string {
-	return ObjString(r)
+func (r *BenchRateReport) String(enableTPN bool) string {
+	return ObjString(r, enableTPN)
 }
