@@ -36,6 +36,7 @@ var (
 	// BenchEcho && BenchRate
 	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
+	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchrate, 1000 ms by default`)
 
 	// BenchEcho
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -93,9 +94,11 @@ func main() {
 	cpuProfileUrlEcho := ""
 	cpuProfileUrlRate := ""
 	memProfileUrl := ""
-	serverPid, pprofAddr, err := config.GetFrameworkPid(*framework, *ip)
+	serverPid, pprofAddr, err := config.InitAndGetFrameworkPid(*framework, *ip, &config.InitArgs{
+		PsInterval: time.Millisecond * time.Duration(*psInterval),
+	})
 	if err != nil {
-		logging.Printf("GetFrameworkPid(%v) failed: %v", *framework, err)
+		logging.Printf("InitAndGetFrameworkPid(%v) failed: %v", *framework, err)
 	} else {
 		cpuProfileUrl := pprofAddr + "/debug/pprof/profile"
 		cpuProfileUrlEcho = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *echoPprofDuration)

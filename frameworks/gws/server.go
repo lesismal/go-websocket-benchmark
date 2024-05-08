@@ -32,9 +32,9 @@ func main() {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Gws, err)
 	}
 	lns := startServers(addrs)
-	pidServerAddr, err := config.GetFrameworkPidServerAddrs(config.Gws)
+	pidServerAddr, err := config.GetFrameworkHTTPServerAddrs(config.Gws)
 	if err != nil {
-		logging.Fatalf("GetFrameworkPidServerAddrs(%v) failed: %v", config.Gws, err)
+		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", config.Gws, err)
 	}
 	var pidLn net.Listener
 	go func() {
