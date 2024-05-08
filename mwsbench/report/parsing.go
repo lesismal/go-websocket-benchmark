@@ -7,21 +7,29 @@ import (
 	"github.com/lesismal/perf"
 )
 
-func init() {
+func Init(enableTPN bool) {
+	appendTPNHeadder := func(headers []string, field reflect.StructField) []string {
+		header := field.Tag.Get("md")
+		if header != "-" {
+			if enableTPN {
+				headers = append(headers, header)
+				return headers
+			}
+			isTPN := field.Tag.Get("tpn") != ""
+			if !isTPN {
+				headers = append(headers, header)
+			}
+		}
+		return headers
+	}
 	typ := reflect.TypeOf(ConnectionsReport{})
 	for i := 0; i < typ.NumField(); i++ {
-		header := typ.Field(i).Tag.Get("md")
-		if header != "-" {
-			ConnectionsReportMarkdownHeaders = append(ConnectionsReportMarkdownHeaders, header)
-		}
+		ConnectionsReportMarkdownHeaders = appendTPNHeadder(ConnectionsReportMarkdownHeaders, typ.Field(i))
 	}
 
 	typ = reflect.TypeOf(BenchEchoReport{})
 	for i := 0; i < typ.NumField(); i++ {
-		header := typ.Field(i).Tag.Get("md")
-		if header != "-" {
-			BenchEchoReportMarkdownHeaders = append(BenchEchoReportMarkdownHeaders, header)
-		}
+		BenchEchoReportMarkdownHeaders = appendTPNHeadder(BenchEchoReportMarkdownHeaders, typ.Field(i))
 	}
 
 	typ = reflect.TypeOf(BenchRateReport{})
@@ -33,7 +41,7 @@ func init() {
 	}
 }
 
-func ObjFieldValues(obj interface{}) []string {
+func ObjFieldValues(obj interface{}, enableTPN bool) []string {
 	values := []string{}
 	typ := reflect.TypeOf(obj)
 	value := reflect.ValueOf(obj)
@@ -44,6 +52,12 @@ func ObjFieldValues(obj interface{}) []string {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		fieldValue := value.FieldByName(field.Name)
+
+		isTPN := field.Tag.Get("tpn") != ""
+		if !enableTPN && isTPN {
+			continue
+		}
+
 		switch field.Tag.Get("fmt") {
 		case "mem":
 			if fieldValue.CanInt() {
@@ -71,7 +85,7 @@ func ObjFieldValues(obj interface{}) []string {
 	return values
 }
 
-func ObjString(obj Report) string {
+func ObjString(obj Report, enableTPN bool) string {
 	ret := ""
 	headers := []string{}
 	values := []string{}
@@ -88,6 +102,12 @@ func ObjString(obj Report) string {
 		header := field.Tag.Get("md")
 		if header == "-" {
 			continue
+		}
+		if !enableTPN {
+			isTPN := field.Tag.Get("tpn") != ""
+			if isTPN {
+				continue
+			}
 		}
 		headers = append(headers, header)
 		if len(header) > maxHeaderLen {
