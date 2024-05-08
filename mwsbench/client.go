@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go-websocket-benchmark/config"
-	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/benchecho"
 	"go-websocket-benchmark/mwsbench/benchrate"
@@ -95,7 +94,7 @@ func main() {
 	cpuProfileUrlEcho := ""
 	cpuProfileUrlRate := ""
 	memProfileUrl := ""
-	serverPid, pprofAddr, err := config.InitAndGetFrameworkPid(*framework, *ip, &frameworks.InitArgs{
+	serverPid, pprofAddr, err := config.InitAndGetFrameworkPid(*framework, *ip, &config.InitArgs{
 		PsInterval: time.Millisecond * time.Duration(*psInterval),
 	})
 	if err != nil {

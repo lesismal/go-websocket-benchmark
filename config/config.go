@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go-websocket-benchmark/frameworks"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lesismal/perf"
 )
+
+type InitArgs struct {
+	PsInterval time.Duration
+}
 
 const (
 	Fasthttp           = "fasthttp"
@@ -120,7 +124,7 @@ func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	return addrs, nil
 }
 
-func InitAndGetFrameworkPid(framework, ip string, args *frameworks.InitArgs) (int, string, error) {
+func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
 		return -1, "", err

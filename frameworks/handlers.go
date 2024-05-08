@@ -3,12 +3,14 @@ package frameworks
 import (
 	"encoding/json"
 	"fmt"
-	"go-websocket-benchmark/logging"
 	"io"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"time"
+
+	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 
 	"github.com/lesismal/perf"
 )
@@ -34,7 +36,7 @@ func HandleCommon(mux *http.ServeMux) {
 			logging.Fatalf("perf.NewPSCounter failed: %v", err)
 			return
 		}
-		var args InitArgs
+		var args config.InitArgs
 		json.Unmarshal(body, &args)
 		go func() {
 			psCounter.Start(perf.PSCountOptions{
@@ -54,8 +56,4 @@ func HandleCommon(mux *http.ServeMux) {
 		b, _ := json.Marshal(psCounter)
 		w.Write(b)
 	})
-}
-
-type InitArgs struct {
-	PsInterval time.Duration
 }
