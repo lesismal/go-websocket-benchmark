@@ -37,6 +37,7 @@ var (
 	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchrate, 1000 ms by default`)
+	enableTPN  = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
 	// BenchEcho
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -82,6 +83,7 @@ func main() {
 	cs.DialTimeout = *dialTimeout
 	cs.RetryTimes = *dialRetries
 	cs.RetryInterval = *dialRetryInterval
+	cs.EnalbeTPN = *enableTPN
 	cs.Run()
 	defer cs.Stop()
 	csReport := cs.Report()
@@ -115,6 +117,7 @@ func main() {
 	be.Payload = *payload
 	be.Total = *echoTimes
 	be.Limit = *echoTPSLimit
+	be.EnalbeTPN = *enableTPN
 	if *echoPprof {
 		be.OnWarmup(func() {
 			time.AfterFunc(time.Second*2, func() {
