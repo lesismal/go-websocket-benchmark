@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -37,6 +38,7 @@ var (
 	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchrate, 1000 ms by default`)
+	enableTPN  = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
 	// BenchEcho
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -62,7 +64,12 @@ var (
 )
 
 func main() {
+	wd, _ := os.Getwd()
+	logging.Println("pwd:", wd)
+
 	flag.Parse()
+
+	report.Init(*enableTPN)
 
 	if *genReport {
 		generateReports()
@@ -82,12 +89,13 @@ func main() {
 	cs.DialTimeout = *dialTimeout
 	cs.RetryTimes = *dialRetries
 	cs.RetryInterval = *dialRetryInterval
+	cs.EnalbeTPN = *enableTPN
 	cs.Run()
 	defer cs.Stop()
 	csReport := cs.Report()
 	report.ToFile(csReport, *preffix, *suffix)
 	logging.Print(logging.ShortLine)
-	logging.Print(csReport.String())
+	logging.Print(csReport.String(*enableTPN))
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
@@ -115,6 +123,7 @@ func main() {
 	be.Payload = *payload
 	be.Total = *echoTimes
 	be.Limit = *echoTPSLimit
+	be.EnalbeTPN = *enableTPN
 	if *echoPprof {
 		be.OnWarmup(func() {
 			time.AfterFunc(time.Second*2, func() {
@@ -138,7 +147,7 @@ func main() {
 	beReport := be.Report()
 	report.ToFile(beReport, *preffix, *suffix)
 	logging.Print(logging.ShortLine)
-	logging.Print(beReport.String())
+	logging.Print(beReport.String(*enableTPN))
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
@@ -173,21 +182,21 @@ func main() {
 		brReport := br.Report()
 		report.ToFile(brReport, *preffix, *suffix)
 		logging.Print(logging.ShortLine)
-		logging.Print(brReport.String())
+		logging.Print(brReport.String(*enableTPN))
 		logging.Print("\n")
 		logging.Print(logging.ShortLine)
 	}
 }
 
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix, nil)
+	data := report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, nil)
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
 	logging.Printf("[%vConnections%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
 
-	data = report.GenerateBenchEchoReports(*preffix, *suffix, nil)
+	data = report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
@@ -195,7 +204,7 @@ func generateReports() {
 	logging.Print(data)
 	logging.Print(logging.LongLine)
 
-	data = report.GenerateBenchRateReports(*preffix, *suffix, nil)
+	data = report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, nil)
 	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)

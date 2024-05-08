@@ -19,14 +19,14 @@ type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	TPS         int64   `json:"TPS" md:"TPS"`
 	EER         float64 `json:"EER" md:"EER"`
-	Min         int64   `json:"Min" md:"Min" fmt:"duration"`
-	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration"`
-	Max         int64   `json:"Max" md:"Max" fmt:"duration"`
-	TP50        int64   `json:"TP50" md:"TP50" fmt:"duration"`
-	TP75        int64   `json:"TP75" md:"TP75" fmt:"duration"`
-	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration"`
-	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration"`
-	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration"`
+	Min         int64   `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
+	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
+	Max         int64   `json:"Max" md:"Max" fmt:"duration" tpn:"opt"`
+	TP50        int64   `json:"TP50" md:"TP50" fmt:"duration" tpn:"opt"`
+	TP75        int64   `json:"TP75" md:"TP75" fmt:"duration" tpn:"opt"`
+	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration" tpn:"opt"`
+	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration" tpn:"opt"`
+	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration" tpn:"opt"`
 	Used        int64   `json:"Used" md:"Used" fmt:"duration"`
 	Total       int     `json:"Total" md:"Total"`
 	Success     int64   `json:"Success" md:"Success"`
@@ -59,8 +59,8 @@ func (r *BenchEchoReport) Headers() []string {
 	return BenchEchoReportMarkdownHeaders
 }
 
-func (r *BenchEchoReport) Fields() []string {
-	return ObjFieldValues(r)
+func (r *BenchEchoReport) Fields(enableTPN bool) []string {
+	return ObjFieldValues(r, enableTPN)
 }
 
 func (r *BenchEchoReport) PprofCPU() []byte {
@@ -76,6 +76,6 @@ func (r *BenchEchoReport) SetPprofData(cpu, mem []byte) {
 	r.pprofDataMEM = mem
 }
 
-func (r *BenchEchoReport) String() string {
-	return ObjString(r)
+func (r *BenchEchoReport) String(enableTPN bool) string {
+	return ObjString(r, enableTPN)
 }

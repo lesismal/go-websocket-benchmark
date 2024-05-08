@@ -28,6 +28,7 @@ type Connections struct {
 	DialTimeout    time.Duration
 	RetryInterval  time.Duration
 	RetryTimes     int
+	EnalbeTPN      bool
 	Percents       []int
 
 	// Caculations
@@ -120,23 +121,27 @@ func (cs *Connections) Stop() {
 }
 
 func (cs *Connections) Report() report.Report {
-	return &report.ConnectionsReport{
-		Framework:   cs.Framework,
-		TPS:         cs.Calculator.TPS(),
-		Min:         cs.Calculator.Min,
-		Avg:         cs.Calculator.Avg,
-		Max:         cs.Calculator.Max,
-		TP50:        cs.Calculator.TPN(50),
-		TP75:        cs.Calculator.TPN(75),
-		TP90:        cs.Calculator.TPN(90),
-		TP95:        cs.Calculator.TPN(95),
-		TP99:        cs.Calculator.TPN(99),
+	r := &report.ConnectionsReport{
+		Framework: cs.Framework,
+		TPS:       cs.Calculator.TPS(),
+		Min:       cs.Calculator.Min,
+		Avg:       cs.Calculator.Avg,
+		Max:       cs.Calculator.Max,
+
 		Used:        int64(cs.Calculator.Used),
 		Total:       cs.NumConnections,
 		Success:     cs.Success,
 		Failed:      cs.Failed,
 		Concurrency: cs.Concurrency,
 	}
+	if cs.EnalbeTPN {
+		r.TP50 = cs.Calculator.TPN(50)
+		r.TP75 = cs.Calculator.TPN(75)
+		r.TP90 = cs.Calculator.TPN(90)
+		r.TP95 = cs.Calculator.TPN(95)
+		r.TP99 = cs.Calculator.TPN(99)
+	}
+	return r
 }
 
 func (cs *Connections) init() {
@@ -158,7 +163,7 @@ func (cs *Connections) init() {
 	if cs.RetryTimes <= 0 {
 		cs.RetryTimes = 3
 	}
-	if len(cs.Percents) == 0 {
+	if cs.EnalbeTPN {
 		cs.Percents = []int{50, 75, 90, 95, 99}
 	}
 

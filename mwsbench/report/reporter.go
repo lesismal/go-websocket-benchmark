@@ -12,8 +12,8 @@ type Report interface {
 	Type() string
 	Name() string
 	Headers() []string
-	Fields() []string
-	String() string
+	Fields(bool) []string
+	String(bool) string
 	PprofCPU() []byte
 	PprofMEM() []byte
 }
@@ -23,7 +23,7 @@ func JSON(report Report) string {
 	return string(b)
 }
 
-func Markdown(reports []Report, filter func(string) bool) string {
+func Markdown(reports []Report, enableTPN bool, filter func(string) bool) string {
 	if len(reports) == 0 {
 		return ""
 	}
@@ -34,7 +34,7 @@ func Markdown(reports []Report, filter func(string) bool) string {
 	table := perf.NewTable()
 	table.SetTitle(Headers(reports[0], filter))
 	for _, v := range reports {
-		table.AddRow(Fields(v, filter))
+		table.AddRow(Fields(v, enableTPN, filter))
 	}
 
 	return table.Markdown()
@@ -77,29 +77,29 @@ func Headers(r Report, filter func(string) bool) []string {
 	return filtHeaders(r.Headers(), filter)
 }
 
-func Fields(r Report, filter func(string) bool) []string {
-	return filtFieldsByHeaders(r.Headers(), r.Fields(), filter)
+func Fields(r Report, enableTPN bool, filter func(string) bool) []string {
+	return filtFieldsByHeaders(r.Fields(enableTPN), filter)
 }
 
-func GenerateConnectionsReports(preffix, suffix string, filter func(string) bool) string {
+func GenerateConnectionsReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &ConnectionsReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, create, filter)
 }
 
-func GenerateBenchEchoReports(preffix, suffix string, filter func(string) bool) string {
+func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &BenchEchoReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, create, filter)
 }
 
-func GenerateBenchRateReports(preffix, suffix string, filter func(string) bool) string {
+func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &BenchRateReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, create, filter)
 }
 
 func ReadConnectionsReports(preffix, suffix string) []Report {
@@ -139,9 +139,9 @@ func ReadReports(preffix, suffix string, create func(framework string) Report) [
 	return reports
 }
 
-func GenerateReports(preffix, suffix string, create func(framework string) Report, filter func(string) bool) string {
+func GenerateReports(preffix, suffix string, enableTPN bool, create func(framework string) Report, filter func(string) bool) string {
 	reports := ReadReports(preffix, suffix, create)
-	return Markdown(reports, filter)
+	return Markdown(reports, enableTPN, filter)
 }
 
 // func Join(reports []Report) Report {
@@ -160,7 +160,7 @@ func filtHeaders(headers []string, filter func(string) bool) []string {
 	return retValues
 }
 
-func filtFieldsByHeaders(headers []string, values []string, filter func(string) bool) []string {
+func filtFieldsByHeaders(values []string, filter func(string) bool) []string {
 	retValues := values[0:0]
 	if filter != nil {
 		for _, v := range values {
