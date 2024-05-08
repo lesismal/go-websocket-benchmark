@@ -30,6 +30,7 @@ type BenchEcho struct {
 	Concurrency int
 	Payload     int
 	Limit       int
+	EnalbeTPN   bool
 	Percents    []int
 	PsInterval  time.Duration
 
@@ -142,16 +143,19 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 		Failed:      be.Calculator.Failed,
 		Used:        int64(be.Calculator.Used),
 
-		TPS:  be.Calculator.TPS(),
-		Min:  be.Calculator.Min,
-		Avg:  be.Calculator.Avg,
-		Max:  be.Calculator.Max,
-		TP50: be.Calculator.TPN(50),
-		TP75: be.Calculator.TPN(75),
-		TP90: be.Calculator.TPN(90),
-		TP95: be.Calculator.TPN(95),
-		TP99: be.Calculator.TPN(99),
+		TPS: be.Calculator.TPS(),
+		Min: be.Calculator.Min,
+		Avg: be.Calculator.Avg,
+		Max: be.Calculator.Max,
 	}
+	if be.EnalbeTPN {
+		r.TP50 = be.Calculator.TPN(50)
+		r.TP75 = be.Calculator.TPN(75)
+		r.TP90 = be.Calculator.TPN(90)
+		r.TP95 = be.Calculator.TPN(95)
+		r.TP99 = be.Calculator.TPN(99)
+	}
+
 	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
 
 	be.PsCounter, _ = config.GetFrameworkPsInfo(be.Framework, be.Ip)
@@ -195,7 +199,7 @@ func (be *BenchEcho) init() {
 	if be.PsInterval <= 0 {
 		be.PsInterval = time.Second
 	}
-	if len(be.Percents) == 0 {
+	if be.EnalbeTPN {
 		be.Percents = []int{50, 75, 90, 95, 99}
 	}
 
