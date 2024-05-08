@@ -1,11 +1,16 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"go-websocket-benchmark/frameworks"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/lesismal/perf"
 )
 
 const (
@@ -94,7 +99,7 @@ func GetFrameworkServerAddrs(framework string) ([]string, error) {
 	return addrs, nil
 }
 
-func GetFrameworkPidServerAddrs(framework string) (string, error) {
+func GetFrameworkHTTPServerAddrs(framework string) (string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
 		return "", err
@@ -115,7 +120,7 @@ func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	return addrs, nil
 }
 
-func GetFrameworkPid(framework, ip string) (int, string, error) {
+func InitAndGetFrameworkPid(framework, ip string, args *frameworks.InitArgs) (int, string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
 		return -1, "", err
@@ -124,9 +129,10 @@ func GetFrameworkPid(framework, ip string) (int, string, error) {
 	if framework == Gws {
 		pidPort++
 	}
-	serverAddr := fmt.Sprintf("http://%v:%v/pid", ip, pidPort)
+	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
 
-	res, err := http.Get(serverAddr)
+	data, _ := json.Marshal(args)
+	res, err := http.Post(serverAddr, "", bytes.NewReader(data))
 	if err != nil {
 		return -1, "", err
 	}
@@ -135,8 +141,36 @@ func GetFrameworkPid(framework, ip string) (int, string, error) {
 		return -1, "", err
 	}
 	pid, err := strconv.Atoi(string(body))
-
 	pprofAddr := fmt.Sprintf("http://%v:%v", ip, pidPort)
 
 	return pid, pprofAddr, err
+}
+
+func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
+	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return nil, err
+	}
+	pidPort := ports[len(ports)-1]
+	if framework == Gws {
+		pidPort++
+	}
+	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
+
+	res, err := http.Get(serverAddr)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	psCounter := &perf.PSCounter{}
+	err = json.Unmarshal(body, psCounter)
+	if err != nil {
+		return nil, err
+	}
+
+	return psCounter, nil
 }

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/mwsbench/protocol"
 	"go-websocket-benchmark/mwsbench/report"
@@ -85,20 +86,20 @@ func (be *BenchEcho) Run() {
 	logging.Printf("BenchEcho Warmup for %d times done", be.WarmupTimes)
 
 	// delay 1 second
-	chCounterStart := make(chan struct{})
-	go func() {
-		if be.PsCounter != nil {
-			be.PsCounter.Start(perf.PSCountOptions{
-				CountCPU: true,
-				CountMEM: true,
-				CountIO:  true,
-				CountNET: true,
-				Interval: be.PsInterval,
-			})
-			time.Sleep(be.PsInterval)
-			close(chCounterStart)
-		}
-	}()
+	// chCounterStart := make(chan struct{})
+	// go func() {
+	// 	if be.PsCounter != nil {
+	// 		be.PsCounter.Start(perf.PSCountOptions{
+	// 			CountCPU: true,
+	// 			CountMEM: true,
+	// 			CountIO:  true,
+	// 			CountNET: true,
+	// 			Interval: be.PsInterval,
+	// 		})
+	// 		time.Sleep(be.PsInterval)
+	// 		close(chCounterStart)
+	// 	}
+	// }()
 
 	logging.Printf("BenchEcho for %d times ...", be.Total)
 	if be.onBenchmark != nil {
@@ -107,10 +108,10 @@ func (be *BenchEcho) Run() {
 	be.Calculator.Benchmark(be.Concurrency, be.Total, be.doOnce, be.Percents)
 	logging.Printf("BenchEcho for %d times done", be.Total)
 
-	if be.PsCounter != nil {
-		<-chCounterStart
-		be.PsCounter.Stop()
-	}
+	// if be.PsCounter != nil {
+	// 	<-chCounterStart
+	// 	be.PsCounter.Stop()
+	// }
 }
 
 func (be *BenchEcho) Stop() {
@@ -153,6 +154,7 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 	}
 	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
 
+	be.PsCounter, _ = config.GetFrameworkPsInfo(be.Framework, be.Ip)
 	if be.PsCounter != nil {
 		// r.GoMin = be .PsCounter.NumGoroutineMin()
 		// r.GoAvg = be .PsCounter.NumGoroutineAvg()
@@ -218,12 +220,12 @@ func (be *BenchEcho) init() {
 		be.chConns <- c
 	}
 
-	psCounter, err := perf.NewPSCounter(be.ServerPid)
-	if err != nil {
-		logging.Printf("perf.NewPSCounter failed: %v", err)
-	} else {
-		be.PsCounter = psCounter
-	}
+	// psCounter, err := perf.NewPSCounter(be.ServerPid)
+	// if err != nil {
+	// 	logging.Printf("perf.NewPSCounter failed: %v", err)
+	// } else {
+	// 	be.PsCounter = psCounter
+	// }
 
 	be.Calculator = perf.NewCalculator(fmt.Sprintf("%v-TPS", be.Framework))
 }
