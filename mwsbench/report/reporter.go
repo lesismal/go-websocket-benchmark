@@ -78,7 +78,7 @@ func Headers(r Report, filter func(string) bool) []string {
 }
 
 func Fields(r Report, filter func(string) bool) []string {
-	return filtFieldsByHeaders(r.Headers(), r.Fields(), filter)
+	return filtFieldsByHeaders(r.Fields(), filter)
 }
 
 func GenerateConnectionsReports(preffix, suffix string, filter func(string) bool) string {
@@ -160,7 +160,7 @@ func filtHeaders(headers []string, filter func(string) bool) []string {
 	return retValues
 }
 
-func filtFieldsByHeaders(headers []string, values []string, filter func(string) bool) []string {
+func filtFieldsByHeaders(values []string, filter func(string) bool) []string {
 	retValues := values[0:0]
 	if filter != nil {
 		for _, v := range values {
