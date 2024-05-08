@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -63,7 +64,12 @@ var (
 )
 
 func main() {
+	wd, _ := os.Getwd()
+	logging.Println("pwd:", wd)
+
 	flag.Parse()
+
+	report.Init(*enableTPN)
 
 	if *genReport {
 		generateReports()
@@ -89,7 +95,7 @@ func main() {
 	csReport := cs.Report()
 	report.ToFile(csReport, *preffix, *suffix)
 	logging.Print(logging.ShortLine)
-	logging.Print(csReport.String())
+	logging.Print(csReport.String(*enableTPN))
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
@@ -141,7 +147,7 @@ func main() {
 	beReport := be.Report()
 	report.ToFile(beReport, *preffix, *suffix)
 	logging.Print(logging.ShortLine)
-	logging.Print(beReport.String())
+	logging.Print(beReport.String(*enableTPN))
 	logging.Print("\n")
 	logging.Print(logging.ShortLine)
 
@@ -176,21 +182,21 @@ func main() {
 		brReport := br.Report()
 		report.ToFile(brReport, *preffix, *suffix)
 		logging.Print(logging.ShortLine)
-		logging.Print(brReport.String())
+		logging.Print(brReport.String(*enableTPN))
 		logging.Print("\n")
 		logging.Print(logging.ShortLine)
 	}
 }
 
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix, nil)
+	data := report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, nil)
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
 	logging.Printf("[%vConnections%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
 
-	data = report.GenerateBenchEchoReports(*preffix, *suffix, nil)
+	data = report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
@@ -198,7 +204,7 @@ func generateReports() {
 	logging.Print(data)
 	logging.Print(logging.LongLine)
 
-	data = report.GenerateBenchRateReports(*preffix, *suffix, nil)
+	data = report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, nil)
 	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
