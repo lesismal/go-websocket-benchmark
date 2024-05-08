@@ -234,12 +234,12 @@ func (br *BenchRate) init() {
 		}
 	}
 
-	psCounter, err := perf.NewPSCounter(br.ServerPid)
-	if err != nil {
-		logging.Printf("perf.NewPSCounter failed: %v", err)
-	} else {
-		br.PsCounter = psCounter
-	}
+	// psCounter, err := perf.NewPSCounter(br.ServerPid)
+	// if err != nil {
+	// 	logging.Printf("perf.NewPSCounter failed: %v", err)
+	// } else {
+	// 	br.PsCounter = psCounter
+	// }
 }
 
 func (br *BenchRate) clean() {
