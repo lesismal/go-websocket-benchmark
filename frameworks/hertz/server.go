@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/pprof"
 	"github.com/hertz-contrib/websocket"
+	"github.com/lesismal/perf"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 	maxReadBufferSize = flag.Int("mrb", 4096, `max read buffer size`)
 	_                 = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	_                 = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
 	upgrader = websocket.HertzUpgrader{}
 )
@@ -63,16 +66,41 @@ func startServers(addrs []string) []*server.Hertz {
 		pprof.Register(srv)
 		srvs = append(srvs, srv)
 		go func() {
+			psCounter, err := perf.NewPSCounter(os.Getpid())
+			if err != nil {
+				logging.Fatalf("perf.NewPSCounter failed: %v", err)
+			}
+
 			srv.GET("/ws", onWebsocket)
-			srv.GET("/pid", onServerPid)
+			srv.POST("/init", func(c context.Context, ctx *app.RequestContext) {
+				body, err := ctx.Body()
+				if err != nil {
+					logging.Fatalf("perf.NewPSCounter failed: %v", err)
+					return
+				}
+				var args config.InitArgs
+				json.Unmarshal(body, &args)
+				go func() {
+					psCounter.Start(perf.PSCountOptions{
+						CountCPU: true,
+						CountMEM: true,
+						CountIO:  true,
+						CountNET: true,
+						Interval: args.PsInterval,
+					})
+					time.Sleep(args.PsInterval)
+				}()
+
+				ctx.Response.BodyWriter().Write([]byte(fmt.Sprintf("%d", os.Getpid())))
+			})
+			srv.GET("/ps", func(c context.Context, ctx *app.RequestContext) {
+				b, _ := json.Marshal(psCounter)
+				ctx.Response.BodyWriter().Write(b)
+			})
 			srv.Spin()
 		}()
 	}
 	return srvs
-}
-
-func onServerPid(c context.Context, ctx *app.RequestContext) {
-	ctx.Response.BodyWriter().Write([]byte(fmt.Sprintf("%d", os.Getpid())))
 }
 
 func onWebsocket(c context.Context, ctx *app.RequestContext) {
