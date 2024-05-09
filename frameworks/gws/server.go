@@ -22,6 +22,7 @@ var (
 	_       = flag.Int("mrb", 4096, `max read buffer size`)
 	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
+	_       = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 )
 
 func main() {
