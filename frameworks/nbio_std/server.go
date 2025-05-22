@@ -32,8 +32,8 @@ func main() {
 	flag.Parse()
 
 	mempool.DefaultMemPool = mempool.New(*payload+1024, 1024*1024*1024)
-	upgrader.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
-		c.WriteMessage(messageType, data)
+	upgrader.OnMessagePtr(func(c *websocket.Conn, messageType websocket.MessageType, pdata *[]byte) {
+		c.WriteMessage(messageType, *pdata)
 	})
 	upgrader.KeepaliveTime = 0
 	upgrader.BlockingModAsyncWrite = false
