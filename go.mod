@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
+	github.com/lesismal/auto-balance-epoll/go v0.0.0-00010101000000-000000000000
 	github.com/lesismal/nbio v1.6.12
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
@@ -20,6 +21,8 @@ require (
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
 )
+
+replace github.com/lesismal/auto-balance-epoll/go => ../event_work_balance/go
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
