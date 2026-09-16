@@ -11,7 +11,17 @@ mkdir -p ./output/report
 # build
 for f in ${frameworks[@]}; do
     echo "build ${f} ..."
-    go build -o "./output/bin/${f}.server" "./frameworks/${f}"
+    case "${f}" in
+    "uws_events")
+        go build -o "./output/bin/${f}.server" "./frameworks/uws"
+        ;;
+    "uws_std")
+        go build -tags=stdio -o "./output/bin/${f}.server" "./frameworks/uws"
+        ;;
+    *)
+        go build -o "./output/bin/${f}.server" "./frameworks/${f}"
+        ;;
+    esac
     echo "build ${f} done"
     echo
 done

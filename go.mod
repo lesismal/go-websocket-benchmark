@@ -6,7 +6,7 @@ require (
 	github.com/antlabs/greatws v0.2.2
 	github.com/antlabs/quickws v0.2.2
 	github.com/bytedance/gopkg v0.1.4
-	github.com/cloudwego/hertz v0.10.5
+	github.com/cloudwego/hertz v0.10.6
 	github.com/fasthttp/websocket v1.5.12
 	github.com/go-netty/go-netty-ws v1.0.12
 	github.com/gobwas/ws v1.4.0
@@ -16,7 +16,8 @@ require (
 	github.com/lesismal/nbio v1.6.12
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
-	github.com/lxzan/gws v1.10.0
+	github.com/lxzan/gws v1.10.2
+	github.com/urpc/uio v1.2.0
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
 )
@@ -29,7 +30,7 @@ require (
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/gopkg v0.2.0 // indirect
-	github.com/cloudwego/netpoll v0.7.3 // indirect
+	github.com/cloudwego/netpoll v0.7.5 // indirect
 	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-netty/go-netty v1.6.8 // indirect
@@ -38,9 +39,10 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
+	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
