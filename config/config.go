@@ -34,6 +34,8 @@ const (
 	Quickws            = "quickws"
 	Greatws            = "greatws"
 	GreatwsEvent       = "greatws_event"
+	UwsStdio           = "uws_std"
+	UwsEvents          = "uws_events"
 )
 
 var Ports = map[string]string{
@@ -53,6 +55,8 @@ var Ports = map[string]string{
 	Quickws:            "23001:23050",
 	Greatws:            "24001:24050",
 	GreatwsEvent:       "25001:25050",
+	UwsStdio:           "26001:26050",
+	UwsEvents:          "28001:28050",
 }
 
 var FrameworkList = []string{
@@ -72,6 +76,8 @@ var FrameworkList = []string{
 	Quickws,
 	Greatws,
 	GreatwsEvent,
+	UwsStdio,
+	UwsEvents,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
@@ -130,7 +136,7 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 		return -1, "", err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws {
+	if framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
@@ -156,7 +162,7 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 		return nil, err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws {
+	if framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
