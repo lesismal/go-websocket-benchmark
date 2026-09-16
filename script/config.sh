@@ -22,4 +22,6 @@ frameworks=(
     "nbio_std"
     "nettyws"
     "nhooyr"
+    "uws_std"
+    "uws_events"
 )
