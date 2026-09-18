@@ -19,6 +19,7 @@ type InitArgs struct {
 
 const (
 	Fasthttp           = "fasthttp"
+	Fib                = "fib"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
@@ -40,6 +41,7 @@ const (
 
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
+	Fib:                "26001:26050",
 	Gobwas:             "11001:11050",
 	Gorilla:            "12001:12050",
 	Gws:                "13001:13050",
@@ -61,6 +63,7 @@ var Ports = map[string]string{
 
 var FrameworkList = []string{
 	Fasthttp,
+	Fib,
 	Gobwas,
 	Gorilla,
 	Gws,
@@ -136,7 +139,7 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 		return -1, "", err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws || framework == UwsStdio || framework == UwsEvents {
+	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
@@ -162,7 +165,7 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 		return nil, err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws || framework == UwsStdio || framework == UwsEvents {
+	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
