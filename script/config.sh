@@ -7,10 +7,10 @@ SleepTime=5
 
 frameworks=(
     "fasthttp"
+    "fib"
     "gobwas"
     "greatws_event"
     "greatws"
-    "auto_balance_epoll"
     "quickws"
     "gorilla"
     "gws"
