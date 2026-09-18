@@ -19,6 +19,7 @@ type InitArgs struct {
 
 const (
 	Fasthttp           = "fasthttp"
+	Fib                = "fib"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Gws                = "gws"
@@ -34,11 +35,11 @@ const (
 	Quickws            = "quickws"
 	Greatws            = "greatws"
 	GreatwsEvent       = "greatws_event"
-	AutoBalanceEpoll   = "auto_balance_epoll"
 )
 
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
+	Fib:                "26001:26050",
 	Gobwas:             "11001:11050",
 	Gorilla:            "12001:12050",
 	Gws:                "13001:13050",
@@ -54,11 +55,11 @@ var Ports = map[string]string{
 	Quickws:            "23001:23050",
 	Greatws:            "24001:24050",
 	GreatwsEvent:       "25001:25050",
-	AutoBalanceEpoll:   "26001:26050",
 }
 
 var FrameworkList = []string{
 	Fasthttp,
+	Fib,
 	Gobwas,
 	Gorilla,
 	Gws,
@@ -74,7 +75,6 @@ var FrameworkList = []string{
 	Quickws,
 	Greatws,
 	GreatwsEvent,
-	AutoBalanceEpoll,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
@@ -133,7 +133,7 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 		return -1, "", err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws || framework == AutoBalanceEpoll {
+	if framework == Fib || framework == Gws {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
@@ -159,7 +159,7 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 		return nil, err
 	}
 	pidPort := ports[len(ports)-1]
-	if framework == Gws || framework == AutoBalanceEpoll {
+	if framework == Fib || framework == Gws {
 		pidPort++
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
