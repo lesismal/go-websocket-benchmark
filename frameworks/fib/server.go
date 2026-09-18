@@ -20,7 +20,6 @@ import (
 
 	fib "github.com/lesismal/fib/go"
 	"github.com/lesismal/fib/go/http/websocket"
-	"github.com/lesismal/fib/go/taskpool"
 )
 
 var (
@@ -127,16 +126,16 @@ func startServer(addrs []string) *fib.Engine {
 	// is under the elastic mode DefaultConfig starts from, so the sizing has to
 	// come along with the mode. Assigning the field alone left this server
 	// running cond with elastic's numbers.
-	serverConfig.SetTaskPoolMode(taskpool.ModeCond)
-	serverConfig.WorkerCount = 200
-	serverConfig.MaxEvents = 10000
-	serverConfig.WriteBufferHighWatermark = connectionPendingHighWatermark
+	// serverConfig.SetTaskPoolMode(taskpool.ModeCond)
+	// serverConfig.WorkerCount = 200
+	// serverConfig.MaxEvents = 10000
+	// serverConfig.WriteBufferHighWatermark = connectionPendingHighWatermark
 	// MaxPendingBytes bounds one server, and there is now one server, so this
 	// is the process-wide bound directly. Split across a server per port it
 	// never bound anything: the rate test's resident peak sat at 1.5G through
 	// three different buffer layouts because the budget underneath them was
 	// the library default times 50, or 3.2G.
-	serverConfig.MaxPendingBytes = processPendingBudget
+	// serverConfig.MaxPendingBytes = processPendingBudget
 
 	server, err := fib.Bind(serverConfig, handler)
 	if err != nil {
