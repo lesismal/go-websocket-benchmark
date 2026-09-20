@@ -134,8 +134,8 @@ github.com/tklauser/numcpus v0.4.0 h1:E53Dm1HjH1/R2/aoCtXtPgzmElmn51aOkhCFSuZq//
 github.com/tklauser/numcpus v0.4.0/go.mod h1:1+UI3pD8NW14VMwdgJNJ1ESk2UnwhAnz5hMwiKKqXCQ=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
-github.com/urpc/uio v1.2.0 h1:+sA3gbBZzOHWGouNGBCR0XBoT3jliQ1csrbyQVWKbqk=
-github.com/urpc/uio v1.2.0/go.mod h1:GCPlVeiap9rUguHODO/SNTz75rsj8Pj33PQzUQTavzs=
+github.com/urpc/uio v1.3.0 h1:7ay/dzstwnj6ak9dxLiwPtKQFBc7oe9kj4xUBK3tXzg=
+github.com/urpc/uio v1.3.0/go.mod h1:GCPlVeiap9rUguHODO/SNTz75rsj8Pj33PQzUQTavzs=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.58.0 h1:GGB2dWxSbEprU9j0iMJHgdKYJVDyjrOwF9RE59PbRuE=

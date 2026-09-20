@@ -41,7 +41,7 @@ const (
 
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
-	Fib:                "26001:26050",
+	Fib:                "29001:29050",
 	Gobwas:             "11001:11050",
 	Gorilla:            "12001:12050",
 	Gws:                "13001:13050",
