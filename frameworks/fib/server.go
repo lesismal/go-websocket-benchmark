@@ -1,5 +1,3 @@
-//go:build linux
-
 package main
 
 import (
@@ -9,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -19,7 +15,7 @@ import (
 	"go-websocket-benchmark/logging"
 
 	fib "github.com/lesismal/fib/go"
-	"github.com/lesismal/fib/go/http/websocket"
+	"github.com/lesismal/fib/go/websocket"
 )
 
 var (
@@ -46,19 +42,6 @@ const (
 
 func main() {
 	flag.Parse()
-	// Honour the benchmark's memory limit the way the nbio servers do. Live
-	// data sat near 850MB while the resident peak reached 1.5G, so the rest is
-	// GC headroom, and a soft limit is what bounds that.
-	debug.SetMemoryLimit(*memLimit)
-	// The pool's workers run their connection's read and write inline, and a
-	// goroutine inside a syscall holds its P until the scheduler takes it back.
-	// With one P per core the cores therefore sit idle waiting for that
-	// handover: a 100k-connection echo run used 2.3 of the 5 cores it was given
-	// and an execution trace showed 872 seconds of runnable-but-not-running
-	// time in a 2-second window. Two Ps per core measured 415k echoes/s against
-	// 330k, 71k accepted connections/s against 55k, and TP99 69ms against
-	// 145ms.
-	runtime.GOMAXPROCS(2 * runtime.NumCPU())
 
 	addrs, err := config.GetFrameworkServerAddrs(config.Fib)
 	if err != nil {
@@ -113,29 +96,13 @@ func startServer(addrs []string) *fib.Engine {
 	handler := &serverHandler{Handler: websocketHandler, nodelay: *nodelay}
 
 	serverConfig := fib.DefaultConfig()
-	// The client dials IPv4 loopback, so bind IPv4 rather than the dual-stack
-	// socket a bare "tcp" would give: it keeps the socket family the same as it
-	// was before Addrs replaced Ports, so numbers stay comparable across
-	// commits. Measured either way the difference is inside the run-to-run
-	// noise.
 	serverConfig.Network = "tcp4"
 	serverConfig.Addrs = addrs
-	serverConfig.ReadBufferSize = *payload + 1024
-	// SetTaskPoolMode rather than assigning the field: under cond the worker
-	// count is a population of goroutines created up front, not the ceiling it
-	// is under the elastic mode DefaultConfig starts from, so the sizing has to
-	// come along with the mode. Assigning the field alone left this server
-	// running cond with elastic's numbers.
-	// serverConfig.SetTaskPoolMode(taskpool.ModeCond)
-	// serverConfig.WorkerCount = 200
-	// serverConfig.MaxEvents = 10000
-	// serverConfig.WriteBufferHighWatermark = connectionPendingHighWatermark
-	// MaxPendingBytes bounds one server, and there is now one server, so this
-	// is the process-wide bound directly. Split across a server per port it
-	// never bound anything: the rate test's resident peak sat at 1.5G through
-	// three different buffer layouts because the budget underneath them was
-	// the library default times 50, or 3.2G.
-	// serverConfig.MaxPendingBytes = processPendingBudget
+
+	// by default, fib uses a shared task pool with ModeAdaptive, which is tuned for the benchmark.
+	// serverConfig.SetTaskPool(taskpool.NewAdaptive(taskpool.AdaptiveConfig{
+	// 	MinWorkers: 500, MaxWorkers: 5000, QueueSize: 10000,
+	// }))
 
 	server, err := fib.Bind(serverConfig, handler)
 	if err != nil {
