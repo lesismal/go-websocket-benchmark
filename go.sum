@@ -86,6 +86,8 @@ github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/lesismal/fib/go v0.0.0-20260918091045-4aa217246dc9 h1:JE48mXiQ22hai4y+VYlcN6nRwbVrO6OnXKNggcuKFsM=
 github.com/lesismal/fib/go v0.0.0-20260918091045-4aa217246dc9/go.mod h1:pkd+n1Mdhq67jD1h/GffZm84KA1w01E6WoCebJJzADQ=
+github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d h1:0GX42W/Mr86qk68ObL5zSyw/cI5fXf7KArFHdP2N/j4=
+github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d/go.mod h1:b1pauZmHbnnYd+kmEFzbkky9Z36an7ttGIDsAd/kwnI=
 github.com/lesismal/llib v1.2.4 h1:O9ih7VDnOB6KOP3r64DAJpMyMJ/bCKbzYI80VoXEV28=
 github.com/lesismal/llib v1.2.4/go.mod h1:70tFXXe7P1FZ02AU9l8LgSOK7d7sRrpnkUr3rd3gKSg=
 github.com/lesismal/nbio v1.6.12 h1:nzCqb/vli06hoYdMHD+TYAGIdUnEv/BIHm3TddUD/h4=

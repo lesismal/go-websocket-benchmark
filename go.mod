@@ -1,6 +1,6 @@
 module go-websocket-benchmark
 
-go 1.25.0
+go 1.27
 
 require (
 	github.com/antlabs/greatws v0.2.2
@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
-	github.com/lesismal/fib/go v0.0.0-20260918091045-4aa217246dc9
+	github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d
 	github.com/lesismal/nbio v1.6.12
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
