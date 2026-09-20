@@ -27,7 +27,7 @@ sleep 1
 sleep 3
 echo $line
 for f in ${frameworks[@]}; do
-    echo "run ${f} server on cpu 0-${server_cpu_num}"
+    echo "run ${f} server on cpu ${server_cpu_list:-unbound}"
     # nohup $limit_cpu_server "./output/bin/${f}.server" -b=$b >"./output/log/${f}${suffix}.log" 2>&1 &
     for c in ${Connections[@]}; do
         for b in ${BodySize[@]}; do

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync/atomic"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
@@ -14,6 +15,11 @@ import (
 
 	"github.com/urpc/uio"
 	"github.com/urpc/uio/uws"
+)
+
+const (
+	executorWorkers = 256
+	executorPending = 65536
 )
 
 var (
@@ -44,13 +50,52 @@ func (echoHandler) OnMessage(conn *uws.Conn, message uws.Message) {
 
 func (echoHandler) OnClose(*uws.Conn, uws.CloseEvent) {}
 
+type benchmarkExecutor struct {
+	shards []chan func()
+	next   atomic.Uint64
+}
+
+func newBenchmarkExecutor() *benchmarkExecutor {
+	shardCount := min(runtime.GOMAXPROCS(0), executorWorkers/8, executorPending)
+	executor := &benchmarkExecutor{shards: make([]chan func(), shardCount)}
+	for index := range executor.shards {
+		queueSize := executorPending / shardCount
+		if index < executorPending%shardCount {
+			queueSize++
+		}
+		executor.shards[index] = make(chan func(), queueSize)
+		workerCount := executorWorkers / shardCount
+		if index < executorWorkers%shardCount {
+			workerCount++
+		}
+		for range workerCount {
+			queue := executor.shards[index]
+			go func() {
+				for task := range queue {
+					task()
+				}
+			}()
+		}
+	}
+	return executor
+}
+
+func (executor *benchmarkExecutor) Submit(task func()) bool {
+	index := (executor.next.Add(1) - 1) % uint64(len(executor.shards))
+	select {
+	case executor.shards[index] <- task:
+		return true
+	default:
+		return false
+	}
+}
+
 func main() {
 	flag.Parse()
 
 	if *readBufferSize <= 0 {
 		logging.Fatalf("read buffer size must be positive: %d", *readBufferSize)
 	}
-
 	addrs, err := config.GetFrameworkServerAddrs(frameworkName)
 	if err != nil {
 		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", frameworkName, err)
@@ -61,9 +106,15 @@ func main() {
 
 	server := uws.NewServer(echoHandler{})
 	server.Events = &uio.Events{
-		Pollers:       max(1, runtime.NumCPU()/2),
-		MaxBufferSize: *readBufferSize,
+		Pollers:       runtime.NumCPU(),
+		MaxBufferSize: maxBufferSize,
 	}
+	server.Executor = newBenchmarkExecutor()
+	logging.Printf(
+		"uws benchmark config: executor=sharded workers=%d pending=%d pollers=%d GOMAXPROCS=%d NumCPU=%d",
+		executorWorkers, executorPending,
+		server.Events.Pollers, runtime.GOMAXPROCS(0), runtime.NumCPU(),
+	)
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.Serve(addrs...) }()
 
