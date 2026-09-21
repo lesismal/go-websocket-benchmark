@@ -122,11 +122,12 @@ func (cs *Connections) Stop() {
 
 func (cs *Connections) Report() report.Report {
 	r := &report.ConnectionsReport{
-		Framework: cs.Framework,
-		TPS:       cs.Calculator.TPS(),
-		Min:       cs.Calculator.Min,
-		Avg:       cs.Calculator.Avg,
-		Max:       cs.Calculator.Max,
+		BenchClient: "benchcli-go",
+		Framework:   cs.Framework,
+		TPS:         cs.Calculator.TPS(),
+		Min:         cs.Calculator.Min,
+		Avg:         cs.Calculator.Avg,
+		Max:         cs.Calculator.Max,
 
 		Used:        int64(cs.Calculator.Used),
 		Total:       cs.NumConnections,

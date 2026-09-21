@@ -49,6 +49,7 @@ inline json emptyReport(const std::string &kind,const Options &o) {
         else r[key]=0;
     }
     r["Framework"]=o.get("f");
+    r["BenchClient"]="benchcli-uwscpp";
     return r;
 }
 inline std::string filename(const Options &o,const std::string &base,const std::string &ext) {
