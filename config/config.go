@@ -37,6 +37,7 @@ const (
 	GreatwsEvent       = "greatws_event"
 	UwsStdio           = "uws_std"
 	UwsEvents          = "uws_events"
+	Fnet               = "fnet"
 )
 
 var Ports = map[string]string{
@@ -59,6 +60,7 @@ var Ports = map[string]string{
 	GreatwsEvent:       "25001:25050",
 	UwsStdio:           "26001:26050",
 	UwsEvents:          "28001:28050",
+	Fnet:               "30001:30050",
 }
 
 var FrameworkList = []string{
@@ -81,6 +83,7 @@ var FrameworkList = []string{
 	GreatwsEvent,
 	UwsStdio,
 	UwsEvents,
+	Fnet,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {

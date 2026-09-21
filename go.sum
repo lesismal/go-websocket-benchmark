@@ -84,8 +84,6 @@ github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa02
 github.com/klauspost/cpuid/v2 v2.2.9 h1:66ze0taIn2H33fBvCkXuv9BmCwDfafmiIVpKV9kKGuY=
 github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK4QwQ3WMXF8=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
-github.com/lesismal/fib/go v0.0.0-20260918091045-4aa217246dc9 h1:JE48mXiQ22hai4y+VYlcN6nRwbVrO6OnXKNggcuKFsM=
-github.com/lesismal/fib/go v0.0.0-20260918091045-4aa217246dc9/go.mod h1:pkd+n1Mdhq67jD1h/GffZm84KA1w01E6WoCebJJzADQ=
 github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d h1:0GX42W/Mr86qk68ObL5zSyw/cI5fXf7KArFHdP2N/j4=
 github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d/go.mod h1:b1pauZmHbnnYd+kmEFzbkky9Z36an7ttGIDsAd/kwnI=
 github.com/lesismal/llib v1.2.4 h1:O9ih7VDnOB6KOP3r64DAJpMyMJ/bCKbzYI80VoXEV28=
@@ -96,6 +94,8 @@ github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c h1:cB/Kbeew70XRJAgfR
 github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
 github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQscQm2s=
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
+github.com/linfeip/fnet v0.0.0-20260921044351-6665666b8ed8 h1:rFgV3bXnz/gefy84SvbLqBzW3PvZCnQRYvfap9t+kFk=
+github.com/linfeip/fnet v0.0.0-20260921044351-6665666b8ed8/go.mod h1:IDogd58kd3aEYB+YyyH56hOZ6fI/NjoHjQXXJyzETzw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=
@@ -171,8 +171,8 @@ golang.org/x/sys v0.0.0-20220412211240-33da011f77ad/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.24.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
-golang.org/x/sys v0.38.0 h1:3yZWxaJjBmCWXqhN1qh02AkOnCQ1poK6oF+a7xWL6Gc=
-golang.org/x/sys v0.38.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
+golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
+golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
