@@ -21,14 +21,14 @@ sudo apt-get install build-essential git python3 libcurl4-openssl-dev
 # Build just the C++ client (first build downloads pinned dependencies).
 bash benchcli-uwscpp/build.sh
 
-# The full benchmark defaults to C++ via script/env.sh.
+# The full benchmark defaults to C++ via script/config.sh.
 bash script/benchmark.sh
 
 # Select the original Go client instead.
 BENCH_CLIENT=benchcli-go bash script/benchmark.sh
 ```
 
-Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}` in `script/env.sh` to change the
+Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}` in `script/config.sh` to change the
 persistent default. Both builds produce `output/bin/bench.client`; rerun the build
 when switching clients. The runner and report scripts use that binary.
 

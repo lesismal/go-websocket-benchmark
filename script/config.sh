@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Benchmark client: benchcli-uwscpp (default) or benchcli-go.
+# Override for one run with: BENCH_CLIENT=benchcli-go bash script/benchmark.sh
+BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}
+case "$BENCH_CLIENT" in
+    benchcli-go|benchcli-uwscpp) ;;
+    *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
+esac
+
 Connections=(5000 50000)
 BodySize=(512 1024)
 BenchTime=(2000000)

@@ -2,14 +2,6 @@
 
 . ./script/config.sh
 
-# Benchmark client: benchcli-uwscpp (default) or benchcli-go.
-# May also be overridden as: BENCH_CLIENT=benchcli-go bash script/benchmark.sh
-BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}
-case "$BENCH_CLIENT" in
-    benchcli-go|benchcli-uwscpp) ;;
-    *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
-esac
-
 if command -v taskset >/dev/null 2>&1; then
     if [ -n "${BENCH_SERVER_CPU_LIST:-}" ] && [ -n "${BENCH_CLIENT_CPU_LIST:-}" ]; then
         # Docker supplies lists from the daemon's effective cpuset. This avoids

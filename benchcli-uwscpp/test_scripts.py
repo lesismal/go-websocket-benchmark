@@ -15,7 +15,7 @@ def selected(extra_env=None):
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
-        ["bash", "-c", ". ./script/env.sh && printf '%s' \"$BENCH_CLIENT\""],
+        ["bash", "-c", ". ./script/config.sh && printf '%s' \"$BENCH_CLIENT\""],
         cwd=ROOT,
         env=env,
         text=True,
