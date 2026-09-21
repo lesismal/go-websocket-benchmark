@@ -17,6 +17,7 @@ require (
 	github.com/lesismal/nbio v1.6.12
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
+	github.com/linfeip/fnet v0.0.0-20260921020151-3ea4993facbd
 	github.com/lxzan/gws v1.10.2
 	github.com/urpc/uio v1.3.0
 	golang.org/x/time v0.15.0
@@ -58,6 +59,6 @@ require (
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )

@@ -25,4 +25,5 @@ frameworks=(
     "nhooyr"
     "uws_std"
     "uws_events"
+    "fnet"
 )
