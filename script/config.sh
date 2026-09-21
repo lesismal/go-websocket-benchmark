@@ -34,6 +34,7 @@ frameworks=(
     "uws_std"
     "uws_events"
     "fnet"
+    "uwebsockets"
 )
 
 # Optional comma-separated subset, used by the Docker smoke test and useful for
