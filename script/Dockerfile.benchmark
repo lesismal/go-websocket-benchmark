@@ -11,6 +11,7 @@ RUN apt-get update \
         psmisc \
         python3 \
         util-linux \
+        zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -28,7 +29,13 @@ RUN mkdir -p /workspace/benchcli-uwscpp/.deps \
         submodule update --init --depth 1 uSockets \
     && git clone --depth 1 --branch v3.12.0 \
         https://github.com/nlohmann/json.git \
-        /workspace/benchcli-uwscpp/.deps/json
+        /workspace/benchcli-uwscpp/.deps/json \
+    && mkdir -p /workspace/frameworks/uwebsockets/.deps \
+    && git clone --depth 1 --branch v20.74.0 \
+        https://github.com/uNetworking/uWebSockets.git \
+        /workspace/frameworks/uwebsockets/.deps/uWebSockets \
+    && git -C /workspace/frameworks/uwebsockets/.deps/uWebSockets \
+        submodule update --init --depth 1 uSockets
 
 COPY . .
 
