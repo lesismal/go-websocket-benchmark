@@ -1,6 +1,45 @@
 # go-websocket-benchmark
 - support 1m-connections client
 
+## Benchmark client
+
+`script/env.sh` selects the client with `BENCH_CLIENT`, defaulting to
+`benchcli-uwscpp` (uWebSockets C++). To use the Go client:
+
+```sh
+BENCH_CLIENT=benchcli-go bash script/benchmark.sh
+```
+
+The C++ client requires a C++17 compiler, Git, Python 3 and libcurl development
+headers. Its first build fetches pinned uWebSockets/uSockets and JSON dependencies.
+Both clients produce `output/bin/bench.client` and compatible JSON reports.
+See [C++ client build instructions, flags and tests](benchcli-uwscpp/README.md).
+
+### Docker benchmark
+
+The Docker runner reads the CPU set and memory exposed by the Docker daemon,
+uses about 75% of its CPUs and 80% of its memory, pins separate CPU groups for
+the servers and client, and copies reports, logs, console output and the selected
+resource plan to `output/docker/<timestamp>`.
+
+```sh
+# Short Gorilla validation
+bash script/docker_benchmark.sh --smoke
+
+# Full benchmark using the default C++ client
+bash script/docker_benchmark.sh
+
+# Focused run with explicit resource limits
+BENCH_FRAMEWORKS=gorilla,nbio_nonblocking \
+DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
+bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
+```
+
+Use `BENCH_CLIENT=benchcli-go` to select the Go client. Run
+`bash script/docker_benchmark.sh --help` for all overrides. The first run builds
+the image and downloads the pinned Go and C++ dependencies; later runs use the
+Docker build cache.
+
 ## before running the test
 - make sure setting the correct system env, for example:
 

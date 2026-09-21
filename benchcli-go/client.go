@@ -9,12 +9,12 @@ import (
 	"runtime/debug"
 	"time"
 
+	"go-websocket-benchmark/benchcli-go/benchecho"
+	"go-websocket-benchmark/benchcli-go/benchrate"
+	"go-websocket-benchmark/benchcli-go/connections"
+	"go-websocket-benchmark/benchcli-go/report"
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
-	"go-websocket-benchmark/mwsbench/benchecho"
-	"go-websocket-benchmark/mwsbench/benchrate"
-	"go-websocket-benchmark/mwsbench/connections"
-	"go-websocket-benchmark/mwsbench/report"
 )
 
 var (

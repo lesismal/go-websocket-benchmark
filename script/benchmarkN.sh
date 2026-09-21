@@ -6,7 +6,7 @@
 # BodySize=(128 512 1024 4096)
 # BenchTime=(2000000)
 
-. ./script/env.sh
+. ./script/env.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 . ./script/clean.sh
@@ -17,7 +17,7 @@ print_env
 
 echo $line
 
-. ./script/build.sh
+. ./script/build.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 
@@ -35,7 +35,7 @@ for f in ${frameworks[@]}; do
                 # echo $line
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
-                . ./script/client.sh -f=$f -c=$c -b=$b -n=$n -suffix=${suffix} -rate=true
+                . ./script/client.sh -f=$f -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || { return 1 2>/dev/null || exit 1; }
                 sleep $SleepTime
             done
         done
@@ -48,7 +48,7 @@ for c in ${Connections[@]}; do
         for n in ${BenchTime[@]}; do
             # echo $line
             suffix="_${c}_${b}_${n}"
-            . ./script/report.sh -suffix=${suffix} $1 $2 $3 $4 $5 $6 $7 $8 $9
+            . ./script/report.sh -suffix=${suffix} "$@"
         done
     done
 done

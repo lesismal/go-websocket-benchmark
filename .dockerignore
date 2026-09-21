@@ -1,0 +1,9 @@
+.git
+.idea
+.vscode
+output
+bin
+benchcli-uwscpp/.build
+benchcli-uwscpp/.deps
+**/__pycache__
+**/*.pyc
