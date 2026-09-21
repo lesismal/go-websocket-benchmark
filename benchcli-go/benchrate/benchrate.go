@@ -162,6 +162,7 @@ func (br *BenchRate) SetPprofData(cpu, mem []byte) {
 
 func (br *BenchRate) Report() *report.BenchRateReport {
 	r := &report.BenchRateReport{
+		BenchClient: "benchcli-go",
 		Framework:   br.Framework,
 		Duration:    br.Duration.Nanoseconds(),
 		Connections: len(br.ConnsMap),

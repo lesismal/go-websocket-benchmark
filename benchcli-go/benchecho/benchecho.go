@@ -134,6 +134,7 @@ func (be *BenchEcho) SetPprofData(cpu, mem []byte) {
 
 func (be *BenchEcho) Report() *report.BenchEchoReport {
 	r := &report.BenchEchoReport{
+		BenchClient: "benchcli-go",
 		Framework:   be.Framework,
 		Connections: len(be.ConnsMap),
 		Concurrency: be.Concurrency,
