@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go-websocket-benchmark/benchcli-go/report"
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
-	"go-websocket-benchmark/mwsbench/report"
 
 	"github.com/gorilla/websocket"
 	"github.com/lesismal/nbio"

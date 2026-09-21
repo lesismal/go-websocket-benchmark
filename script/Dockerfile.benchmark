@@ -1,0 +1,38 @@
+ARG GO_IMAGE=golang:1.27-bookworm
+FROM ${GO_IMAGE}
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        git \
+        libcurl4-openssl-dev \
+        procps \
+        psmisc \
+        python3 \
+        util-linux \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Cache pinned native dependencies in the image. The benchmark build script
+# consumes these paths without requiring network access at container runtime.
+RUN mkdir -p /workspace/benchcli-uwscpp/.deps \
+    && git clone --depth 1 --branch v20.74.0 \
+        https://github.com/uNetworking/uWebSockets.git \
+        /workspace/benchcli-uwscpp/.deps/uWebSockets \
+    && git -C /workspace/benchcli-uwscpp/.deps/uWebSockets \
+        submodule update --init --depth 1 uSockets \
+    && git clone --depth 1 --branch v3.12.0 \
+        https://github.com/nlohmann/json.git \
+        /workspace/benchcli-uwscpp/.deps/json
+
+COPY . .
+
+ENV GOCACHE=/tmp/go-build-cache \
+    BUILD_DIR=/tmp/benchcli-uwscpp-build
+
+CMD ["bash", "script/benchmark.sh"]

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./script/env.sh
+. ./script/env.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 
@@ -24,7 +24,7 @@ print_env
 
 echo $line
 
-. ./script/build.sh
+. ./script/build.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 
@@ -35,10 +35,10 @@ echo $line
 
 sleep 3
 
-. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1
+. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 || { return 1 2>/dev/null || exit 1; }
 
 # echo $line
 
-. ./script/report.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
+. ./script/report.sh "$@"
 
 echo $line

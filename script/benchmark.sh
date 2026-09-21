@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./script/env.sh
+. ./script/env.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 
@@ -16,7 +16,7 @@ print_env
 
 echo $line
 
-. ./script/build.sh
+. ./script/build.sh || { return 1 2>/dev/null || exit 1; }
 
 echo $line
 
@@ -27,10 +27,10 @@ echo $line
 
 sleep 3
 
-. ./script/clients.sh -rate=true $1 $2 $3 $4 $5 $6 $7 $8 $9
+. ./script/clients.sh -rate=true "$@" || { return 1 2>/dev/null || exit 1; }
 
 # echo $line
 
-. ./script/report.sh $1 $2 $3 $4 $5 $6 $7 $8 $9
+. ./script/report.sh "$@"
 
 echo $line

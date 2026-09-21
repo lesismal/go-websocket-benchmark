@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+"""End-to-end tests against a small RFC 6455 fixture; no Python packages needed."""
+import asyncio
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import struct
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+
+BINARY = str(Path(sys.argv.pop(1) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / 'output/bin/bench.client').resolve())
+
+
+def frame(data, opcode=2, fin=True):
+    first = (128 if fin else 0) | opcode
+    n = len(data)
+    header = bytes([first, n]) if n < 126 else (bytes([first, 126]) + struct.pack('!H', n) if n < 65536 else bytes([first, 127]) + struct.pack('!Q', n))
+    return header + data
+
+
+class Fixture:
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        self.mode = 'echo'
+        self.requests = []
+        self.connections = 0
+        self.attempts = 0
+        self.masked = True
+        self.ready = threading.Event()
+        self.error = None
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+        self.ready.wait(10)
+        if self.error:
+            raise self.error
+
+    def run(self):
+        asyncio.set_event_loop(self.loop)
+        async def start():
+            self.servers = []
+            for port in range(12001, 12051):
+                self.servers.append(await asyncio.start_server(self.handle, '127.0.0.1', port))
+        try:
+            self.loop.run_until_complete(start())
+        except Exception as exc:
+            self.error = exc
+        finally:
+            self.ready.set()
+        if not self.error:
+            self.loop.run_forever()
+        self.loop.close()
+
+    def close(self):
+        async def stop():
+            for server in self.servers:
+                server.close()
+                await server.wait_closed()
+            tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        asyncio.run_coroutine_threadsafe(stop(), self.loop).result(5)
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(5)
+
+    async def handle(self, reader, writer):
+        try:
+            header = await reader.readuntil(b'\r\n\r\n')
+            lines = header.decode().split('\r\n')
+            method, path, _ = lines[0].split(' ')
+            headers = dict(line.lower().split(': ', 1) for line in lines[1:] if ': ' in line)
+            body = await reader.readexactly(int(headers.get('content-length', 0)))
+            self.requests.append((method, path, body))
+            if path != '/ws':
+                if path == '/init':
+                    result = b'123'
+                elif path == '/ps':
+                    result = json.dumps({'cpu': [0, 10, 30], 'mem': [{'rss': 1000}, {'rss': 3000}, {'rss': 2000}]}).encode()
+                else:
+                    result = b'profile-fixture'
+                writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(result)).encode() + b'\r\nConnection: close\r\n\r\n' + result)
+                await writer.drain()
+                return
+            self.attempts += 1
+            if self.mode == 'handshake_timeout':
+                await asyncio.sleep(1)
+                return
+            if self.mode == 'partial' and writer.get_extra_info('sockname')[1] % 2:
+                return
+            if self.mode == 'retry' and self.attempts % 2:
+                return
+            # Values are case sensitive: re-read the original websocket key.
+            key = next(line.split(': ', 1)[1] for line in lines if line.lower().startswith('sec-websocket-key:'))
+            accept = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())
+            if self.mode == 'bad_upgrade':
+                accept = b'bad'
+            response = b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: WebSocket\r\nConnection: keep-alive, Upgrade\r\nSec-WebSocket-Accept: ' + accept + b'\r\n\r\n'
+            # Force incremental HTTP header parsing.
+            writer.write(response[:25])
+            await writer.drain()
+            await asyncio.sleep(0.001)
+            writer.write(response[25:])
+            await writer.drain()
+            self.connections += 1
+            while True:
+                first, second = await reader.readexactly(2)
+                size = second & 127
+                if size == 126:
+                    size, = struct.unpack('!H', await reader.readexactly(2))
+                elif size == 127:
+                    size, = struct.unpack('!Q', await reader.readexactly(8))
+                self.masked &= bool(second & 128)
+                mask = await reader.readexactly(4) if second & 128 else bytes(4)
+                raw = await reader.readexactly(size)
+                data = bytes(v ^ mask[i % 4] for i, v in enumerate(raw))
+                if first & 15 == 10:
+                    continue
+                if self.mode == 'close':
+                    writer.write(frame(struct.pack('!H', 1000), 8))
+                    await writer.drain()
+                    return
+                if self.mode == 'stall':
+                    continue
+                if self.mode == 'corrupt':
+                    data = bytes([data[0] ^ 255]) + data[1:]
+                if self.mode == 'fragment':
+                    middle = len(data) // 2
+                    response = frame(data[:middle], fin=False) + frame(b'ping', 9) + frame(data[middle:], 0)
+                    # Split headers and bodies across multiple socket reads.
+                    writer.write(response[:1])
+                    await writer.drain()
+                    await asyncio.sleep(0.001)
+                    writer.write(response[1:])
+                else:
+                    writer.write(frame(data))
+                await writer.drain()
+        except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError):
+            pass
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, BrokenPipeError):
+                pass
+
+
+class ClientTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = Fixture()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.cwd = Path(self.directory.name)
+        self.server.mode = 'echo'
+        self.server.requests.clear()
+        self.server.attempts = 0
+        self.server.masked = True
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def run_client(self, *args, success=True):
+        command = [BINARY, '-f=gorilla', '-c=4', '-dc=2', '-ec=2', '-threads=2', '-en=40', '-b=128', '-check=true', '-ep=false', '-m=0', '-dt=200ms', '-dri=1ms', '-io-timeout=100ms', *args]
+        result = subprocess.run(command, cwd=self.cwd, text=True, capture_output=True, timeout=20)
+        if success:
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
+
+    def report(self, kind, prefix='', suffix=''):
+        return json.loads((self.cwd / 'output/report' / f'{prefix}gorilla-{kind}{suffix}.json').read_text())
+
+    def test_echo_payload_sizes_and_statistics(self):
+        for size in [1, 125, 126, 65535, 65536]:
+            with self.subTest(size=size):
+                self.run_client(f'-b={size}')
+                c = self.report('Connections')
+                self.assertEqual((c['Total'], c['Success'], c['Failed']), (4, 4, 0))
+                e = self.report('BenchEcho')
+                self.assertEqual((e['Success'], e['Failed'], e['Total'], e['Payload']), (40, 0, 40, size))
+                self.assertTrue(0 < e['Min'] <= e['TP50'] <= e['TP99'] <= e['Max'])
+                self.assertEqual((e['CPUMin'], e['CPUAvg'], e['CPUMax']), (10, 20, 30))
+                self.assertEqual((e['MEMMin'], e['MEMAvg'], e['MEMMax']), (2000, 2500, 3000))
+                self.assertAlmostEqual(e['EER'], e['TPS'] / 20)
+                self.assertTrue(self.server.masked)
+
+    def test_fragmented_messages_and_ping(self):
+        self.server.mode = 'fragment'
+        self.run_client('-b=1024')
+        self.assertEqual(self.report('BenchEcho')['Success'], 40)
+
+    def test_corruption_is_counted(self):
+        self.server.mode = 'corrupt'
+        self.run_client(success=False)
+        self.assertEqual(self.report('BenchEcho')['Failed'], 40)
+        self.run_client('-check=false')
+        self.assertEqual(self.report('BenchEcho')['Success'], 40)
+
+    def test_disconnect_and_response_timeout(self):
+        for mode in ['close', 'stall']:
+            with self.subTest(mode=mode):
+                self.server.mode = mode
+                self.run_client(success=False)
+                self.assertEqual(self.report('BenchEcho')['Failed'], 40)
+
+    def test_upgrade_rejection_and_timeout(self):
+        for mode in ['bad_upgrade', 'handshake_timeout']:
+            with self.subTest(mode=mode):
+                self.server.mode = mode
+                self.run_client('-dr=2', '-dt=20ms', success=False)
+                self.assertEqual(self.report('Connections')['Failed'], 4)
+
+    def test_partial_connections(self):
+        self.server.mode = 'partial'
+        self.run_client('-dr=1', success=False)
+        self.assertEqual(self.report('Connections')['Success'], 2)
+        self.assertEqual(self.report('BenchEcho')['Success'], 40)
+
+    def test_rate_covers_all_connections(self):
+        self.run_client('-rate=true', '-c=8', '-rc=1', '-rd=1', '-rr=20', '-rbs=1')
+        r = self.report('BenchRate')
+        self.assertTrue(120 <= r['RecvTimes'] <= r['SendTimes'] <= 160, r)
+        self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
+
+    def test_retry(self):
+        self.server.mode = 'retry'
+        self.run_client('-c=1', '-dc=1', '-dr=2')
+        self.assertEqual(self.report('Connections')['Success'], 1)
+        self.assertEqual(self.server.attempts, 2)
+
+    def test_rate_and_global_limit(self):
+        for batch_size in [1, 16384]:
+            self.run_client('-rate=true', '-rd=1', '-rr=100', '-rl=40', f'-rbs={batch_size}', '-rc=1')
+            r = self.report('BenchRate')
+            self.assertTrue(0 < r['RecvTimes'] <= r['SendTimes'] <= 80, r)
+            self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
+            self.assertEqual(r['SendBytes'], r['SendTimes'] * 128)
+            self.assertEqual(r['RecvBytes'], r['RecvTimes'] * 128)
+            self.assertEqual(r['Duration'], 1000000000)
+
+    def test_echo_limit(self):
+        self.run_client('-el=20', '-en=40', '-io-timeout=1s')
+        self.assertGreaterEqual(self.report('BenchEcho')['Used'], 900000000)
+
+    def test_reports_profiles_and_flags(self):
+        self.run_client('-preffix=test_', '-suffix=_small', '-tpn=false', '-ep=true', '-epd=1', '-rate=true', '-rd=1', '-rp=true', '-rpd=1', '-pi=42')
+        self.assertEqual(self.report('BenchEcho', 'test_', '_small')['TP99'], 0)
+        for kind in ['BenchEcho', 'BenchRate']:
+            for ext in ['cpu', 'mem']:
+                path = self.cwd / f'output/report/test_gorilla-{kind}_small.pprof.{ext}'
+                self.assertEqual(path.read_bytes(), b'profile-fixture')
+        init = [json.loads(body) for method, path, body in self.server.requests if path == '/init']
+        self.assertEqual(init, [{'PsInterval': 42000000}])
+        self.run_client('-r=true', '-preffix=test_', '-suffix=_small', '-tpn=false')
+        for kind in ['Connections', 'BenchEcho', 'BenchRate']:
+            md = (self.cwd / f'output/report/test_{kind}_small.md').read_text()
+            self.assertIn('gorilla', md)
+            self.assertNotIn('TP99', md)
+
+    def test_invalid_arguments_and_empty_echo(self):
+        for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x']:
+            self.run_client(arg, success=False)
+        self.run_client('-en=0')
+        self.assertEqual(self.report('BenchEcho')['Total'], 0)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

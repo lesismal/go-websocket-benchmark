@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go-websocket-benchmark/benchcli-go/protocol"
+	"go-websocket-benchmark/benchcli-go/report"
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
-	"go-websocket-benchmark/mwsbench/protocol"
-	"go-websocket-benchmark/mwsbench/report"
 
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/perf"
