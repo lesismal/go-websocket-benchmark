@@ -1,5 +1,6 @@
 #pragma once
 #include "options.hpp"
+#include <algorithm>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
@@ -80,11 +81,80 @@ inline std::string formatField(const json &r,const json &field) {
 }
 inline void saveReport(const Options &o,const std::string &kind,const json &r) {
     writeFile(filename(o,o.get("f")+"-"+kind,".json"),r.dump()+"\n");
-    std::cout<<"BenchType: "<<kind<<'\n';
+    std::vector<std::pair<std::string,std::string>> lines;
+    std::string typHeader="BenchType";
+    size_t maxHeaderLen=typHeader.size();
     for (const auto &field:metadata["schemas"][kind]) {
         if (field["optional"].get<bool>() && !o.boolean("tpn")) continue;
-        std::cout<<field["title"].get<std::string>()<<": "<<formatField(r,field)<<'\n';
+        std::string title=field["title"].get<std::string>();
+        maxHeaderLen=std::max(maxHeaderLen,title.size());
+        lines.emplace_back(std::move(title),formatField(r,field));
     }
+    typHeader.resize(maxHeaderLen,' ');
+    std::cout<<typHeader<<": "<<kind<<'\n';
+    for (auto &line:lines) {
+        line.first.resize(maxHeaderLen,' ');
+        std::cout<<line.first<<": "<<line.second<<'\n';
+    }
+}
+// padCell mirrors github.com/lesismal/perf Table.padding so the console/markdown
+// output lines up the same way benchcli-go's report tables do.
+inline std::string padCell(const std::string &s,size_t maxLen,bool isFirst,size_t titleLeftPaddingIdx) {
+    if (s.size()>=maxLen) return s;
+    size_t paddingLen=maxLen-s.size();
+    std::string out=s;
+    if (isFirst) {
+        // paddingLen shrinks as spaces are added, so the loop bound must be
+        // re-evaluated each iteration (matches perf.Table.padding exactly).
+        for (size_t i=0;i<paddingLen/2 && i<titleLeftPaddingIdx;++i) { out=" "+out; --paddingLen; }
+        out.append(paddingLen,' ');
+    } else {
+        size_t half=paddingLen/2;
+        out=std::string(half,' ')+out+std::string(half,' ');
+        if (paddingLen%2==1) out+=' ';
+    }
+    return out;
+}
+inline std::string markdownTable(std::vector<std::string> title,std::vector<std::vector<std::string>> rows) {
+    std::vector<size_t> maxLen;
+    size_t columnNum=title.size();
+    for (auto &v:title) maxLen.push_back(v.size());
+
+    std::vector<std::vector<std::string>> allRows;
+    allRows.push_back(std::vector<std::string>(columnNum,"---"));
+    for (auto &r:rows) allRows.push_back(std::move(r));
+
+    for (auto &v:allRows) {
+        for (size_t j=0;j<v.size();++j) {
+            if (maxLen.size()<j+1) maxLen.push_back(v[j].size());
+            else if (v[j].size()>maxLen[j]) maxLen[j]=v[j].size();
+        }
+        if (v.size()>columnNum) columnNum=v.size();
+    }
+
+    while (title.size()<columnNum) title.push_back("");
+    for (auto &r:allRows) while (r.size()<columnNum) r.push_back("");
+
+    for (auto &m:maxLen) m+=2;
+
+    std::string s="|";
+    size_t titleLeftPaddingIdx=0;
+    std::vector<std::string> alignedTitle(title.size());
+    for (size_t i=0;i<title.size();++i) {
+        alignedTitle[i]=padCell(title[i],maxLen[i],false,0);
+        if (i==0)
+            for (size_t k=0;k<alignedTitle[i].size();++k)
+                if (alignedTitle[i][k]!=' ') titleLeftPaddingIdx=k;
+        s+=alignedTitle[i]+"|";
+    }
+    s+="\n";
+
+    for (auto &v:allRows) {
+        s+="|";
+        for (size_t j=0;j<v.size();++j) s+=padCell(v[j],maxLen[j],j==0,titleLeftPaddingIdx)+"|";
+        s+="\n";
+    }
+    return s;
 }
 inline void generateReports(const Options &o) {
     for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
@@ -101,16 +171,15 @@ inline void generateReports(const Options &o) {
             std::vector<json> fields;
             for (const auto &field:metadata["schemas"][kind])
                 if (!field["optional"].get<bool>() || o.boolean("tpn")) fields.push_back(field);
-            md="|";
-            for (const auto &f:fields) md+=" "+f["title"].get<std::string>()+" |";
-            md+="\n|";
-            for (size_t i=0;i<fields.size();++i) md+=" --- |";
-            md+='\n';
+            std::vector<std::string> titles;
+            for (const auto &f:fields) titles.push_back(f["title"].get<std::string>());
+            std::vector<std::vector<std::string>> tableRows;
             for (const auto &r:rows) {
-                md+='|';
-                for (const auto &f:fields) md+=" "+formatField(r,f)+" |";
-                md+='\n';
+                std::vector<std::string> row;
+                for (const auto &f:fields) row.push_back(formatField(r,f));
+                tableRows.push_back(std::move(row));
             }
+            md=markdownTable(titles,tableRows);
         }
         writeFile(filename(o,kind,".md"),md);
         std::cout<<kind<<"\n"<<md;
