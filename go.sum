@@ -94,8 +94,8 @@ github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c h1:cB/Kbeew70XRJAgfR
 github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
 github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQscQm2s=
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
-github.com/linfeip/fnet v0.0.0-20260921020151-3ea4993facbd h1:Lz88t00FUF4xH6JTJL4THd2eQ9LDyzNDUqf/PUhRVX4=
-github.com/linfeip/fnet v0.0.0-20260921020151-3ea4993facbd/go.mod h1:gT77E0Vhv9SmVuuIschPAeGYK1wT6kSZ0+HlqW0UsLo=
+github.com/linfeip/fnet v0.0.0-20260921030041-f33a2e69fe62 h1:OCtZpu5jgv/HAu//B4BFJ7XQHJpsyrTfp2mdA5m5QWk=
+github.com/linfeip/fnet v0.0.0-20260921030041-f33a2e69fe62/go.mod h1:gT77E0Vhv9SmVuuIschPAeGYK1wT6kSZ0+HlqW0UsLo=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=
