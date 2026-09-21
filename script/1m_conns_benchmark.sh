@@ -17,6 +17,7 @@ frameworks=(
     "greatws"
     "nbio_nonblocking"
     "uws_events"
+    "fnet"
 )
 
 print_env
