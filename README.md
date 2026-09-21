@@ -3,7 +3,7 @@
 
 ## Benchmark client
 
-`script/env.sh` selects the client with `BENCH_CLIENT`, defaulting to
+`script/config.sh` selects the client with `BENCH_CLIENT`, defaulting to
 `benchcli-uwscpp` (uWebSockets C++). To use the Go client:
 
 ```sh

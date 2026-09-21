@@ -48,6 +48,8 @@ while [ "$#" -gt 0 ]; do
 done
 benchmark_args=("$@")
 
+. "$repo_root/script/config.sh" || exit 1
+
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is required" >&2
     exit 1
@@ -172,7 +174,7 @@ if [ "${#benchmark_args[@]}" -gt 0 ]; then
 else
     benchmark_args=("$server_nodelay")
 fi
-bench_client=${BENCH_CLIENT:-benchcli-uwscpp}
+bench_client=$BENCH_CLIENT
 
 timestamp=$(date +%Y%m%d-%H%M%S)
 result_dir=${DOCKER_BENCH_OUTPUT:-"$repo_root/output/docker/$timestamp"}
