@@ -157,6 +157,45 @@ Three things to keep in mind when reading a report:
   are read per shard by the `fnet` pool, which picks its own shard count from
   `GOMAXPROCS`.
 
+## Report row order
+
+The report tables are written best first. `-sort` takes the two orders:
+
+| `-sort` | rows |
+| --- | --- |
+| `result` (the default) | ranked by the benchmark's own result, biggest first |
+| `framework` | the order `config.FrameworkList` lists the frameworks in, which is what every report was written in before `-sort` existed |
+
+Which number `result` ranks by is the one each benchmark answers with:
+`Connections` and `BenchEcho` by `TPS`, and `BenchRate` by `Bytes Recv`, the
+bytes the clients read back off the server. The rate test writes at a rate the
+clients set rather than to completion, so what the server got back under that
+load is its result there the way TPS is in the other two - `Bytes Sent` is the
+load rather than the answer, and `Packet Recv` counts a small reply the same as
+a large one. Neither order ranks by `EER` or `EchoEER`, which divide throughput
+by the CPU it cost and so answer a different question; both are still columns
+to read.
+
+Rows that tie keep the framework order between them, so two frameworks that
+scored the same - or a whole table from a benchmark that did not run, which
+leaves every row at zero - come out the same way on every run rather than in a
+different order each time. `-sort=framework` is what puts a framework on the
+same row in every table and across runs, whatever it scored, which is what a
+diff between two reports wants. That order is `config.FrameworkList`'s alone:
+`script/config.sh` has a `frameworks` list of its own deciding what is built
+and in what order the servers are run, and it carries the same names in a
+different order.
+
+The flag goes to the client, so `script/report.sh` and the benchmark scripts
+pass it through:
+
+```bash
+./script/report.sh -sort=framework
+```
+
+It is checked at startup rather than at report time, so a run started with a
+misspelled `-sort` says so before it spends the benchmark instead of after.
+
 ## Two nodes
 
 A single-node run divides the machine's CPUs between the servers and the

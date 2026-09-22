@@ -58,9 +58,10 @@ var (
 	ratePprofDuration = flag.Int("rpd", 5, `benchrate: pprof duration`)
 
 	// for report generation
-	genReport = flag.Bool("r", false, `make report`)
-	preffix   = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
-	suffix    = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
+	genReport  = flag.Bool("r", false, `make report`)
+	preffix    = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
+	suffix     = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
+	reportSort = flag.String("sort", report.DefaultSort, `report row order: "result" ranks the best result first, "framework" keeps the framework order`)
 )
 
 func main() {
@@ -70,6 +71,13 @@ func main() {
 	flag.Parse()
 
 	report.Init(*enableTPN)
+
+	// Checked even when no report is being generated, so that a run started
+	// with a misspelled -sort fails before it spends the benchmark rather
+	// than after.
+	if err := report.ValidateSort(*reportSort); err != nil {
+		logging.Fatalf("%v", err)
+	}
 
 	if *genReport {
 		generateReports()
@@ -198,14 +206,14 @@ func saveReport(r report.Report) {
 }
 
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, nil)
+	data := report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
 	filename := report.Filename("Connections", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
 	logging.Printf("[%vConnections%v] Report\n", *preffix, *suffix)
 	logging.Print(data)
 
-	data = report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, nil)
+	data = report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
 	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)
@@ -213,7 +221,7 @@ func generateReports() {
 	logging.Print(data)
 	logging.Print(logging.LongLine)
 
-	data = report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, nil)
+	data = report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
 	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
 	report.WriteFile(filename, data)
 	logging.Print(logging.LongLine)

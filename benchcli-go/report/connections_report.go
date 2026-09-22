@@ -56,3 +56,9 @@ func (r *ConnectionsReport) PprofMEM() []byte {
 func (r *ConnectionsReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
 }
+
+// SortKey ranks a connections run by the rate the server accepted and
+// completed handshakes at, which is what this benchmark measures.
+func (r *ConnectionsReport) SortKey() float64 {
+	return float64(r.TPS)
+}
