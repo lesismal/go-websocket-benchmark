@@ -290,8 +290,39 @@ class ClientTests(unittest.TestCase):
         init = [path for method, path, body in self.server.requests if path == '/init']
         self.assertEqual(init, ['/init'])
 
+    # script/report.sh passes -sort on every run, and the row order has to be
+    # the Go client's: the two write the same tables, and a report is diffed
+    # against the one before it.
+    def test_report_row_order(self):
+        directory = self.cwd / 'output/report'
+        directory.mkdir(parents=True)
+
+        def write(scores):
+            for framework, score in scores.items():
+                for kind in ['Connections', 'BenchEcho', 'BenchRate']:
+                    (directory / f'{framework}-{kind}.json').write_text(json.dumps(
+                        {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
+                         'TPS': score, 'RecvBytes': score}))
+
+        def order(*args):
+            self.run_client('-r=true', *args)
+            return [[line.split('|')[2].strip()
+                     for line in (directory / f'{kind}.md').read_text().splitlines()[2:]]
+                    for kind in ['Connections', 'BenchEcho', 'BenchRate']]
+
+        # fasthttp comes first by name, gorilla by result.
+        write({'fasthttp': 10, 'gorilla': 20})
+        self.assertEqual(order(), [['gorilla', 'fasthttp']] * 3)
+        self.assertEqual(order('-sort=result'), [['gorilla', 'fasthttp']] * 3)
+        self.assertEqual(order('-sort=framework'), [['fasthttp', 'gorilla']] * 3)
+
+        # A tie keeps the framework order, so a run is reproducible rather than
+        # merely sorted - including a benchmark that did not run at all.
+        write({'fasthttp': 0, 'gorilla': 0})
+        self.assertEqual(order('-sort=result'), [['fasthttp', 'gorilla']] * 3)
+
     def test_invalid_arguments_and_empty_echo(self):
-        for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops']:
+        for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops', '-sort=oops']:
             self.run_client(arg, success=False)
         self.run_client('-en=0')
         self.assertEqual(self.report('BenchEcho')['Total'], 0)

@@ -199,6 +199,18 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
     }
     return s;
 }
+// sortKey is the result a report is ranked by, biggest first: the number each
+// benchmark answers with. Mirrors the SortKey implementations in
+// benchcli-go/report - TPS for Connections and BenchEcho, and for BenchRate the
+// bytes the clients read back off the server, since the rate test writes at a
+// rate the clients set rather than to completion, so what came back under that
+// load is its answer the way TPS is the other two's. Neither ranks by EER,
+// which divides throughput by the CPU it cost and answers a different question.
+inline double sortKey(const std::string &kind,const json &r) {
+    const char *key=kind=="BenchRate"?"RecvBytes":"TPS";
+    if (!r.contains(key) || !r[key].is_number()) return 0;
+    return r[key].get<double>();
+}
 inline void generateReports(const Options &o) {
     for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
         std::vector<json> rows;
@@ -209,6 +221,16 @@ inline void generateReports(const Options &o) {
             try { json row; in>>row; rows.push_back(std::move(row)); }
             catch (const std::exception &e) { throw std::runtime_error(path+": "+e.what()); }
         }
+        // The rows are read in metadata["frameworks"] order, which is
+        // config.FrameworkList's, so -sort=framework is already what they are
+        // in and only result has anything to do. The sort is stable, which is
+        // what leaves a tie - two frameworks that scored the same, or a whole
+        // table from a benchmark that did not run and left every row at zero -
+        // in framework order rather than wherever the sort landed on.
+        if (o.get("sort")==kSortResult)
+            std::stable_sort(rows.begin(),rows.end(),[kind](const json &a,const json &b) {
+                return sortKey(kind,a)>sortKey(kind,b);
+            });
         std::string md;
         if (!rows.empty()) {
             std::vector<json> fields;

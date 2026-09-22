@@ -24,6 +24,13 @@ inline constexpr const char *kPSModeAuto="auto";
 inline constexpr const char *kPSModeLocal="local";
 inline constexpr const char *kPSModeRemote="remote";
 
+// The order a report table's rows come out in; -sort takes these names.
+// Mirrors report.SortResult and report.SortFramework in benchcli-go, down to
+// which is the default: a report is read to compare frameworks, so it is
+// ranked by result unless asked otherwise. See generateReports in report.hpp.
+inline constexpr const char *kSortResult="result";
+inline constexpr const char *kSortFramework="framework";
+
 struct Options {
     std::map<std::string, std::string> values = {
         {"nodelay","true"}, {"m","4294967296"}, {"f","nbio_std"}, {"ip","127.0.0.1"},
@@ -31,7 +38,8 @@ struct Options {
         {"b","1024"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"},
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","true"}, {"epd","5"},
         {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"},
-        {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"preffix",""}, {"suffix",""},
+        {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"sort",kSortResult},
+        {"preffix",""}, {"suffix",""},
         {"threads","0"}, {"io-timeout","30s"}
     };
     const std::vector<std::string> bools = {"nodelay","check","tpn","ep","rate","rp","r"};
@@ -96,17 +104,22 @@ struct Options {
             if (get(key).find_first_of("/\\")!=std::string::npos) throw std::runtime_error("report prefix/suffix must not contain paths");
         if (get("ip").empty() || get("ip").find_first_of("\r\n /?#@")!=std::string::npos)
             throw std::runtime_error("invalid -ip");
-        // Checked here so that a misspelled -ps fails before the run spends
-        // the whole benchmark rather than after.
+        // Checked here so that a misspelled -ps or -sort fails before the run
+        // spends the whole benchmark rather than after.
         if (get("ps")!=kPSModeAuto && get("ps")!=kPSModeLocal && get("ps")!=kPSModeRemote)
             throw std::runtime_error("unsupported -ps value "+get("ps")+" (want "+kPSModeAuto+", "+
                                      kPSModeLocal+" or "+kPSModeRemote+")");
+        if (get("sort")!=kSortResult && get("sort")!=kSortFramework)
+            throw std::runtime_error("unsupported -sort value "+get("sort")+" (want "+kSortResult+
+                                     " or "+kSortFramework+")");
     }
     void usage() const {
         std::cout << "benchcli-uwscpp: uWebSockets C++ benchmark client\n"
                      "Flags match benchcli-go (use -flag=value or -flag value; booleans use =false).\n";
         for (const auto &v:values) std::cout << "  -" << v.first << "=" << v.second << '\n';
-        std::cout << "-ps: where the server's CPU and MEM samples come from: auto samples the server here when\n"
+        std::cout << "-sort: report row order: result (default) ranks the best result first, framework keeps\n"
+                     "       the config.FrameworkList order. Both carry the same rows and numbers.\n"
+                     "-ps: where the server's CPU and MEM samples come from: auto samples the server here when\n"
                      "     it runs on this machine and asks it over HTTP when it does not, local always samples\n"
                      "     here, remote always asks.\n"
                      "-threads: native event-loop threads (0: available CPUs, capped by concurrency).\n"
