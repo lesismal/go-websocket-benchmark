@@ -120,17 +120,34 @@ there. `-` is a framework with no pool hook at all, and `uwebsockets` adds
 which side of its loop the echo ran on, e.g. `nbio(pool)` or `default(loop)`.
 
 `EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
-server's CPU average, which each client reads from its `/ps` route along with
-the memory columns. Those control requests go to the pid port, which for most
-frameworks is also carrying benchmark connections, so at a hundred thousand of
-them one attempt is not enough - a server still draining the backlog of a
-just-finished rate test can reset the request or sit on it - and each client
-now retries four times over about twelve seconds, `/init` included, since a
-server that never got `/init` never sampled anything at all. When the samples
-still do not arrive the client says so in its log and the column reads 0,
-rather than the run dividing by a zero average: that produced a `+Inf` that
-`encoding/json` refused, which took the whole row out of the report file with
-it.
+server's CPU average, which the clients collect along with the memory columns.
+Where they collect it from depends on which machine the server is on, and `-ps`
+selects that: `auto` (the default) samples the server here when it is running
+on this machine and asks it over HTTP when it is not, `local` always samples
+here and `remote` always asks.
+
+On a single-node run - the default, and what `BENCH_SERVER_HOST=127.0.0.1`
+means - the client finds the `<framework>.server` process on this machine and
+reads its CPU time and resident memory from the operating system at the `-pi`
+interval, so the numbers arrive whatever state the server is in, and the server
+is not asked to sample itself at all. Sampling from here needs exactly one
+process of that name: no match, which is what a server in another container
+looks like from the outside, or two of them, which is a leftover of an earlier
+run standing next to the one being measured, both go back to asking the server
+and say so in the log.
+
+Asking the server means `/init`, which starts its own sampler, and `/ps` at the
+end of each phase, which reads it. Those control requests go to the pid port,
+which for most frameworks is also carrying benchmark connections, so at a
+hundred thousand of them one attempt is not enough - a server still draining
+the backlog of a just-finished rate test can reset the request or sit on it -
+and each client retries four times over about twelve seconds, `/init` included,
+since a server that never got `/init` never sampled anything at all. That
+window is what local sampling removes on a single-node run, which is where
+`0.00%` CPU columns used to come from. When the samples still do not arrive the
+client says so in its log and the column reads 0, rather than the run dividing
+by a zero average: that produced a `+Inf` that `encoding/json` refused, which
+took the whole row out of the report file with it.
 
 Three things to keep in mind when reading a report:
 
@@ -234,6 +251,10 @@ What each role does differently:
   its turn, and the server node stops them with `script/killall.sh`
   afterwards. If the idle ones holding memory would disturb the framework
   being measured, run a subset at a time with `BENCH_FRAMEWORKS`.
+- The client cannot sample a server process it cannot see either, so the CPU
+  and MEM columns come from the server's own `/ps` route, as they always did.
+  That needs no configuring: `-ps` defaults to `auto`, which samples locally
+  only when `BENCH_SERVER_HOST` is this machine.
 
 `BENCH_ROLE=client` against a loopback host is also how to run the clients
 again without restarting servers that are already up on this machine.

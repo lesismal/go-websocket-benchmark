@@ -150,6 +150,11 @@ class Fixture:
                 pass
 
 
+def server_process_running(name):
+    listing = subprocess.run(['ps', '-A', '-o', 'comm='], text=True, capture_output=True, timeout=10)
+    return any(line.strip().rsplit('/', 1)[-1] == name for line in listing.stdout.splitlines())
+
+
 class ClientTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -171,7 +176,10 @@ class ClientTests(unittest.TestCase):
         self.directory.cleanup()
 
     def run_client(self, *args, success=True):
-        command = [BINARY, '-f=gorilla', '-c=4', '-dc=2', '-ec=2', '-threads=2', '-en=40', '-b=128', '-check=true', '-ep=false', '-m=0', '-dt=200ms', '-dri=1ms', '-io-timeout=100ms', *args]
+        # -ps=remote: the fixture is an HTTP stand-in for a server, not a
+        # gorilla.server process, so the resource samples have to come from its
+        # /ps route. Local sampling has tests of its own below.
+        command = [BINARY, '-f=gorilla', '-c=4', '-dc=2', '-ec=2', '-threads=2', '-en=40', '-b=128', '-check=true', '-ep=false', '-ps=remote', '-m=0', '-dt=200ms', '-dri=1ms', '-io-timeout=100ms', *args]
         result = subprocess.run(command, cwd=self.cwd, text=True, capture_output=True, timeout=20)
         if success:
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -269,8 +277,21 @@ class ClientTests(unittest.TestCase):
             self.assertIn('gorilla', md)
             self.assertNotIn('TP99', md)
 
+    # A single-node run samples the server process itself. With no such process
+    # here - which is also what a server on the other node of a two-node run
+    # looks like - the client has to say so and go back to asking the server.
+    def test_local_sampling_falls_back_without_a_server_process(self):
+        if server_process_running('gorilla.server'):
+            self.skipTest('a gorilla.server is running here, so local sampling would find it')
+        result = self.run_client('-ps=local')
+        self.assertIn('cannot sample the server from this machine', result.stderr)
+        e = self.report('BenchEcho')
+        self.assertEqual((e['CPUMin'], e['CPUAvg'], e['CPUMax']), (10, 20, 30))
+        init = [path for method, path, body in self.server.requests if path == '/init']
+        self.assertEqual(init, ['/init'])
+
     def test_invalid_arguments_and_empty_echo(self):
-        for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x']:
+        for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops']:
             self.run_client(arg, success=False)
         self.run_client('-en=0')
         self.assertEqual(self.report('BenchEcho')['Total'], 0)

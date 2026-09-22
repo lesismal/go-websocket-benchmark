@@ -217,16 +217,39 @@ func controlOnce(url string, body []byte) (data []byte, answered bool, err error
 	return data, true, nil
 }
 
-func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, error) {
+// frameworkControlPort is the port a framework's control routes - /init, /ps,
+// /taskpool and the pprof ones - listen on. For most frameworks it is also
+// the last of the ports carrying benchmark connections; the four that serve
+// their control routes separately take the one after it.
+func frameworkControlPort(framework string) (int, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return 0, err
+	}
+	port := ports[len(ports)-1]
+	if framework == Fib || framework == Gws || framework == UwsEvents || framework == UwsStdio {
+		port++
+	}
+	return port, nil
+}
+
+// FrameworkControlAddr is the base URL of those routes. A client can work it
+// out on its own, without the request to /init that used to be the only way
+// it learned where to fetch a pprof profile from.
+func FrameworkControlAddr(framework, ip string) (string, error) {
+	port, err := frameworkControlPort(framework)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("http://%v:%v", urlHost(ip), port), nil
+}
+
+func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, error) {
+	pprofAddr, err := FrameworkControlAddr(framework, ip)
 	if err != nil {
 		return -1, "", err
 	}
-	pidPort := ports[len(ports)-1]
-	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
-		pidPort++
-	}
-	serverAddr := fmt.Sprintf("http://%v:%v/init", urlHost(ip), pidPort)
+	serverAddr := pprofAddr + "/init"
 
 	data, _ := json.Marshal(args)
 	// A failed /init is not just a missing pid: it is a server that never
@@ -236,7 +259,6 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 		return -1, "", err
 	}
 	pid, err := strconv.Atoi(strings.TrimSpace(string(body)))
-	pprofAddr := fmt.Sprintf("http://%v:%v", urlHost(ip), pidPort)
 
 	return pid, pprofAddr, err
 }
@@ -246,15 +268,11 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 // one, so that samples which did arrive are still reported: an error here
 // means the resource columns are incomplete, not that they are all missing.
 func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
-	ports, err := GetFrameworkBenchmarkPorts(framework)
+	controlAddr, err := FrameworkControlAddr(framework, ip)
 	if err != nil {
 		return nil, err
 	}
-	pidPort := ports[len(ports)-1]
-	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
-		pidPort++
-	}
-	serverAddr := fmt.Sprintf("http://%v:%v/ps", urlHost(ip), pidPort)
+	serverAddr := controlAddr + "/ps"
 
 	body, err := controlRequest(serverAddr, nil, controlAttempts)
 	if err != nil {
@@ -289,15 +307,11 @@ const TaskPoolNone = "-"
 // scheduling produced it rather than which one the run asked for - the two
 // differ for a server whose own scheduling is one of the pools.
 func GetFrameworkTaskPool(framework, ip string) string {
-	ports, err := GetFrameworkBenchmarkPorts(framework)
+	controlAddr, err := FrameworkControlAddr(framework, ip)
 	if err != nil {
 		return TaskPoolNone
 	}
-	pidPort := ports[len(ports)-1]
-	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
-		pidPort++
-	}
-	serverAddr := fmt.Sprintf("http://%v:%v/taskpool", urlHost(ip), pidPort)
+	serverAddr := controlAddr + "/taskpool"
 
 	// hertz and hertz_std serve control routes of their own and have no pool
 	// hook, so there is no /taskpool there to answer; controlRequest does not

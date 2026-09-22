@@ -1,11 +1,12 @@
 #pragma once
-#include "options.hpp"
+#include "pssample.hpp"
 #include <algorithm>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iomanip>
+#include <memory>
 #include <numeric>
 #include <sstream>
 
@@ -227,38 +228,104 @@ inline void generateReports(const Options &o) {
         std::cout<<kind<<"\n"<<md;
     }
 }
-inline void resourceStats(json &r,const Options &o,bool rate) {
+// PSSetup is how this run reads the server's CPU and memory; see setupPS.
+struct PSSetup {
+    // The client's own sampler, or null when only the server is sampling.
+    std::unique_ptr<LocalPSSampler> local;
+    int pid=-1;
+    // Whether /init reached the server, i.e. whether /ps has anything to
+    // answer with. It is the fallback for a local sampler with no samples yet.
+    bool serverSampling=false;
+};
+// setupPS settles where the samples come from, and starts collecting them.
+// Mirrors config.SetupPS: local sampling asks the server nothing at all, so a
+// server sampled from here is not asked to sample itself, and everything that
+// can go wrong with that ends with the server sampling itself as it always has.
+inline PSSetup setupPS(const Options &o) {
+    PSSetup ps;
+    auto interval=int64_t(o.integer("pi"))*1'000'000;
+    auto mode=o.get("ps");
+    bool wantLocal=mode==kPSModeLocal || (mode==kPSModeAuto && localHost(o.get("ip")));
+    if (wantLocal) {
+        try {
+            int pid=findServerProcess(o.get("f"));
+            ps.local=std::make_unique<LocalPSSampler>(pid,interval);
+            ps.pid=pid;
+            std::cout<<"Server PID: "<<pid<<" (sampled here, so it is not asked to sample itself)"
+                     <<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
+            return ps;
+        } catch (const std::exception &e) {
+            std::cerr<<"cannot sample the server from this machine, asking it over HTTP instead: "
+                     <<e.what()<<'\n';
+        }
+    }
     try {
-        auto ps=json::parse(httpRetry(controlURL(o)+"/ps"));
-        std::vector<double> cpu;
-        if (ps.contains("cpu") && ps["cpu"].is_array()) cpu=ps["cpu"].get<std::vector<double>>();
-        if (!cpu.empty()) {
-            auto first=cpu.begin()+(cpu.size()>1);
-            r["CPUMin"]=*std::min_element(first,cpu.end());
-            r["CPUAvg"]=std::accumulate(first,cpu.end(),0.0)/std::distance(first,cpu.end());
-            r["CPUMax"]=*std::max_element(cpu.begin(),cpu.end());
-        }
-        std::vector<uint64_t> mem;
-        if (ps.contains("mem") && ps["mem"].is_array())
-            for (const auto &v:ps["mem"]) if (v.is_object()) mem.push_back(v.value("rss",uint64_t(0)));
-        if (!mem.empty()) {
-            // Go's MEMRSSMin sorts the samples and skips the first sample for Min/Avg.
-            std::sort(mem.begin(),mem.end());
-            auto first=mem.begin()+(mem.size()>1);
-            r["MEMMin"]=*first;
-            r["MEMAvg"]=std::accumulate(first,mem.end(),uint64_t(0))/uint64_t(std::distance(first,mem.end()));
-            r["MEMMax"]=mem.back();
-        }
-        double avg=r["CPUAvg"].get<double>();
-        double tps=rate?r["RecvTimes"].get<double>()/(r["Duration"].get<double>()/1e9):r["TPS"].get<double>();
-        r[rate?"EchoEER":"EER"]=avg>0&&std::isfinite(tps)?tps/avg:0.0;
-        if (cpu.empty())
-            std::cerr<<"server answered /ps with no CPU samples, so either /init did not reach it"
-                     <<" or the phase was shorter than the -pi sampling interval; "
-                     <<(rate?"EchoEER":"EER")<<" reads 0\n";
-    } catch (const std::exception &e) {
-        std::cerr<<"server resource statistics unavailable, "<<(rate?"EchoEER":"EER")
-                 <<" reads 0: "<<e.what()<<'\n';
+        auto body=json{{"PsInterval",interval}}.dump();
+        // A failed /init is not just a missing pid: it is a server that never started
+        // sampling, so every CPU and MEM column of the run would read 0.
+        auto reply=httpRetry(controlURL(o)+"/init",&body);
+        ps.serverSampling=true;
+        std::cout<<"Server PID: "<<reply<<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
+        try { ps.pid=std::stoi(reply); } catch (const std::exception &) { ps.pid=-1; }
+    } catch (const std::exception &e) {std::cerr<<"server initialization: "<<e.what()<<'\n';}
+    // The pid the server just gave us is from its own namespace, so it names this
+    // framework's server here only when the two share one. Where it does, sample it
+    // from here as well and keep /ps as the fallback: the numbers no longer depend
+    // on that request succeeding again at the end of the run.
+    if (wantLocal && ps.pid>0) {
+        try {
+            verifyServerProcess(ps.pid,o.get("f"));
+            ps.local=std::make_unique<LocalPSSampler>(ps.pid,interval);
+            std::cout<<"sampling pid "<<ps.pid<<" here as well, with the server's own /ps as the fallback"
+                     <<std::endl;
+        } catch (const std::exception &) {}
+    }
+    return ps;
+}
+// applyResourceStats fills the CPU, MEM and EER columns from a set of samples,
+// whoever took them. Min and Avg skip the first sample, and MEM sorts before it
+// does, the way github.com/lesismal/perf PSCounter computes the same columns.
+inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint64_t> mem,bool rate) {
+    if (!cpu.empty()) {
+        auto first=cpu.begin()+(cpu.size()>1);
+        r["CPUMin"]=*std::min_element(first,cpu.end());
+        r["CPUAvg"]=std::accumulate(first,cpu.end(),0.0)/std::distance(first,cpu.end());
+        r["CPUMax"]=*std::max_element(cpu.begin(),cpu.end());
+    }
+    if (!mem.empty()) {
+        std::sort(mem.begin(),mem.end());
+        auto first=mem.begin()+(mem.size()>1);
+        r["MEMMin"]=*first;
+        r["MEMAvg"]=std::accumulate(first,mem.end(),uint64_t(0))/uint64_t(std::distance(first,mem.end()));
+        r["MEMMax"]=mem.back();
+    }
+    double avg=r["CPUAvg"].get<double>();
+    double tps=rate?r["RecvTimes"].get<double>()/(r["Duration"].get<double>()/1e9):r["TPS"].get<double>();
+    r[rate?"EchoEER":"EER"]=avg>0&&std::isfinite(tps)?tps/avg:0.0;
+}
+inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) {
+    std::vector<double> cpu;
+    std::vector<uint64_t> mem;
+    std::string trouble;
+    if (ps.local) ps.local->samples(cpu,mem);
+    // The server's own samples: either it is the only one sampling, or the
+    // sampler here has nothing yet - a phase shorter than one -pi interval -
+    // and the server was asked to sample as well.
+    if (cpu.empty() && (!ps.local || ps.serverSampling)) {
+        try {
+            auto answer=json::parse(httpRetry(controlURL(o)+"/ps"));
+            if (answer.contains("cpu") && answer["cpu"].is_array())
+                cpu=answer["cpu"].get<std::vector<double>>();
+            if (answer.contains("mem") && answer["mem"].is_array())
+                for (const auto &v:answer["mem"]) if (v.is_object()) mem.push_back(v.value("rss",uint64_t(0)));
+        } catch (const std::exception &e) { trouble=e.what(); }
+    }
+    applyResourceStats(r,cpu,mem,rate);
+    if (cpu.empty()) {
+        std::cerr<<"server resource statistics unavailable, "<<(rate?"EchoEER":"EER")<<" reads 0: ";
+        if (!trouble.empty()) std::cerr<<trouble<<'\n';
+        else std::cerr<<"nothing was sampled, so either the sampling never started or the phase was"
+                        " shorter than the -pi sampling interval\n";
     }
 }
 inline std::future<void> profile(const Options &o,const std::string &kind,bool enabled,int seconds) {

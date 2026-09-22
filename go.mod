@@ -19,6 +19,7 @@ require (
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/linfeip/fnet v0.0.0-20260922082353-84e968a3278d
 	github.com/lxzan/gws v1.10.2
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/urpc/uio v1.3.0
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
@@ -46,7 +47,6 @@ require (
 	github.com/lesismal/llib v1.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
-	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

@@ -18,11 +18,17 @@ inline int64_t nowNs() {
 }
 #include "metadata.hpp"
 
+// Where a run's CPU and MEM samples come from; -ps takes these names. See
+// pssample.hpp, and config/pssource.go for the same three in the Go client.
+inline constexpr const char *kPSModeAuto="auto";
+inline constexpr const char *kPSModeLocal="local";
+inline constexpr const char *kPSModeRemote="remote";
+
 struct Options {
     std::map<std::string, std::string> values = {
         {"nodelay","true"}, {"m","4294967296"}, {"f","nbio_std"}, {"ip","127.0.0.1"},
         {"c","10000"}, {"dc","2000"}, {"dt","5s"}, {"dr","5"}, {"dri","100ms"},
-        {"b","1024"}, {"check","false"}, {"pi","1000"}, {"tpn","true"},
+        {"b","1024"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"},
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","true"}, {"epd","5"},
         {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"},
         {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"preffix",""}, {"suffix",""},
@@ -90,12 +96,20 @@ struct Options {
             if (get(key).find_first_of("/\\")!=std::string::npos) throw std::runtime_error("report prefix/suffix must not contain paths");
         if (get("ip").empty() || get("ip").find_first_of("\r\n /?#@")!=std::string::npos)
             throw std::runtime_error("invalid -ip");
+        // Checked here so that a misspelled -ps fails before the run spends
+        // the whole benchmark rather than after.
+        if (get("ps")!=kPSModeAuto && get("ps")!=kPSModeLocal && get("ps")!=kPSModeRemote)
+            throw std::runtime_error("unsupported -ps value "+get("ps")+" (want "+kPSModeAuto+", "+
+                                     kPSModeLocal+" or "+kPSModeRemote+")");
     }
     void usage() const {
         std::cout << "benchcli-uwscpp: uWebSockets C++ benchmark client\n"
                      "Flags match benchcli-go (use -flag=value or -flag value; booleans use =false).\n";
         for (const auto &v:values) std::cout << "  -" << v.first << "=" << v.second << '\n';
-        std::cout << "-threads: native event-loop threads (0: available CPUs, capped by concurrency).\n"
+        std::cout << "-ps: where the server's CPU and MEM samples come from: auto samples the server here when\n"
+                     "     it runs on this machine and asks it over HTTP when it does not, local always samples\n"
+                     "     here, remote always asks.\n"
+                     "-threads: native event-loop threads (0: available CPUs, capped by concurrency).\n"
                      "-io-timeout: maximum echo response wait; -dt: TCP + upgrade timeout.\n"
                      "-m: native memory limit in bytes (Linux: address space; macOS: sampled RSS; 0: unlimited).\n";
     }
