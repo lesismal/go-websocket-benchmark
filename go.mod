@@ -17,7 +17,7 @@ require (
 	github.com/lesismal/nbio v1.6.12
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
-	github.com/linfeip/fnet v0.0.0-20260921044351-6665666b8ed8
+	github.com/linfeip/fnet v0.0.0-20260922033651-512d1a337304
 	github.com/lxzan/gws v1.10.2
 	github.com/urpc/uio v1.3.0
 	golang.org/x/time v0.15.0
