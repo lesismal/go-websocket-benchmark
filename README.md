@@ -198,10 +198,10 @@ scored the same - or a whole table from a benchmark that did not run, which
 leaves every row at zero - come out the same way on every run rather than in a
 different order each time. `-sort=framework` is what puts a framework on the
 same row in every table and across runs, whatever it scored, which is what a
-diff between two reports wants. That order is `config.FrameworkList`'s alone:
-`script/config.sh` has a `frameworks` list of its own deciding what is built
-and in what order the servers are run, and it carries the same names in a
-different order.
+diff between two reports wants. That order is `config.FrameworkList`'s, which
+is by framework name; `script/config.sh` has a `frameworks` list of its own
+deciding what is built and in what order the servers are run, and it carries
+the same names in the same order, but only the Go one reaches a report.
 
 The flag goes to the client, so `script/report.sh` and the benchmark scripts
 pass it through:
