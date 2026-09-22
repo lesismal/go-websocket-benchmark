@@ -28,10 +28,30 @@ echo $line
 
 echo $line
 
-# $1 nodelay
-. ./script/servers.sh $1
+# The servers and the benchmark client take different flags, and this script
+# takes the client's. Forward only what a server actually defines: a run
+# started with a client flag first used to hand it to every server as its
+# -nodelay, and they all exited with "flag provided but not defined".
+server_flags=""
+for arg in "$@"; do
+    case "$arg" in
+        -nodelay=*|-reuseport=*|-b=*|-m=*) server_flags="${server_flags} ${arg}" ;;
+    esac
+done
 
-echo $line
+if bench_runs_servers; then
+    . ./script/servers.sh
+
+    echo $line
+fi
+
+if ! bench_runs_clients; then
+    echo "servers are up and left running. On the client node:"
+    echo "  BENCH_ROLE=client BENCH_SERVER_HOST=<this host> bash script/1m_conns_benchmark.sh"
+    echo "Stop them here afterwards with: bash script/killall.sh"
+    echo $line
+    return 0 2>/dev/null || exit 0
+fi
 
 sleep 3
 

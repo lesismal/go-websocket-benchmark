@@ -157,8 +157,55 @@ Three things to keep in mind when reading a report:
   are read per shard by the `fnet` pool, which picks its own shard count from
   `GOMAXPROCS`.
 
+## Two nodes
+
+A single-node run divides the machine's CPUs between the servers and the
+benchmark client, which is the cheapest way to run this and also the reason
+the client's own work shows up in the numbers. To put each half on its own
+machine, set `BENCH_ROLE` on each and tell the client side where the servers
+are; the servers already bind every interface, so nothing is configured on
+their side.
+
+```sh
+# On the server node: builds the servers, starts them, leaves them running.
+BENCH_ROLE=server bash script/benchmark.sh
+
+# On the client node: builds the client, runs it against the servers, reports.
+BENCH_ROLE=client BENCH_SERVER_HOST=10.0.0.2 bash script/benchmark.sh
+
+# Back on the server node, when the run is over.
+bash script/killall.sh
+```
+
+`BENCH_SERVER_HOST` takes an address or a hostname, IPv6 included, and reaches
+the clients as their `-ip`; a host given on the command line still wins. It
+defaults to `127.0.0.1`, which is also the single-node default.
+
+What each role does differently:
+
+- `server` builds only the servers - a server node needs no `libcurl` for
+  `benchcli-uwscpp` - starts them and stops there. `client` builds only the
+  client, so it needs none of the servers' toolchain, in particular not the
+  C++ one `uwebsockets` wants.
+- A node running one half gives it the whole machine instead of half, since
+  there is nothing to divide it with. `BENCH_SERVER_CPU_LIST` and
+  `BENCH_CLIENT_CPU_LIST` still pin it where a node shares its CPUs.
+- The client cannot stop a server it did not start, and will not try: every
+  framework's server stays up for the whole run rather than being killed after
+  its turn, and the server node stops them with `script/killall.sh`
+  afterwards. If the idle ones holding memory would disturb the framework
+  being measured, run a subset at a time with `BENCH_FRAMEWORKS`.
+
+`BENCH_ROLE=client` against a loopback host is also how to run the clients
+again without restarting servers that are already up on this machine.
+
+`script/docker_benchmark.sh` is a single container with `--network none`, so it
+cannot be one node of a split run and says so if `BENCH_ROLE` asks it to be.
+
 ## before running the test
-- make sure setting the correct system env, for example:
+- make sure setting the correct system env, for example (on both machines of a
+  two-node run: the client node needs the ephemeral port range and the file
+  descriptor limits as much as the server node does):
 
 ```sh
 sysctl -w net.ipv4.ip_local_port_range="1024 65535"

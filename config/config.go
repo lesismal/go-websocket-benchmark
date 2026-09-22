@@ -129,6 +129,17 @@ func GetFrameworkHTTPServerAddrs(framework string) (string, error) {
 	return addr, nil
 }
 
+// urlHost brackets a bare IPv6 literal so that it can carry a port in a URL,
+// the way benchcli-uwscpp's controlURL does. BENCH_SERVER_HOST may be an
+// address or a hostname, and an IPv6 address without this comes out as
+// ws://fe80::1:12001/ws, which parses as neither host nor port.
+func urlHost(ip string) string {
+	if strings.Contains(ip, ":") && !strings.HasPrefix(ip, "[") {
+		return "[" + ip + "]"
+	}
+	return ip
+}
+
 func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
@@ -136,7 +147,7 @@ func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	}
 	addrs := make([]string, 0, len(ports))
 	for _, port := range ports {
-		addrs = append(addrs, fmt.Sprintf("ws://%s:%d/ws", ip, port))
+		addrs = append(addrs, fmt.Sprintf("ws://%s:%d/ws", urlHost(ip), port))
 	}
 	return addrs, nil
 }
@@ -215,7 +226,7 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
-	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
+	serverAddr := fmt.Sprintf("http://%v:%v/init", urlHost(ip), pidPort)
 
 	data, _ := json.Marshal(args)
 	// A failed /init is not just a missing pid: it is a server that never
@@ -225,7 +236,7 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 		return -1, "", err
 	}
 	pid, err := strconv.Atoi(strings.TrimSpace(string(body)))
-	pprofAddr := fmt.Sprintf("http://%v:%v", ip, pidPort)
+	pprofAddr := fmt.Sprintf("http://%v:%v", urlHost(ip), pidPort)
 
 	return pid, pprofAddr, err
 }
@@ -243,7 +254,7 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
-	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
+	serverAddr := fmt.Sprintf("http://%v:%v/ps", urlHost(ip), pidPort)
 
 	body, err := controlRequest(serverAddr, nil, controlAttempts)
 	if err != nil {
@@ -286,7 +297,7 @@ func GetFrameworkTaskPool(framework, ip string) string {
 	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
 		pidPort++
 	}
-	serverAddr := fmt.Sprintf("http://%v:%v/taskpool", ip, pidPort)
+	serverAddr := fmt.Sprintf("http://%v:%v/taskpool", urlHost(ip), pidPort)
 
 	// hertz and hertz_std serve control routes of their own and have no pool
 	// hook, so there is no /taskpool there to answer; controlRequest does not

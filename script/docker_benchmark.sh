@@ -20,6 +20,8 @@ Options:
 Environment overrides:
   BENCH_CLIENT             benchcli-uwscpp (default) or benchcli-go
   BENCH_FRAMEWORKS         Comma-separated framework subset
+  BENCH_TASKPOOL           Pool the servers run their callbacks on, and
+  BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script/config.sh)
   DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available)
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
@@ -50,6 +52,11 @@ benchmark_args=("$@")
 
 . "$repo_root/script/config.sh" || exit 1
 
+if [ "$BENCH_ROLE" != both ]; then
+    echo "BENCH_ROLE=$BENCH_ROLE: this script runs one container with --network none," >&2
+    echo "so it cannot be one node of a split run; use script/benchmark.sh on each node" >&2
+    exit 1
+fi
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is required" >&2
     exit 1
@@ -161,19 +168,9 @@ if [ "$smoke" = true ]; then
         benchmark_args=("${smoke_args[@]}")
     fi
 fi
-# benchmark.sh passes only its first argument to servers.sh. Keep that argument
-# server-compatible while still forwarding every user flag to the client.
-server_nodelay=-nodelay=true
-if [ "${#benchmark_args[@]}" -gt 0 ]; then
-    for benchmark_arg in "${benchmark_args[@]}"; do
-        case "$benchmark_arg" in
-            -nodelay=*|--nodelay=*) server_nodelay=$benchmark_arg ;;
-        esac
-    done
-    benchmark_args=("$server_nodelay" "${benchmark_args[@]}")
-else
-    benchmark_args=("$server_nodelay")
-fi
+# benchmark.sh picks the servers' flags out of these itself now, so there is
+# nothing to reorder: it used to hand its first argument to the servers
+# whatever it was, and a -nodelay had to be put there.
 bench_client=$BENCH_CLIENT
 
 timestamp=$(date +%Y%m%d-%H%M%S)
@@ -200,6 +197,12 @@ run_args=(
     --env "BENCH_CLIENT=$bench_client"
     --env "BENCH_SERVER_CPU_LIST=$server_cpu_list"
     --env "BENCH_CLIENT_CPU_LIST=$client_cpu_list"
+    # Without these the container would run the taskpool defaults however the
+    # caller set them out here.
+    --env "BENCH_TASKPOOL=$BENCH_TASKPOOL"
+    --env "BENCH_TASKPOOL_MIN=$BENCH_TASKPOOL_MIN"
+    --env "BENCH_TASKPOOL_MAX=$BENCH_TASKPOOL_MAX"
+    --env "BENCH_TASKPOOL_QUEUE=$BENCH_TASKPOOL_QUEUE"
 )
 if [ -n "$run_frameworks" ]; then
     run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
