@@ -87,11 +87,30 @@ forked ones in another - so the same `_MAX` does not mean the same thing to
 all of them.
 
 The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
-`-tpqueue`, which default the same way, and log which pool they installed. Eight of the server binaries
+`-tpqueue`, which default the same way, and log which pool they installed. Nine of the server binaries
 accept them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
-`nbio_nonblocking`, `uws_events` and `uws_std`. The rest have no pool to swap
-and exit on a flag they do not define, which is why `script/servers.sh` passes
-these only to the eight.
+`nbio_nonblocking`, `uwebsockets`, `uws_events` and `uws_std`. The rest have no
+pool to swap and exit on a flag they do not define, which is why
+`script/servers.sh` passes these only to the nine.
+
+`uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
+run under it. It has one thread pool of its own, built the way the `uws` pool
+is - workers up front over sharded queues, refusing rather than waiting - and
+what it reads out of the flag is where a server answers from. `default` and
+`inline` install no pool, which for uWS means the loop callback; every other
+mode hands the callback to a goroutine off the event loop, and its thread pool
+stands in for that. It logs which way it read the flag, and exits on a name
+that names no mode, as the Go servers do. `-tpmax` defaults to one worker per
+core rather than to 256, since these are OS threads doing non-blocking work,
+and `-tpmin` is ignored. See [its README](frameworks/uwebsockets/README.md).
+
+Every report carries a `Pool` column naming the pool its server installed,
+which each client reads from that server's own `/taskpool` route when it
+builds the report. It is what ran rather than what the run asked for, so a
+server whose own scheduling is one of these pools shows that pool under
+`BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
+there. `-` is a framework with no pool hook at all, and `uwebsockets` adds
+which side of its loop the echo ran on, e.g. `nbio(pool)` or `default(loop)`.
 
 Three things to keep in mind when reading a report:
 
@@ -102,7 +121,10 @@ Three things to keep in mind when reading a report:
   itself, and nbio, fnet, uws and greatws each keep one per-connection queue
   and submit a drain only when none is in flight. See the `Ordering` section
   of [the package doc](taskpool/taskpool.go) for which mechanism each
-  framework uses.
+  framework uses. `uwebsockets` keeps a queue and a drain flag the same way,
+  and has one more step to order: uWS is single threaded per loop, so a worker
+  cannot write and hands the echo back through `uWS::Loop::defer`, whose queue
+  is FIFO.
 - `uws` is the only pool that refuses work rather than waiting for room, which
   is how uws surfaces application backpressure. fib and uws close the
   connections behind the work their pool refused; nbio and fnet run it on the

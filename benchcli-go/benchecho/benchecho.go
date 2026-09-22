@@ -159,6 +159,8 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 
 	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
 
+	r.TaskPool = config.GetFrameworkTaskPool(be.Framework, be.Ip)
+
 	be.PsCounter, _ = config.GetFrameworkPsInfo(be.Framework, be.Ip)
 	if be.PsCounter != nil {
 		// r.GoMin = be .PsCounter.NumGoroutineMin()

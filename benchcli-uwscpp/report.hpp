@@ -41,6 +41,19 @@ inline std::string controlURL(const Options &o) {
     if (f=="fib" || f=="gws" || f=="uws_std" || f=="uws_events") ++port;
     return "http://"+host+":"+std::to_string(port);
 }
+// The pool the server installed, for the report's Pool column. "-" covers a server that
+// installs none: the frameworks that take no -taskpool flag, and any whose /taskpool route
+// does not answer. Mirrors config.GetFrameworkTaskPool.
+inline std::string frameworkTaskPool(const Options &o) {
+    const std::string none="-";
+    try {
+        std::string name=http(controlURL(o)+"/taskpool",nullptr,5);
+        auto first=name.find_first_not_of(" \t\r\n");
+        if (first==std::string::npos) return none;
+        auto last=name.find_last_not_of(" \t\r\n");
+        return name.substr(first,last-first+1);
+    } catch (const std::exception &) { return none; }
+}
 inline json emptyReport(const std::string &kind,const Options &o) {
     json r=json::object();
     for (const auto &field:metadata["schemas"][kind]) {
@@ -50,6 +63,7 @@ inline json emptyReport(const std::string &kind,const Options &o) {
     }
     r["Framework"]=o.get("f");
     r["BenchClient"]="benchcli-uwscpp";
+    r["TaskPool"]=frameworkTaskPool(o);
     return r;
 }
 inline std::string filename(const Options &o,const std::string &base,const std::string &ext) {

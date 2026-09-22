@@ -174,6 +174,7 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		RecvBytes:   br.recvBytes,
 	}
 	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
+	r.TaskPool = config.GetFrameworkTaskPool(br.Framework, br.Ip)
 	br.PsCounter, _ = config.GetFrameworkPsInfo(br.Framework, br.Ip)
 	if br.PsCounter != nil {
 		// r.GoMin = br.PsCounter.NumGoroutineMin()
