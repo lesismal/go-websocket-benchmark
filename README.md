@@ -107,9 +107,25 @@ OS threads on top of the loop threads, not goroutines sharing the pollers'
 rest run loops. The CPU count it divides is the one `sched_getaffinity`
 reports, since `script/env.sh` pins the server with `taskset` and
 `hardware_concurrency()` does not read the mask - sizing by that was costing
-this server about 61% of its throughput with the pool on. `-loops` overrides
-the loop count. See [its README](frameworks/uwebsockets/README.md) for the
-measurement.
+this server about 61% of its throughput with the pool on.
+
+Both counts can be set as a multiplier of those CPUs instead of a thread count,
+which is the form that carries from one machine to the next:
+`BENCH_UWS_WORKERS_PER_CPU` for the pool and `BENCH_UWS_LOOPS_PER_CPU` for the
+loops (`-tpmaxpercpu` and `-loopspercpu` on the server; `-tpmax` and `-loops`
+still take absolute counts). 0, the default for both, keeps the sizing above,
+and setting one of them leaves the other the CPUs it did not take.
+
+```sh
+# Half the CPUs to the pool, the rest to the loops
+BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+```
+
+The default is the best of what was measured on one 5-CPU host, so it is worth
+re-measuring on a bigger machine - though every measurement there that added
+workers came out slower, since a worker only copies a payload and defers it
+back while a loop does the poll, the read, the parse and the write. See
+[its README](frameworks/uwebsockets/README.md) for the numbers.
 
 Every report carries a `Pool` column naming the pool its server installed,
 which each client reads from that server's own `/taskpool` route when it

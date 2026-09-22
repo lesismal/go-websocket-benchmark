@@ -40,6 +40,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <csignal>
 #include <cstdio>
@@ -123,6 +124,29 @@ long parseIntFlag(int argc, char **argv, const char *name, long defaultValue) {
             long parsed = std::strtol(value.c_str(), &end, 10);
             if (end == value.c_str() || *end != '\0') {
                 std::fprintf(stderr, "uwebsockets: ignoring -%s=%s, want an integer\n", name,
+                             value.c_str());
+                return defaultValue;
+            }
+            return parsed;
+        }
+    }
+    return defaultValue;
+}
+
+// The per-CPU thread counts (-loopspercpu, -tpmaxpercpu) are multipliers rather than counts,
+// so they are fractional: a quarter of the CPUs is the pool's own default share. Treated like
+// parseIntFlag treats its flags - 0 means "size it the usual way", and an unparsable value is
+// a warning rather than an exit.
+double parseDoubleFlag(int argc, char **argv, const char *name, double defaultValue) {
+    std::string prefix = std::string("-") + name + "=";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg(argv[i]);
+        if (arg.rfind(prefix, 0) == 0) {
+            const std::string value = arg.substr(prefix.size());
+            char *end = nullptr;
+            double parsed = std::strtod(value.c_str(), &end);
+            if (end == value.c_str() || *end != '\0' || !std::isfinite(parsed)) {
+                std::fprintf(stderr, "uwebsockets: ignoring -%s=%s, want a number\n", name,
                              value.c_str());
                 return defaultValue;
             }
@@ -646,37 +670,66 @@ const PoolMode *resolvePoolMode(int argc, char **argv) {
 // Two things in that: a loop is worth more than a worker, since the loop side does the poll,
 // the read, the frame parse and the write while a worker only copies a payload and defers it
 // back; and threads beyond the CPU count cost more than they add. Hence one worker per
-// kCoresPerWorker cores and the rest loops, with -loops and -tpmax to override either.
+// kCoresPerWorker cores and the rest loops.
+//
+// Both counts are overridable, either as a count of threads (-loops, -tpmax) or as a
+// multiplier of the CPUs the process may run on (-loopspercpu, -tpmaxpercpu), the form that
+// carries from one machine to another and the one script/config.sh configures. The sizing
+// above is what the benchmark measured best on the one host it was measured on, so a machine
+// of a different size is worth re-measuring: raise or lower the multiplier and watch the
+// server's CPU% and TPS columns move together.
 struct ThreadPlan {
     unsigned loops;
     unsigned workers;  // 0 when the echo runs in the loop
 };
 
-// One worker per this many cores, when neither -loops nor -tpmax says otherwise. Fewer workers
-// measured better at every loop count tried, but a pool of one thread for every loop in the
-// process would be a poor default for any callback heavier than an echo, so a quarter of the
-// CPUs is where this stops.
+// One worker per this many cores, when nothing on the command line says otherwise. Fewer
+// workers measured better at every loop count tried, but a pool of one thread for every loop
+// in the process would be a poor default for any callback heavier than an echo, so a quarter
+// of the CPUs is where this stops. The multiplier that says the same thing is
+// -tpmaxpercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
+// to nearest); script/config.sh has it as BENCH_UWS_WORKERS_PER_CPU.
 constexpr unsigned kCoresPerWorker = 4;
 
+// One thread count, from the two flags that can set it: the absolute one (-loops, -tpmax) if
+// it is set, else the per-CPU multiplier (-loopspercpu, -tpmaxpercpu) against the CPUs this
+// process may actually run on, which is the form that means the same thing on machines of
+// different sizes - the benchmark configures one N for every host it runs on, and a host with
+// twice the CPUs gets twice the threads. A multiplier that rounds to nothing still gets one
+// thread. 0 in both leaves the count to the caller's own sizing, which is what 0 back from
+// here means.
+unsigned resolveThreadCount(int argc, char **argv, const char *absoluteName,
+                            const char *perCPUName, unsigned cores) {
+    const long absolute = parseIntFlag(argc, argv, absoluteName, 0);
+    if (absolute > 0) return unsigned(absolute);
+    const double perCPU = parseDoubleFlag(argc, argv, perCPUName, 0);
+    if (perCPU <= 0) return 0;
+    const long scaled = std::lround(perCPU * double(cores));
+    return scaled > 0 ? unsigned(scaled) : 1;
+}
+
 ThreadPlan planThreads(int argc, char **argv, const PoolMode &mode, unsigned cores) {
-    const long loopFlag = parseIntFlag(argc, argv, "loops", 0);
-    const long workerFlag = parseIntFlag(argc, argv, "tpmax", 0);
+    const unsigned loopCount = resolveThreadCount(argc, argv, "loops", "loopspercpu", cores);
+    const unsigned workerCount = resolveThreadCount(argc, argv, "tpmax", "tpmaxpercpu", cores);
 
     ThreadPlan plan{cores, 0};
     if (!mode.offLoop) {
-        // No pool to leave room for, so -loops is the whole of it.
-        if (loopFlag > 0) plan.loops = unsigned(loopFlag);
+        // No pool to leave room for, so the loop count is the whole of it.
+        if (loopCount > 0) plan.loops = loopCount;
         if (plan.loops == 0) plan.loops = 1;
         return plan;
     }
-    // Whichever of the two the command line fixes, the other takes the rest of the cores, so
-    // that a run which sizes one of them by hand does not end up oversubscribed by accident.
-    if (loopFlag > 0) {
-        plan.loops = unsigned(loopFlag);
-        plan.workers = workerFlag > 0 ? unsigned(workerFlag)
-                                      : (cores > plan.loops ? cores - plan.loops : 1);
-    } else if (workerFlag > 0) {
-        plan.workers = unsigned(workerFlag);
+    // With only one of the two set, the other takes the rest of the cores, so that a run which
+    // sizes one of them by hand does not end up oversubscribed by accident. Setting both is
+    // how to ask for a thread count the cores do not add up to, which is a thing to measure.
+    if (loopCount > 0 && workerCount > 0) {
+        plan.loops = loopCount;
+        plan.workers = workerCount;
+    } else if (loopCount > 0) {
+        plan.loops = loopCount;
+        plan.workers = cores > plan.loops ? cores - plan.loops : 1;
+    } else if (workerCount > 0) {
+        plan.workers = workerCount;
         plan.loops = cores > plan.workers ? cores - plan.workers : 1;
     } else {
         plan.workers = cores / kCoresPerWorker;

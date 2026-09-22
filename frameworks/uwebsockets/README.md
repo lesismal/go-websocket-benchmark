@@ -20,7 +20,9 @@ always single threaded: the parallelism is in how many there are, one `uWS::App`
 count comes from the CPUs the process may actually run on - `sched_getaffinity` where there is
 one, `hardware_concurrency()` otherwise - because `script/env.sh` pins the server to about half
 the host's CPUs with `taskset`, and `hardware_concurrency()` counts every online CPU regardless
-of the mask. `-loops` overrides it. The startup line prints both numbers:
+of the mask. `-loops` overrides it with a thread count, `-loopspercpu` with a multiplier of
+those CPUs (`script/config.sh`'s `BENCH_UWS_LOOPS_PER_CPU`), which is the form that means the
+same arrangement on machines of different sizes. The startup line prints both numbers:
 
 ```
 uwebsockets benchmark config: loops=4 workers=1 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
@@ -61,15 +63,27 @@ event loop; here a thread pool stands in for it) min=0(ignored) max=0 queue=0 wo
 shards=14 pending=65536 rejects=true loops=14 hardware_concurrency=14
 ```
 
-`-tpmax` sets the worker count and `-tpqueue` the queued connections (65536 by default, as for
-the `uws` pool). `-tpmin` is accepted and ignored: the workers are all started up front.
+`-tpmax` sets the worker count, `-tpmaxpercpu` sets it as a multiplier of the CPUs the process
+may run on (`round(N * cpus)`, at least one thread), and `-tpqueue` the queued connections
+(65536 by default, as for the `uws` pool). `-tpmin` is accepted and ignored: the workers are
+all started up front.
+
+`script/config.sh` configures the two multipliers as `BENCH_UWS_WORKERS_PER_CPU` and
+`BENCH_UWS_LOOPS_PER_CPU`, and `script/servers.sh` passes them to this server alone - no Go
+server defines them. 0, the default for both, leaves the sizing below. Sweeping the pool is
+one variable:
+
+```sh
+BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+```
 
 The pool's workers are OS threads on top of the loop threads, so the two are sized together:
-by default one worker per four CPUs and the loops take the rest, and fixing either `-loops` or
-`-tpmax` by hand leaves the other the remaining CPUs, so a run cannot end up oversubscribed by
-accident. The Go pools can be hundreds of goroutines because those multiplex onto the
-`GOMAXPROCS` threads their pollers already run on; OS threads do not, and a pool that widened
-the process is what cost this server most of its throughput.
+by default one worker per four CPUs and the loops take the rest, and fixing either side alone -
+`-loops`/`-loopspercpu` or `-tpmax`/`-tpmaxpercpu` - leaves the other the remaining CPUs, so a
+run cannot end up oversubscribed by accident. Setting both sides is how to ask for more threads
+than there are CPUs on purpose. The Go pools can be hundreds of goroutines because those
+multiplex onto the `GOMAXPROCS` threads their pollers already run on; OS threads do not, and a
+pool that widened the process is what cost this server most of its throughput.
 
 Measured in a container with 5 CPUs for the server and 5 for the client, pinned to disjoint
 sets the way `script/env.sh` pins them, echoing a 1KiB payload over 2000 connections; TPS
@@ -89,6 +103,13 @@ averaged over three runs:
 A loop is worth more than a worker - the loop side does the poll, the read, the frame parse and
 the write, while a worker only copies a payload and defers it back - and threads beyond the CPU
 count cost more than they add. Fixing the sizing is worth about 61% here (532k to 858k).
+
+That is one host, with 5 CPUs for the server; the default is the best of what was measured on
+it, not a number that has been checked on a larger machine. On a machine of a different size
+the two multipliers are what to sweep, and the pair of columns to read them against is the
+server's CPU% and the TPS: the pool's threads park between batches, so a run that leaves CPU
+idle is not necessarily a run that would go faster with more of them - every measurement here
+that added workers went slower.
 
 What remains is the handoff itself: at the same thread count the pool echoes at about 60% of
 the in-loop rate (858k against 1,375k at four loops), because every batch pays a payload copy,
