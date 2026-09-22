@@ -3,9 +3,8 @@
 Echo WebSocket server built on [uWebSockets](https://github.com/uNetworking/uWebSockets)
 v20.74.0 (the same pinned version and uSockets submodule used by `benchcli-uwscpp`), using
 the high-level `uWS::App` server API instead of the low-level protocol headers the C++
-benchmark client uses. One `uWS::App`/event loop runs per hardware thread; every loop
-listens on all of the framework's benchmark ports, relying on uSockets' default
-`SO_REUSEPORT` behavior to spread accepted connections across threads.
+benchmark client uses. Every loop listens on all of the framework's benchmark ports, relying
+on uSockets' default `SO_REUSEPORT` behavior to spread accepted connections across threads.
 
 `/init`, `/ps` and `/taskpool` replicate just enough of `frameworks.HandleCommon` (see
 `frameworks/handlers.go`) for the benchmark clients' CPU/RSS and pool reporting, sampling
@@ -13,6 +12,19 @@ listens on all of the framework's benchmark ports, relying on uSockets' default
 all registered on every benchmark port rather than a separate pid port, so
 `config.Ports["uwebsockets"]`'s last port doubles as the control port (no entry needed in
 `config.InitAndGetFrameworkPid`'s pid-port-offset list).
+
+## Threads
+
+uWS runs one event loop per thread and is not thread safe within a loop, so a loop here is
+always single threaded: the parallelism is in how many there are, one `uWS::App` each. The
+count comes from the CPUs the process may actually run on - `sched_getaffinity` where there is
+one, `hardware_concurrency()` otherwise - because `script/env.sh` pins the server to about half
+the host's CPUs with `taskset`, and `hardware_concurrency()` counts every online CPU regardless
+of the mask. `-loops` overrides it. The startup line prints both numbers:
+
+```
+uwebsockets benchmark config: loops=4 workers=1 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
+```
 
 ## Task pool
 
@@ -50,11 +62,41 @@ shards=14 pending=65536 rejects=true loops=14 hardware_concurrency=14
 ```
 
 `-tpmax` sets the worker count and `-tpqueue` the queued connections (65536 by default, as for
-the `uws` pool). `-tpmin` is accepted and ignored: the workers are all started up front. The
-default is one worker per core rather than the Go pools' hundreds because these are OS threads
-running a callback that never blocks, and because the pool sits on top of the loop threads -
-the process runs 2x `hardware_concurrency` threads with the pool where the in-loop modes run
-1x.
+the `uws` pool). `-tpmin` is accepted and ignored: the workers are all started up front.
+
+The pool's workers are OS threads on top of the loop threads, so the two are sized together:
+by default one worker per four CPUs and the loops take the rest, and fixing either `-loops` or
+`-tpmax` by hand leaves the other the remaining CPUs, so a run cannot end up oversubscribed by
+accident. The Go pools can be hundreds of goroutines because those multiplex onto the
+`GOMAXPROCS` threads their pollers already run on; OS threads do not, and a pool that widened
+the process is what cost this server most of its throughput.
+
+Measured in a container with 5 CPUs for the server and 5 for the client, pinned to disjoint
+sets the way `script/env.sh` pins them, echoing a 1KiB payload over 2000 connections; TPS
+averaged over three runs:
+
+| server threads | BenchEcho TPS | |
+| --- | --- | --- |
+| `-taskpool=inline`, loops=5 | 1,393k - 1,556k | no pool, for reference |
+| loops=4 workers=1 | 848k | the default at 5 CPUs |
+| loops=5 workers=1 | 802k | one thread more than there are CPUs |
+| loops=4 workers=2 | 774k | |
+| loops=3 workers=1 | 650k | |
+| loops=3 workers=2 | 517k | |
+| loops=10 workers=10 | 536k | what `hardware_concurrency()` sized on this host |
+
+A loop is worth more than a worker - the loop side does the poll, the read, the frame parse and
+the write, while a worker only copies a payload and defers it back - and threads beyond the CPU
+count cost more than they add. Fixing the sizing is worth about 58% here (536k to 848k).
+
+Those numbers are from before the outbox described above; with one wakeup per flush instead of
+one per batch the pool mode should sit higher, and the table wants re-measuring on a quiet
+machine.
+
+What remains after that is the handoff itself: a payload copy and a cross-thread queue for work
+that is otherwise a `memcpy`. That is the price of answering off the reactor, which is what the
+Go frameworks are being measured doing; `-taskpool=inline` (or `default`) is the mode that does
+not pay it.
 
 One connection's messages are handled and answered in the order they arrived, the way the Go
 frameworks manage it: the connection carries a queue of frames and a drain flag, and a drain is
@@ -63,11 +105,18 @@ connection. What the pool takes as a task is the connection itself, as fib's poo
 
 Two things the Go pools do not have to deal with:
 
-- uWS is single threaded per loop, so a worker cannot write: it hands the echo back through
-  `uWS::Loop::defer`, whose queue is FIFO. Every send goes through that queue, including the
-  drains the pool refuses and runs on the loop thread, because the drain flag goes down before
-  the loop has run the sends deferred for it - a batch that sent directly could overtake one
-  still queued.
+- uWS is single threaded per loop, so a worker cannot write. It appends the finished batch to
+  an `Outbox` belonging to that loop, and only the append that finds the outbox unarmed defers
+  a flush; the flush then writes everything waiting, in order. Deferring each batch separately
+  made every connection in a burst pay its own `Loop::defer` - a lock on the loop's defer
+  queue, a heap allocation for the closure, an eventfd write and a loop wakeup, for work that
+  is otherwise a `memcpy` - so a burst across a thousand connections cost a thousand wakeups
+  where it now costs one. The flush closure captures one pointer, which fits
+  `MoveOnlyFunction`'s small-object buffer, so arming allocates nothing either.
+
+  Every send goes through the outbox, including the drains the pool refuses and runs on the
+  loop thread, because the drain flag goes down before the loop has written the batches handed
+  to it - a batch that sent directly could overtake one still waiting there.
 - `std::string_view` from the message callback points into the loop's read buffer, which uWS
   reuses as soon as the callback returns, so a frame's payload is copied on the way into the
   queue. fnet's adapter copies for the same reason.

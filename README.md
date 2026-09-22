@@ -100,9 +100,16 @@ what it reads out of the flag is where a server answers from. `default` and
 `inline` install no pool, which for uWS means the loop callback; every other
 mode hands the callback to a goroutine off the event loop, and its thread pool
 stands in for that. It logs which way it read the flag, and exits on a name
-that names no mode, as the Go servers do. `-tpmax` defaults to one worker per
-core rather than to 256, since these are OS threads doing non-blocking work,
-and `-tpmin` is ignored. See [its README](frameworks/uwebsockets/README.md).
+that names no mode, as the Go servers do. `-tpmin` is ignored, and `-tpmax`
+is sized together with the event loops rather than on its own: its workers are
+OS threads on top of the loop threads, not goroutines sharing the pollers'
+`GOMAXPROCS` threads, so by default one CPU in four goes to a worker and the
+rest run loops. The CPU count it divides is the one `sched_getaffinity`
+reports, since `script/env.sh` pins the server with `taskset` and
+`hardware_concurrency()` does not read the mask - sizing by that was costing
+this server about 58% of its throughput with the pool on. `-loops` overrides
+the loop count. See [its README](frameworks/uwebsockets/README.md) for the
+measurement.
 
 Every report carries a `Pool` column naming the pool its server installed,
 which each client reads from that server's own `/taskpool` route when it
