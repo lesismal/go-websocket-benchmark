@@ -7,8 +7,8 @@ var (
 )
 
 type ConnectionsReport struct {
-	BenchClient string `json:"BenchClient" md:"Client"`
 	Framework   string `json:"Framework" md:"Framework"`
+	BenchClient string `json:"BenchClient" md:"Client"`
 	TaskPool    string `json:"TaskPool" md:"Pool"`
 	TPS         int64  `json:"TPS" md:"TPS"`
 	Min         int64  `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`

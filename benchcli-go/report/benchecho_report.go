@@ -16,8 +16,8 @@ type EchoSession struct {
 }
 
 type BenchEchoReport struct {
-	BenchClient string  `json:"BenchClient" md:"Client"`
 	Framework   string  `json:"Framework" md:"Framework"`
+	BenchClient string  `json:"BenchClient" md:"Client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool"`
 	TPS         int64   `json:"TPS" md:"TPS"`
 	EER         float64 `json:"EER" md:"EER"`

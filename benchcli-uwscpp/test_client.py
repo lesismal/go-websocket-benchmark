@@ -304,9 +304,11 @@ class ClientTests(unittest.TestCase):
                         {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
                          'TPS': score, 'RecvBytes': score}))
 
+        # Column 1 is Framework: the report's columns are its struct's fields in
+        # benchcli-go/report, and Framework is the first of them.
         def order(*args):
             self.run_client('-r=true', *args)
-            return [[line.split('|')[2].strip()
+            return [[line.split('|')[1].strip()
                      for line in (directory / f'{kind}.md').read_text().splitlines()[2:]]
                     for kind in ['Connections', 'BenchEcho', 'BenchRate']]
 

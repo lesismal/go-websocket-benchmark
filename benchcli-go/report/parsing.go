@@ -7,6 +7,14 @@ import (
 	"github.com/lesismal/perf"
 )
 
+// Init builds the markdown headers of the three report tables.
+//
+// A report's columns are its struct's fields, in the order they are declared:
+// these headers come off them by reflection, ObjFieldValues reads the row the
+// same way, and benchcli-uwscpp generates its own schema from the same
+// declarations, so moving a field moves that column in every table both
+// clients write. Framework comes first, since it is what a row is about, then
+// the client that measured it and the pool its server installed.
 func Init(enableTPN bool) {
 	appendTPNHeadder := func(headers []string, field reflect.StructField) []string {
 		header := field.Tag.Get("md")
