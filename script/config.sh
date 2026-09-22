@@ -83,6 +83,46 @@ BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
 BENCH_TASKPOOL_MAX=${BENCH_TASKPOOL_MAX:-0}
 BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 
+# uwebsockets only: how many threads its C++ server builds, as a multiplier of
+# the CPUs the server may actually run on (sched_getaffinity, so the taskset
+# mask script/env.sh pins it with counts, not the whole host). N here rather
+# than a thread count so that one setting means the same arrangement on a
+# 4-core laptop and a 64-core server: the count is round(N * cpus), and a
+# multiplier that rounds to nothing still gets one thread.
+#
+#   BENCH_UWS_WORKERS_PER_CPU  the logic thread pool - the workers that run the
+#                              message callback off the event loop, which is
+#                              what -taskpool puts this server on for every mode
+#                              but default and inline
+#   BENCH_UWS_LOOPS_PER_CPU    the uWS event loops, one thread each, which do
+#                              the poll, the read, the frame parse and the write
+#
+# 0 (the default for both) leaves the server its own sizing: one worker per four
+# CPUs and the loops take the rest, so loops + workers = cpus. That is also what
+# happens when only one of the two is set - the other takes the CPUs left over,
+# so raising the pool lowers the loops rather than oversubscribing the machine.
+# Setting both asks for exactly that many of each, which is how to run more
+# threads than there are CPUs on purpose.
+#
+# Worth knowing before raising the pool: the workers here are OS threads on top
+# of the loop threads, not goroutines multiplexed onto the pollers' own threads
+# the way every Go pool in this benchmark is, and on the host the default was
+# measured on more workers came out slower at every loop count tried (the table
+# is in frameworks/uwebsockets/README.md). Both directions are worth a run on a
+# machine of a different size.
+#
+# Override for one run with:
+#   BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+BENCH_UWS_WORKERS_PER_CPU=${BENCH_UWS_WORKERS_PER_CPU:-0}
+BENCH_UWS_LOOPS_PER_CPU=${BENCH_UWS_LOOPS_PER_CPU:-0}
+for uws_thread_factor in "$BENCH_UWS_WORKERS_PER_CPU" "$BENCH_UWS_LOOPS_PER_CPU"; do
+    case "$uws_thread_factor" in
+        ''|*[!0-9.]*|*.*.*)
+            echo "BENCH_UWS_*_PER_CPU must be a non-negative number, got: $uws_thread_factor" >&2
+            return 1 ;;
+    esac
+done
+
 # The order the report tables put their rows in. Both orders carry the same
 # rows and the same numbers; only the order differs:
 #

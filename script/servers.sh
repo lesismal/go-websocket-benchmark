@@ -24,5 +24,11 @@ for f in ${frameworks[@]}; do
             break
         fi
     done
+    # uwebsockets sizes its threads against the CPUs it may run on, and takes
+    # the two multipliers config.sh configures that with. Only that server
+    # defines them; the Go ones would exit on a flag they do not have.
+    if [ "$f" = uwebsockets ]; then
+        taskpool_args="${taskpool_args} -tpmaxpercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
+    fi
     ./script/server.sh $f $server_flags $taskpool_args
 done
