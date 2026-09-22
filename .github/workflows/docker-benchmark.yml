@@ -1,0 +1,152 @@
+# Runs script/docker_benchmark.sh on a GitHub-hosted x86_64 runner.
+#
+# Started by hand from the Actions tab: a benchmark is far too heavy - and far
+# too sensitive to what else the machine is doing - to run on every push, and
+# the standard runner is a shared 4-CPU VM, so read what comes out of here as a
+# smoke test of the whole pipeline rather than as a measurement of the
+# frameworks against each other. The inputs below are the same knobs
+# script/config.sh documents.
+name: Docker benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "smoke: short gorilla-only run. full: the whole matrix in script/config.sh (hours on a 4-CPU runner)"
+        type: choice
+        options: [smoke, full]
+        default: smoke
+      frameworks:
+        description: "Comma-separated framework subset, e.g. gorilla,nbio_nonblocking (empty = all; ignored by smoke, which forces gorilla)"
+        type: string
+        default: ""
+      client:
+        description: "Benchmark client"
+        type: choice
+        options: [benchcli-uwscpp, benchcli-go]
+        default: benchcli-uwscpp
+      taskpool:
+        description: "BENCH_TASKPOOL (empty = fib_adaptive, the script default)"
+        type: string
+        default: ""
+      cpus:
+        description: "DOCKER_BENCH_CPUS, an integer (empty = about 75% of what Docker exposes)"
+        type: string
+        default: ""
+      memory:
+        description: "DOCKER_BENCH_MEMORY, e.g. 12g (empty = 80% of what Docker exposes)"
+        type: string
+        default: ""
+      benchmark_args:
+        description: "Extra benchmark client flags, e.g. -c=10000 -en=2000000 -b=1024"
+        type: string
+        default: ""
+      rebuild:
+        description: "Rebuild the image without Docker's layer cache"
+        type: boolean
+        default: false
+
+# One benchmark at a time: two of them on the same runner pool measure each
+# other rather than the frameworks.
+concurrency:
+  group: docker-benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    # x86_64. ubuntu-latest may move to arm64 runners; this label does not.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the runner is x86_64
+        run: |
+          arch=$(uname -m)
+          echo "runner architecture: $arch"
+          if [ "$arch" != "x86_64" ]; then
+            echo "this workflow measures x86_64; got $arch" >&2
+            exit 1
+          fi
+          nproc
+          free -h
+          df -h /
+          docker version
+
+      - name: Run script/docker_benchmark.sh
+        env:
+          # Read through env rather than interpolated into the script body, so
+          # an input cannot become shell of its own.
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_FRAMEWORKS: ${{ inputs.frameworks }}
+          INPUT_CLIENT: ${{ inputs.client }}
+          INPUT_TASKPOOL: ${{ inputs.taskpool }}
+          INPUT_CPUS: ${{ inputs.cpus }}
+          INPUT_MEMORY: ${{ inputs.memory }}
+          INPUT_BENCHMARK_ARGS: ${{ inputs.benchmark_args }}
+          INPUT_REBUILD: ${{ inputs.rebuild }}
+          # A fixed directory instead of the script's timestamped one, so the
+          # upload and summary steps below know where the run landed.
+          DOCKER_BENCH_OUTPUT: ${{ github.workspace }}/output/docker/ci
+        run: |
+          set -euo pipefail
+
+          export BENCH_CLIENT="$INPUT_CLIENT"
+          # Only the ones actually given: these variables all fall back to a
+          # default in script/config.sh when unset, and an empty value is not
+          # that default.
+          if [ -n "$INPUT_FRAMEWORKS" ]; then export BENCH_FRAMEWORKS="$INPUT_FRAMEWORKS"; fi
+          if [ -n "$INPUT_TASKPOOL" ]; then export BENCH_TASKPOOL="$INPUT_TASKPOOL"; fi
+          if [ -n "$INPUT_CPUS" ]; then export DOCKER_BENCH_CPUS="$INPUT_CPUS"; fi
+          if [ -n "$INPUT_MEMORY" ]; then export DOCKER_BENCH_MEMORY="$INPUT_MEMORY"; fi
+
+          # Built up in one array rather than as separate ones, which keeps it
+          # off an empty "${array[@]}" - an unbound variable under set -u on
+          # the bash 3.2 someone may run this body under locally.
+          bench_command=(bash script/docker_benchmark.sh)
+          if [ "$INPUT_MODE" = smoke ]; then bench_command+=(--smoke); fi
+          if [ "$INPUT_REBUILD" = true ]; then bench_command+=(--rebuild); fi
+          # Split on purpose: this input carries several client flags.
+          if [ -n "$INPUT_BENCHMARK_ARGS" ]; then
+            read -r -a extra_args <<< "$INPUT_BENCHMARK_ARGS"
+            bench_command+=("${extra_args[@]}")
+          fi
+
+          echo "running: ${bench_command[*]}"
+          "${bench_command[@]}"
+
+      - name: Write the report to the job summary
+        if: always()
+        run: |
+          result_dir=output/docker/ci
+          {
+            if [ -f "$result_dir/resources.txt" ]; then
+              echo "## Run"
+              echo
+              echo '```'
+              cat "$result_dir/resources.txt"
+              echo '```'
+              echo
+            fi
+            for table in Connections BenchEcho BenchRate; do
+              if [ -f "$result_dir/report/$table.md" ]; then
+                echo "## $table"
+                echo
+                cat "$result_dir/report/$table.md"
+                echo
+              fi
+            done
+            if [ ! -f "$result_dir/report/Connections.md" ]; then
+              echo "No report tables were produced; see the console log in the artifact."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-benchmark-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/docker/ci
+          if-no-files-found: warn
+          retention-days: 30
