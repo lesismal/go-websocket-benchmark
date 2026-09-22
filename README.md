@@ -112,6 +112,19 @@ server whose own scheduling is one of these pools shows that pool under
 there. `-` is a framework with no pool hook at all, and `uwebsockets` adds
 which side of its loop the echo ran on, e.g. `nbio(pool)` or `default(loop)`.
 
+`EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
+server's CPU average, which each client reads from its `/ps` route along with
+the memory columns. Those control requests go to the pid port, which for most
+frameworks is also carrying benchmark connections, so at a hundred thousand of
+them one attempt is not enough - a server still draining the backlog of a
+just-finished rate test can reset the request or sit on it - and each client
+now retries four times over about twelve seconds, `/init` included, since a
+server that never got `/init` never sampled anything at all. When the samples
+still do not arrive the client says so in its log and the column reads 0,
+rather than the run dividing by a zero average: that produced a `+Inf` that
+`encoding/json` refused, which took the whole row out of the report file with
+it.
+
 Three things to keep in mind when reading a report:
 
 - Whichever pool is selected, one connection's messages are still handled and

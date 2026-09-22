@@ -33,6 +33,33 @@ inline std::string http(const std::string &url, const std::string *body=nullptr,
     if (error!=CURLE_OK) throw std::runtime_error(url+": "+message);
     return result;
 }
+// Control requests - /init, /ps, /taskpool - go to the pid port, which for most frameworks is
+// also carrying benchmark connections. At a hundred thousand of them one attempt is not enough:
+// a server still working through the backlog of a just-finished rate test can reset the
+// connection or sit on the request past any deadline, and the resource columns that silently
+// read 0 when that happened took EER down with them. Retry a transport failure, patiently; a
+// reply the server produced, 404 included, is returned as it is, since waiting will not put a
+// missing route there.
+inline constexpr int kControlAttempts=4;
+inline constexpr long kControlTimeout=30;
+inline std::string httpRetry(const std::string &url,const std::string *body=nullptr,
+                             int attempts=kControlAttempts,long timeout=kControlTimeout) {
+    std::string lastError;
+    for (int attempt=1;attempt<=attempts;++attempt) {
+        if (attempt>1) std::this_thread::sleep_for(std::chrono::seconds(2*(attempt-1)));
+        try { return http(url,body,timeout); }
+        catch (const std::exception &e) {
+            lastError=e.what();
+            // curl reports an HTTP status of its own through CURLOPT_FAILONERROR, which is a
+            // reply rather than a failure to reach the server.
+            if (lastError.find("HTTP response code")!=std::string::npos) break;
+            if (attempt<attempts)
+                std::cerr<<"control request failed, retrying ("<<attempt<<'/'<<attempts<<"): "
+                         <<lastError<<'\n';
+        }
+    }
+    throw std::runtime_error(lastError);
+}
 inline std::string controlURL(const Options &o) {
     std::string host=o.get("ip");
     if (host.find(':')!=std::string::npos && host[0]!='[') host="["+host+"]";
@@ -47,7 +74,7 @@ inline std::string controlURL(const Options &o) {
 inline std::string frameworkTaskPool(const Options &o) {
     const std::string none="-";
     try {
-        std::string name=http(controlURL(o)+"/taskpool",nullptr,5);
+        std::string name=httpRetry(controlURL(o)+"/taskpool");
         auto first=name.find_first_not_of(" \t\r\n");
         if (first==std::string::npos) return none;
         auto last=name.find_last_not_of(" \t\r\n");
@@ -202,7 +229,7 @@ inline void generateReports(const Options &o) {
 }
 inline void resourceStats(json &r,const Options &o,bool rate) {
     try {
-        auto ps=json::parse(http(controlURL(o)+"/ps"));
+        auto ps=json::parse(httpRetry(controlURL(o)+"/ps"));
         std::vector<double> cpu;
         if (ps.contains("cpu") && ps["cpu"].is_array()) cpu=ps["cpu"].get<std::vector<double>>();
         if (!cpu.empty()) {
@@ -224,8 +251,15 @@ inline void resourceStats(json &r,const Options &o,bool rate) {
         }
         double avg=r["CPUAvg"].get<double>();
         double tps=rate?r["RecvTimes"].get<double>()/(r["Duration"].get<double>()/1e9):r["TPS"].get<double>();
-        r[rate?"EchoEER":"EER"]=avg>0?tps/avg:0.0;
-    } catch (const std::exception &e) { std::cerr<<"server resource statistics unavailable: "<<e.what()<<'\n'; }
+        r[rate?"EchoEER":"EER"]=avg>0&&std::isfinite(tps)?tps/avg:0.0;
+        if (cpu.empty())
+            std::cerr<<"server answered /ps with no CPU samples, so either /init did not reach it"
+                     <<" or the phase was shorter than the -pi sampling interval; "
+                     <<(rate?"EchoEER":"EER")<<" reads 0\n";
+    } catch (const std::exception &e) {
+        std::cerr<<"server resource statistics unavailable, "<<(rate?"EchoEER":"EER")
+                 <<" reads 0: "<<e.what()<<'\n';
+    }
 }
 inline std::future<void> profile(const Options &o,const std::string &kind,bool enabled,int seconds) {
     if (!enabled) return {};

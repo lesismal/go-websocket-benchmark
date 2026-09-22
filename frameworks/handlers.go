@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"go-websocket-benchmark/config"
@@ -16,7 +17,10 @@ import (
 	"github.com/lesismal/perf"
 )
 
-var psCounter *perf.PSCounter
+var (
+	psCounter *perf.PSCounter
+	psStarted atomic.Bool
+)
 
 func HandleCommon(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -39,16 +43,25 @@ func HandleCommon(mux *http.ServeMux) {
 		}
 		var args config.InitArgs
 		json.Unmarshal(body, &args)
-		go func() {
-			psCounter.Start(perf.PSCountOptions{
-				CountCPU: true,
-				CountMEM: true,
-				CountIO:  true,
-				CountNET: true,
-				Interval: args.PsInterval,
-			})
-			time.Sleep(args.PsInterval)
-		}()
+		// Once, however many times /init arrives: a client that retried the
+		// request because its own read failed can deliver it twice, and a
+		// second Start would reset the sample slices under the goroutines
+		// already appending to them. The uwebsockets server guards its
+		// sampler the same way.
+		if psStarted.CompareAndSwap(false, true) {
+			go func() {
+				psCounter.Start(perf.PSCountOptions{
+					CountCPU: true,
+					CountMEM: true,
+					CountIO:  true,
+					CountNET: true,
+					Interval: args.PsInterval,
+				})
+				time.Sleep(args.PsInterval)
+			}()
+		} else {
+			logging.Printf("/init called again; the ps counter is already running")
+		}
 
 		fmt.Fprintf(w, "%d", os.Getpid())
 	})

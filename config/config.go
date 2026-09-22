@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"go-websocket-benchmark/logging"
+
 	"github.com/lesismal/perf"
 )
 
@@ -139,6 +141,71 @@ func GetFrameworkBenchmarkAddrs(framework, ip string) ([]string, error) {
 	return addrs, nil
 }
 
+// Control requests - /init, /ps, /taskpool - go to the pid port, which for
+// most frameworks is also carrying benchmark connections. At a hundred
+// thousand of them one attempt is not enough: a server still working through
+// the backlog of a just-finished rate test can reset the connection or sit on
+// the request past any sane deadline, and the resource columns that silently
+// read 0 when that happened took EER down with them. So retry, patiently, and
+// say what failed when it still does.
+const (
+	controlAttempts = 4
+	controlTimeout  = 30 * time.Second
+	controlBackoff  = 2 * time.Second
+)
+
+// One client for every control request, so a retry can reuse a connection the
+// server has already accepted.
+var controlClient = &http.Client{Timeout: controlTimeout}
+
+// controlRequest sends one control request, retrying a transport failure up to
+// attempts times. A reply the server actually produced is returned as it is,
+// including a 404: the route is not there and waiting will not put it there,
+// which is what hertz and hertz_std do with /taskpool.
+func controlRequest(url string, body []byte, attempts int) ([]byte, error) {
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if attempt > 1 {
+			time.Sleep(time.Duration(attempt-1) * controlBackoff)
+		}
+		data, answered, err := controlOnce(url, body)
+		if err == nil {
+			return data, nil
+		}
+		lastErr = fmt.Errorf("%v: %w", url, err)
+		if answered {
+			break
+		}
+		if attempt < attempts {
+			logging.Printf("control request failed, retrying (%d/%d): %v", attempt, attempts, lastErr)
+		}
+	}
+	return nil, lastErr
+}
+
+// controlOnce reports whether the server answered at all, so that the caller
+// can tell a route that is missing from a server that is too busy to reply.
+func controlOnce(url string, body []byte) (data []byte, answered bool, err error) {
+	var res *http.Response
+	if body == nil {
+		res, err = controlClient.Get(url)
+	} else {
+		res, err = controlClient.Post(url, "", bytes.NewReader(body))
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	defer res.Body.Close()
+	data, err = io.ReadAll(res.Body)
+	if err != nil {
+		return nil, false, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, true, fmt.Errorf("%v: %s", res.Status, bytes.TrimSpace(data))
+	}
+	return data, true, nil
+}
+
 func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
@@ -151,20 +218,22 @@ func InitAndGetFrameworkPid(framework, ip string, args *InitArgs) (int, string, 
 	serverAddr := fmt.Sprintf("http://%v:%v/init", ip, pidPort)
 
 	data, _ := json.Marshal(args)
-	res, err := http.Post(serverAddr, "", bytes.NewReader(data))
+	// A failed /init is not just a missing pid: it is a server that never
+	// started sampling, so every CPU and MEM column of the run would be 0.
+	body, err := controlRequest(serverAddr, data, controlAttempts)
 	if err != nil {
 		return -1, "", err
 	}
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return -1, "", err
-	}
-	pid, err := strconv.Atoi(string(body))
+	pid, err := strconv.Atoi(strings.TrimSpace(string(body)))
 	pprofAddr := fmt.Sprintf("http://%v:%v", ip, pidPort)
 
 	return pid, pprofAddr, err
 }
 
+// GetFrameworkPsInfo reads the server's CPU and memory samples. It returns
+// the counter it managed to read alongside an error as well as instead of
+// one, so that samples which did arrive are still reported: an error here
+// means the resource columns are incomplete, not that they are all missing.
 func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
 	if err != nil {
@@ -176,11 +245,7 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/ps", ip, pidPort)
 
-	res, err := http.Get(serverAddr)
-	if err != nil {
-		return nil, err
-	}
-	body, err := io.ReadAll(res.Body)
+	body, err := controlRequest(serverAddr, nil, controlAttempts)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +253,15 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	psCounter := &perf.PSCounter{}
 	err = json.Unmarshal(body, psCounter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%v: %w", serverAddr, err)
+	}
+	if psCounter.CPUAvg() <= 0 {
+		// The request went through, so the sampler is what did not: either
+		// /init never reached this server, or nothing has been sampled yet
+		// because the phase was shorter than one -pi interval. Say so rather
+		// than letting the columns quietly read 0.
+		return psCounter, fmt.Errorf("%v: answered with no CPU samples, so either /init did not"+
+			" reach it or the phase was shorter than the -pi sampling interval", serverAddr)
 	}
 
 	return psCounter, nil
@@ -215,17 +288,12 @@ func GetFrameworkTaskPool(framework, ip string) string {
 	}
 	serverAddr := fmt.Sprintf("http://%v:%v/taskpool", ip, pidPort)
 
-	res, err := http.Get(serverAddr)
-	if err != nil {
-		return TaskPoolNone
-	}
-	defer res.Body.Close()
 	// hertz and hertz_std serve control routes of their own and have no pool
-	// hook, so there is no /taskpool there to answer.
-	if res.StatusCode != http.StatusOK {
-		return TaskPoolNone
-	}
-	body, err := io.ReadAll(res.Body)
+	// hook, so there is no /taskpool there to answer; controlRequest does not
+	// retry a reply the server produced, so that costs no waiting. Fewer
+	// attempts than the routes the numbers depend on: this column is worth a
+	// second try, not a third and a fourth of a server that is not answering.
+	body, err := controlRequest(serverAddr, nil, 2)
 	if err != nil {
 		return TaskPoolNone
 	}
