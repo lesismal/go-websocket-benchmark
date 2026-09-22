@@ -77,26 +77,40 @@ averaged over three runs:
 
 | server threads | BenchEcho TPS | |
 | --- | --- | --- |
-| `-taskpool=inline`, loops=5 | 1,393k - 1,556k | no pool, for reference |
-| loops=4 workers=1 | 848k | the default at 5 CPUs |
-| loops=5 workers=1 | 802k | one thread more than there are CPUs |
-| loops=4 workers=2 | 774k | |
-| loops=3 workers=1 | 650k | |
-| loops=3 workers=2 | 517k | |
-| loops=10 workers=10 | 536k | what `hardware_concurrency()` sized on this host |
+| `-taskpool=inline`, loops=5 | 1,525k | no pool, for reference |
+| `-taskpool=inline`, loops=4 | 1,375k | |
+| loops=4 workers=1 | 858k | the default at 5 CPUs |
+| loops=5 workers=1 | 797k | one thread more than there are CPUs |
+| loops=4 workers=2 | 776k | |
+| loops=3 workers=1 | 670k | |
+| loops=3 workers=2 | 513k | |
+| loops=10 workers=10 | 532k | what `hardware_concurrency()` sized on this host |
 
 A loop is worth more than a worker - the loop side does the poll, the read, the frame parse and
 the write, while a worker only copies a payload and defers it back - and threads beyond the CPU
-count cost more than they add. Fixing the sizing is worth about 58% here (536k to 848k).
+count cost more than they add. Fixing the sizing is worth about 61% here (532k to 858k).
 
-Those numbers are from before the outbox described above; with one wakeup per flush instead of
-one per batch the pool mode should sit higher, and the table wants re-measuring on a quiet
-machine.
+What remains is the handoff itself: at the same thread count the pool echoes at about 60% of
+the in-loop rate (858k against 1,375k at four loops), because every batch pays a payload copy,
+a cross-thread queue and a `Loop::defer` for work that is otherwise a `memcpy`. That is the
+price of answering off the reactor, which is what the Go frameworks are being measured doing;
+`-taskpool=inline` (or `default`) is the mode that does not pay it.
 
-What remains after that is the handoff itself: a payload copy and a cross-thread queue for work
-that is otherwise a `memcpy`. That is the price of answering off the reactor, which is what the
-Go frameworks are being measured doing; `-taskpool=inline` (or `default`) is the mode that does
-not pay it.
+One thing that did not help, in case it looks obvious: batching the defers. Each finished batch
+defers its own send, so a burst across a thousand connections is a thousand `Loop::defer`
+calls, each with a lock on the loop's defer queue, a closure allocation and an eventfd write.
+Replacing that with one queue per loop that a single deferred flush drains - one wakeup for the
+whole burst - measured *slower*, by 1% at 2000 connections and 9% at 20000, interleaving the
+two builds run by run:
+
+| | 2000 conns | 20000 conns |
+| --- | --- | --- |
+| a defer per batch | 848k | 597k |
+| one flush per loop | 837k | 544k |
+
+uSockets wakes a loop through an eventfd, and the kernel coalesces that counter on its own, so
+the batching saved the write syscalls but not the wakeups - and it added a mutex, a shared
+queue and a per-batch `shared_ptr` copy to do it. The defer stayed.
 
 One connection's messages are handled and answered in the order they arrived, the way the Go
 frameworks manage it: the connection carries a queue of frames and a drain flag, and a drain is

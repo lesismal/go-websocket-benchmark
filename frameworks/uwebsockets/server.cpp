@@ -29,10 +29,10 @@
 //
 // Two things the Go pools do not have to deal with:
 //
-//   - uWS is single threaded per loop, so a worker cannot write: it appends the echo to its
-//     loop's Outbox, which the loop drains in order from a single deferred flush. Since one
-//     connection has at most one drain in flight, its batches reach the outbox in the order
-//     they were taken, and the loop writes them in that order.
+//   - uWS is single threaded per loop, so a worker cannot write: it hands the echo back
+//     through uWS::Loop::defer, whose queue is FIFO. Since one connection has at most one
+//     drain in flight, its batches are deferred in the order they were taken, and the loop
+//     sends them in that order.
 //   - std::string_view from the message callback points into the loop's read buffer, which
 //     uWS reuses as soon as the callback returns, so a frame's payload is copied on the way
 //     into the queue. fnet's adapter copies for the same reason.
@@ -72,7 +72,7 @@ constexpr int kPortEnd = 31050;
 // affinity mask, so sizing by it built twice the loops this server had CPUs for. On its own
 // that costs little - a loop thread with nothing to read sits in the poller - but it doubles
 // again once a pool is added, and that is where it hurt: 20 threads on 5 CPUs echoed at
-// 536k/s where 5 threads on 5 CPUs echoed at 848k/s (the measurement is in the README).
+// 532k/s where 5 threads on 5 CPUs echoed at 858k/s (the measurement is in the README).
 //
 // The Go servers never had the problem: runtime.NumCPU reads the mask and GOMAXPROCS follows
 // it. benchcli-uwscpp already picks its own thread count this way too; see availableCPUs in
@@ -153,15 +153,12 @@ struct Frame {
     uWS::OpCode opCode;
 };
 
-struct Outbox;
-
 // ConnState is a connection's queue, as the pool sees it.
 struct ConnState {
     // Written in the open handler, before the state can be reached from a worker, and read
     // only on the loop's own thread afterwards.
     EchoWebSocket *ws = nullptr;
     uWS::Loop *loop = nullptr;
-    Outbox *outbox = nullptr;  // the loop's, for the worker to hand finished batches back
 
     // Cleared in the close handler. A worker reads it to drop work early, but the read that
     // guards ws itself is the one inside the deferred send: that runs on the same thread as
@@ -306,85 +303,22 @@ void sendBatch(EchoWebSocket *ws, std::vector<Frame> &frames) {
     });
 }
 
-// Outbox is one loop's finished work: the batches its workers have echoed and want written.
-//
-// A worker cannot write - uWS is single threaded per loop - so the batch has to go back through
-// uWS::Loop::defer, and deferring each one separately made every connection in a burst pay its
-// own defer: a lock on the loop's defer queue, a heap allocation for the closure, an eventfd
-// write and a loop wakeup, for work that is otherwise a memcpy. Here the workers append to one
-// queue per loop and only the push that finds it unarmed defers anything, so a burst across a
-// thousand connections costs one wakeup instead of a thousand. The deferred closure captures
-// one pointer, which fits MoveOnlyFunction's small-object buffer, so arming allocates nothing
-// either.
-//
-// One outbox per loop, owned by main and outliving every thread that holds its address.
-struct Outbox {
-    struct Pending {
-        std::shared_ptr<ConnState> state;
-        std::vector<Frame> frames;
-    };
-
-    uWS::Loop *loop = nullptr;
-
-    std::mutex mutex;
-    std::vector<Pending> pending;  // guarded by mutex, in the order the batches were taken
-    bool armed = false;            // guarded by mutex: a flush is deferred and has not run yet
-
-    // Loop thread only. Kept between flushes so the buffers it swaps out stay allocated.
-    std::vector<Pending> flushing;
-};
-
-// The outbox of the loop this thread runs, for the handlers to record on a new connection.
-// Set once at the top of runWorker.
-thread_local Outbox *tlsOutbox = nullptr;
-
-// Writes everything the workers have finished, in the order they finished it. Runs on the
-// loop's own thread, from the defer the arming push queued.
-void flushOutbox(Outbox *outbox) {
-    {
-        std::lock_guard<std::mutex> lock(outbox->mutex);
-        outbox->flushing.swap(outbox->pending);
-        // Disarmed before the writes rather than after: a worker that appends while this
-        // flush is sending has to be able to arm a defer of its own, and that defer runs
-        // after this one returns, which is what keeps the two in order.
-        outbox->armed = false;
-    }
-    for (Outbox::Pending &entry : outbox->flushing) {
-        if (!entry.state->open.load(std::memory_order_acquire)) continue;
-        sendBatch(entry.state->ws, entry.frames);
-    }
-    outbox->flushing.clear();
-}
-
-// Hands one connection's batch to its loop. Called from a worker, and from the loop thread
-// itself for a drain the pool refused.
-void handBack(const std::shared_ptr<ConnState> &state, std::vector<Frame> &&frames) {
-    Outbox *outbox = state->outbox;
-    bool arm = false;
-    {
-        std::lock_guard<std::mutex> lock(outbox->mutex);
-        outbox->pending.push_back(Outbox::Pending{state, std::move(frames)});
-        if (!outbox->armed) {
-            outbox->armed = true;
-            arm = true;
-        }
-    }
-    if (arm) {
-        outbox->loop->defer([outbox] { flushOutbox(outbox); });
-    }
-}
-
 // Empties a connection's queue, handing each batch back to its loop. Runs on a worker, and on
 // the loop thread itself for the drains the pool refuses. Returns once the queue is empty and
 // the drain flag is down, which is the point after which the next message submits a drain of
 // its own.
 //
-// Every send goes through the outbox, including the ones this function makes while already on
-// the loop thread. That is what orders the connection: the drain flag goes down as soon as the
-// queue is empty, which is before the loop has written the batches handed to it, so a batch
-// that sent directly could overtake one still waiting in the outbox. Going through it in every
-// case leaves one FIFO as the only order there is - the outbox for a connection's batches, and
-// defer's own FIFO for the flushes.
+// Every send goes through defer, including the ones this function makes while already on the
+// loop thread. That is what orders the connection: the drain flag goes down as soon as the
+// queue is empty, which is before the loop has run the sends deferred for it, so a batch that
+// sent directly could overtake one still sitting in the defer queue. Going through the queue
+// in every case leaves defer's FIFO order the only order there is.
+//
+// One defer per batch, rather than a queue per loop that a single deferred flush drains: that
+// was tried, and it measured no faster. uSockets wakes a loop through an eventfd, whose
+// counter the kernel coalesces on its own, so batching the defers saves the write syscalls but
+// not the wakeups - and at a million echoes a second those writes are not what the time goes
+// on. The README has the numbers.
 void drainConnection(const std::shared_ptr<ConnState> &state) {
     for (;;) {
         std::vector<Frame> batch;
@@ -402,7 +336,10 @@ void drainConnection(const std::shared_ptr<ConnState> &state) {
             state->draining = false;
             return;
         }
-        handBack(state, std::move(batch));
+        state->loop->defer([state, batch = std::move(batch)]() mutable {
+            if (!state->open.load(std::memory_order_acquire)) return;
+            sendBatch(state->ws, batch);
+        });
     }
 }
 
@@ -550,12 +487,8 @@ long long parsePsIntervalNanos(const std::string &body) {
 }
 
 
-void runWorker(const std::vector<int> &ports, Outbox *outbox) {
+void runWorker(const std::vector<int> &ports) {
     uWS::App app;
-    if (outbox != nullptr) {
-        outbox->loop = uWS::Loop::get();
-        tlsOutbox = outbox;
-    }
 
     uWS::App::WebSocketBehavior<PerSocketData> behavior{
         .compression = uWS::DISABLED,
@@ -582,7 +515,6 @@ void runWorker(const std::vector<int> &ports, Outbox *outbox) {
             auto state = std::make_shared<ConnState>();
             state->ws = ws;
             state->loop = uWS::Loop::get();
-            state->outbox = tlsOutbox;
             ws->getUserData()->state = std::move(state);
         };
         behavior.message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
@@ -705,11 +637,11 @@ const PoolMode *resolvePoolMode(int argc, char **argv) {
 // Measured on 5 CPUs (server and client pinned to disjoint sets, as script/env.sh pins them),
 // echoing a 1KiB payload over 2000 connections, TPS averaged over three runs:
 //
-//     loops=4 workers=1   848k   <- kCoresPerWorker, and the best of these
-//     loops=5 workers=1   802k      one thread more than there are CPUs
-//     loops=4 workers=2   774k
-//     loops=3 workers=1   650k
-//     loops=3 workers=2   517k
+//     loops=4 workers=1   858k   <- kCoresPerWorker, and the best of these
+//     loops=5 workers=1   797k      one thread more than there are CPUs
+//     loops=4 workers=2   776k
+//     loops=3 workers=1   670k
+//     loops=3 workers=2   513k
 //
 // Two things in that: a loop is worth more than a worker, since the loop side does the poll,
 // the read, the frame parse and the write while a worker only copies a payload and defers it
@@ -815,20 +747,10 @@ int main(int argc, char **argv) {
 
     installTaskPool(argc, argv, *mode, plan);
 
-    // One outbox per loop, and they outlive the threads: a worker holds the address of the
-    // outbox belonging to the loop its connection came from. Only the pool modes need them.
-    std::vector<std::unique_ptr<Outbox>> outboxes;
-    if (g_pool) {
-        outboxes.reserve(plan.loops);
-        for (unsigned i = 0; i < plan.loops; ++i) {
-            outboxes.push_back(std::make_unique<Outbox>());
-        }
-    }
-
     std::vector<std::thread> workers;
     workers.reserve(plan.loops);
     for (unsigned i = 0; i < plan.loops; ++i) {
-        workers.emplace_back(runWorker, std::cref(ports), g_pool ? outboxes[i].get() : nullptr);
+        workers.emplace_back(runWorker, std::cref(ports));
     }
     for (auto &worker : workers) worker.join();
     g_pool.reset();
