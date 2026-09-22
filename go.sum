@@ -98,6 +98,8 @@ github.com/linfeip/fnet v0.0.0-20260921044351-6665666b8ed8 h1:rFgV3bXnz/gefy84Sv
 github.com/linfeip/fnet v0.0.0-20260921044351-6665666b8ed8/go.mod h1:IDogd58kd3aEYB+YyyH56hOZ6fI/NjoHjQXXJyzETzw=
 github.com/linfeip/fnet v0.0.0-20260922033651-512d1a337304 h1:OAH26E8Kd5IpICicLoEQmhlwGqrnZGz9bYqatKT0HMA=
 github.com/linfeip/fnet v0.0.0-20260922033651-512d1a337304/go.mod h1:IDogd58kd3aEYB+YyyH56hOZ6fI/NjoHjQXXJyzETzw=
+github.com/linfeip/fnet v0.0.0-20260922082353-84e968a3278d h1:TPkNKWTGOtCpL5a8J8oWHwvAniryQ2GuibC7TUWyy+Y=
+github.com/linfeip/fnet v0.0.0-20260922082353-84e968a3278d/go.mod h1:IDogd58kd3aEYB+YyyH56hOZ6fI/NjoHjQXXJyzETzw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=
