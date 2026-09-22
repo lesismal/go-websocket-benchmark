@@ -11,6 +11,7 @@ import (
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/taskpool"
 
 	"github.com/lesismal/perf"
 )
@@ -55,5 +56,12 @@ func HandleCommon(mux *http.ServeMux) {
 	mux.HandleFunc("/ps", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(psCounter)
 		w.Write(b)
+	})
+
+	// The pool this server installed, for the Pool column of the reports. It
+	// is empty in the frameworks that take no -taskpool flag, which the
+	// clients show as "-": see config.GetFrameworkTaskPool.
+	mux.HandleFunc("/taskpool", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, taskpool.Installed())
 	})
 }

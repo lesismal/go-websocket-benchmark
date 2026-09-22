@@ -193,3 +193,44 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 
 	return psCounter, nil
 }
+
+// TaskPoolNone is the Pool column of a report whose server installed no pool:
+// the frameworks that take no -taskpool flag at all, and any server whose
+// /taskpool route did not answer.
+const TaskPoolNone = "-"
+
+// GetFrameworkTaskPool reports the pool the framework's server is running, by
+// the name -taskpool takes, for the Pool column of the reports. Both clients
+// read it once, when they build the report, so that a report says which
+// scheduling produced it rather than which one the run asked for - the two
+// differ for a server whose own scheduling is one of the pools.
+func GetFrameworkTaskPool(framework, ip string) string {
+	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return TaskPoolNone
+	}
+	pidPort := ports[len(ports)-1]
+	if framework == Fib || framework == Gws || framework == UwsStdio || framework == UwsEvents {
+		pidPort++
+	}
+	serverAddr := fmt.Sprintf("http://%v:%v/taskpool", ip, pidPort)
+
+	res, err := http.Get(serverAddr)
+	if err != nil {
+		return TaskPoolNone
+	}
+	defer res.Body.Close()
+	// hertz and hertz_std serve control routes of their own and have no pool
+	// hook, so there is no /taskpool there to answer.
+	if res.StatusCode != http.StatusOK {
+		return TaskPoolNone
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return TaskPoolNone
+	}
+	if name := strings.TrimSpace(string(body)); name != "" {
+		return name
+	}
+	return TaskPoolNone
+}

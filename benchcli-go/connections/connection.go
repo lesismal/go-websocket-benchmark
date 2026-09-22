@@ -124,6 +124,7 @@ func (cs *Connections) Report() report.Report {
 	r := &report.ConnectionsReport{
 		BenchClient: "benchcli-go",
 		Framework:   cs.Framework,
+		TaskPool:    config.GetFrameworkTaskPool(cs.Framework, cs.Ip),
 		TPS:         cs.Calculator.TPS(),
 		Min:         cs.Calculator.Min,
 		Avg:         cs.Calculator.Avg,

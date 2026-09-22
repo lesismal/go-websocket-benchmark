@@ -8,10 +8,38 @@ case "$BENCH_CLIENT" in
     *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
 esac
 
-# Goroutine pool the servers run their callbacks on. The taskpool package
-# registers inline, go, fib_adaptive, fib_cond, fib_elastic, fnet, greatws, 
-# nbio and uws; "default" is not one of them but leaves each framework on
-# the scheduling it ships with.
+# Goroutine pool the servers run their callbacks on. Every value the
+# taskpool package takes, and what it selects:
+#
+#   default       each framework's own scheduling. Not a pool, and not what a
+#                 run without this variable measures. greatws_event answers
+#                 in its poller under this one value, and uwebsockets in its
+#                 event loop; the rest run the pool they ship with
+#   inline        no pool: the callback runs on the I/O goroutine that read
+#                 the frame, so the answer is written from the event loop
+#   go            one goroutine per task, bounded by nothing
+#   fib_adaptive  github.com/lesismal/fib/go/taskpool in adaptive mode, which
+#                 is fib's own default and this benchmark's
+#   fib_cond      the same pool in cond mode: a fixed population of parked
+#                 goroutines
+#   fib_elastic   the same pool in elastic mode: goroutines forked on demand
+#                 up to a ceiling
+#   nbio          github.com/lesismal/nbio/taskpool
+#   fnet          fnet.WorkerPool, sharded and elastic: workers spawn on
+#                 demand and retire when idle
+#   greatws       greatws's stream2 business pool
+#   uws           the sharded channel executor uws runs on here, and the only
+#                 one that refuses work rather than waiting for room
+#
+# default and inline install no pool; all the rest answer off the event loop,
+# which is also how the uwebsockets server reads this variable: see
+# taskpool_frameworks below.
+#
+# Whichever is selected, each report carries a Pool column naming the pool its
+# server installed, read from the server's own /taskpool route, so a report
+# says which scheduling produced it. "-" there is a framework with no pool
+# hook at all.
+#
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
 BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
 # Pool sizing. 0 leaves each pool its own default, which is the sizing the
@@ -22,6 +50,15 @@ BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 
 # The servers that take the -taskpool flags. The rest have no pool to swap
 # and would exit on a flag they do not define.
+#
+# uwebsockets takes them too, but it is a C++ server, so none of the Go pools
+# can run under it. It reads the value for what it says about where a server
+# answers from: default and inline install no pool, which for uWS means the
+# event loop, and every other mode hands the callback to a goroutine off the
+# loop, which its own thread pool stands in for. Its Pool column says which
+# of the two it did, e.g. "nbio(pool)" or "default(loop)". It exits on a value
+# that names no mode, as the Go servers do. See
+# frameworks/uwebsockets/README.md.
 taskpool_frameworks=(
     "fib"
     "fnet"
@@ -29,6 +66,7 @@ taskpool_frameworks=(
     "greatws_event"
     "nbio_mixed"
     "nbio_nonblocking"
+    "uwebsockets"
     "uws_events"
     "uws_std"
 )

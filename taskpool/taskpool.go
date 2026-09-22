@@ -56,6 +56,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"go-websocket-benchmark/logging"
 )
@@ -206,11 +207,32 @@ func FromFlags() Pool { return fromFlags(Default) }
 // fallback for -taskpool=default and never returns nil.
 func FromFlagsDefault(fallback string) Pool { return fromFlags(fallback) }
 
+// installed is what FromFlags built, for the /taskpool route to report and a
+// report to carry a column for. It stays empty in a server that never calls
+// FromFlags, which is how the frameworks with no pool hook are told apart
+// from the ones running Default.
+var installed atomic.Pointer[string]
+
+// Installed reports the pool this process is running, by the name -taskpool
+// takes, or "" in a server that installs none. See frameworks.HandleCommon,
+// which serves it, and the Pool column of the reports.
+func Installed() string {
+	if name := installed.Load(); name != nil {
+		return *name
+	}
+	return ""
+}
+
 func fromFlags(fallback string) Pool {
 	config := FlagConfig()
 	if config.Name == Default {
 		config.Name = fallback
 	}
+	// What ran, not what was asked for: a server whose own scheduling is one
+	// of these pools substitutes it for Default, and a report that said
+	// "default" for it would hide the pool it kept running.
+	ran := config.Name
+	installed.Store(&ran)
 	pool, err := New(config)
 	if err != nil {
 		logging.Fatalf("taskpool.New failed: %v", err)
