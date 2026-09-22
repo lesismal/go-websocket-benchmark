@@ -2,7 +2,25 @@
 
 . ./script/config.sh
 
-if command -v taskset >/dev/null 2>&1; then
+# Which half of the benchmark this machine runs; see BENCH_ROLE in config.sh.
+# The drivers ask through these rather than each testing the variable.
+bench_runs_servers() { [ "$BENCH_ROLE" != client ]; }
+bench_runs_clients() { [ "$BENCH_ROLE" != server ]; }
+# The servers are ours to stop only when we are the machine that started them.
+bench_owns_servers() { [ "$BENCH_ROLE" = both ]; }
+
+# Only a single-node run has two halves to divide the CPUs between. On a node
+# that runs one of them, pinning it to half a machine nothing else is using
+# would leave the other half idle, so the default there is the whole node; an
+# explicit list still pins it, for a node that shares its CPUs.
+split_cpus=true
+if ! bench_runs_servers || ! bench_runs_clients; then
+    if [ -z "${BENCH_SERVER_CPU_LIST:-}" ] && [ -z "${BENCH_CLIENT_CPU_LIST:-}" ]; then
+        split_cpus=false
+    fi
+fi
+
+if [ "$split_cpus" = true ] && command -v taskset >/dev/null 2>&1; then
     if [ -n "${BENCH_SERVER_CPU_LIST:-}" ] && [ -n "${BENCH_CLIENT_CPU_LIST:-}" ]; then
         # Docker supplies lists from the daemon's effective cpuset. This avoids
         # selecting host CPUs that are not available inside the container.
@@ -104,6 +122,9 @@ print_env() {
     echo $line
     echo "server cpus: ${server_cpu_list:-unbound}"
     echo "client cpus: ${client_cpu_list:-unbound}"
+    echo $line
+    echo "role: ${BENCH_ROLE} (servers: $(bench_runs_servers && echo here || echo elsewhere), clients: $(bench_runs_clients && echo here || echo elsewhere))"
+    echo "server host: ${BENCH_SERVER_HOST}"
     echo $line
     echo "benchmark client: ${BENCH_CLIENT}"
     echo $line

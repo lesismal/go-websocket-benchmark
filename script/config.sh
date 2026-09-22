@@ -8,6 +8,41 @@ case "$BENCH_CLIENT" in
     *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
 esac
 
+# Where the servers are, as the clients should reach them: an address or a
+# hostname, IPv6 included. The default keeps a single-node run on loopback.
+# The servers always bind every interface, so a two-node run configures only
+# this side.
+# Override for one run with: BENCH_SERVER_HOST=10.0.0.2 bash script/benchmark.sh
+BENCH_SERVER_HOST=${BENCH_SERVER_HOST:-127.0.0.1}
+
+# Which half of the benchmark this machine runs:
+#
+#   both    (default) build everything, start the servers, run the clients
+#           against them and write the report - one machine, as before
+#   server  build and start the servers, then leave them running. Nothing is
+#           measured here; the client node does that
+#   client  build the client only, run it against BENCH_SERVER_HOST and write
+#           the report. Nothing is started or stopped here
+#
+# A two-node run is BENCH_ROLE=server on one machine and, once it reports the
+# servers are up, BENCH_ROLE=client BENCH_SERVER_HOST=<that machine> on the
+# other. "client" against a loopback host is also the way to run the clients
+# again without restarting servers that are already up on this machine.
+#
+# Two things differ from a single-node run. The client cannot stop a server it
+# did not start, so every framework's server stays up for the whole run rather
+# than being killed after its turn: stop them on the server node afterwards
+# with script/killall.sh, and use BENCH_FRAMEWORKS below if the idle ones
+# holding memory would disturb the framework being measured. And each node
+# gives the whole machine to its own half, since there is no longer anything
+# to divide it with; BENCH_SERVER_CPU_LIST and BENCH_CLIENT_CPU_LIST still
+# pin it where a node shares its CPUs with something else.
+BENCH_ROLE=${BENCH_ROLE:-both}
+case "$BENCH_ROLE" in
+    both|server|client) ;;
+    *) echo "Unsupported BENCH_ROLE: $BENCH_ROLE (want both, server or client)" >&2; return 1 ;;
+esac
+
 # Goroutine pool the servers run their callbacks on. Every value the
 # taskpool package takes, and what it selects:
 #
