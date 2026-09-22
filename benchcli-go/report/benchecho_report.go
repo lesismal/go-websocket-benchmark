@@ -81,3 +81,10 @@ func (r *BenchEchoReport) SetPprofData(cpu, mem []byte) {
 func (r *BenchEchoReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
 }
+
+// SortKey ranks an echo run by its TPS: the round trips the server completed
+// per second, rather than EER, which divides that by the CPU it took and so
+// answers a different question.
+func (r *BenchEchoReport) SortKey() float64 {
+	return float64(r.TPS)
+}

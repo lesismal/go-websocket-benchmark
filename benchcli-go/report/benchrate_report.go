@@ -66,3 +66,12 @@ func (r *BenchRateReport) PprofMEM() []byte {
 func (r *BenchRateReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
 }
+
+// SortKey ranks a rate run by the bytes the clients read back off the server.
+// The rate benchmark writes at a rate the clients set rather than to
+// completion, so what the server managed to send back under that load is its
+// result here, the way TPS is in the other two; SendBytes is the load, not the
+// answer, and RecvTimes counts a 1-byte reply the same as a 4KB one.
+func (r *BenchRateReport) SortKey() float64 {
+	return float64(r.RecvBytes)
+}

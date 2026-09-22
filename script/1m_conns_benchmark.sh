@@ -59,6 +59,11 @@ sleep 3
 
 # echo $line
 
+# The report step reads BENCH_REPORT_SORT for the row order of its three
+# tables: "result" (the default) ranks the best result first, "framework"
+# keeps config.FrameworkList's order. Both carry the same rows and numbers, so
+# script/report.sh alone re-reads a finished run the other way round. See
+# script/config.sh.
 . ./script/report.sh "$@"
 
 echo $line

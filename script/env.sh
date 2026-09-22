@@ -1,6 +1,13 @@
 #!/bin/bash
 
-. ./script/config.sh
+# Guarded, so that config.sh's checks on BENCH_CLIENT, BENCH_ROLE,
+# BENCH_TASKPOOL, BENCH_REPORT_SORT and BENCH_FRAMEWORKS actually stop a run.
+# They each print and "return 1", but a sourced script's return only sets $?
+# in its caller, so without this every entry point sourced env.sh, got 0 back
+# from the function definition at the end of it, and ran the whole benchmark on
+# a value it had already rejected. Every caller of env.sh already guards it the
+# same way; docker_benchmark.sh guards config.sh directly.
+. ./script/config.sh || return 1
 
 # Which half of the benchmark this machine runs; see BENCH_ROLE in config.sh.
 # The drivers ask through these rather than each testing the variable.
@@ -129,6 +136,8 @@ print_env() {
     echo "benchmark client: ${BENCH_CLIENT}"
     echo $line
     echo "taskpool: ${BENCH_TASKPOOL} (min ${BENCH_TASKPOOL_MIN}, max ${BENCH_TASKPOOL_MAX}, queue ${BENCH_TASKPOOL_QUEUE})"
+    echo $line
+    echo "report sort: ${BENCH_REPORT_SORT} (result = best first, framework = config.FrameworkList order)"
     echo $line
     echo "go env:"
     echo

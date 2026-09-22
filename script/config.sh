@@ -83,6 +83,40 @@ BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
 BENCH_TASKPOOL_MAX=${BENCH_TASKPOOL_MAX:-0}
 BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 
+# The order the report tables put their rows in. Both orders carry the same
+# rows and the same numbers; only the order differs:
+#
+#   result     (default) best first, ranked by the number each benchmark
+#              answers with: TPS for Connections and BenchEcho, and Bytes
+#              Recv - what the clients read back off the server - for
+#              BenchRate. The rate test writes at a rate the clients set
+#              rather than to completion, so what came back under that load is
+#              its result there the way TPS is in the other two; Bytes Sent is
+#              the load rather than the answer, and Packet Recv counts a small
+#              reply the same as a large one
+#   framework  the order FrameworkList in config/config.go lists them in,
+#              which is the order every report was written in before this
+#              variable existed. Note it is not the order the frameworks array
+#              below runs them in - the two lists carry the same names in
+#              different orders, and only the Go one reaches a report. This is
+#              what puts a framework on the same row in every table and across
+#              runs, whatever it scored, so two reports can be diffed
+#
+# Neither order ranks by EER or EchoEER, which divide throughput by the CPU it
+# cost and so answer a different question; both are still columns to read.
+# Rows that tie keep the framework order between them, so two frameworks that
+# scored the same - or a whole table from a benchmark that did not run, which
+# leaves every row at zero - come out the same way on every run.
+#
+# Override for one run with: BENCH_REPORT_SORT=framework bash script/benchmark.sh
+# or, without re-running the benchmark, by passing the client flag straight to
+# the report step: bash script/report.sh -sort=framework
+BENCH_REPORT_SORT=${BENCH_REPORT_SORT:-result}
+case "$BENCH_REPORT_SORT" in
+    result|framework) ;;
+    *) echo "Unsupported BENCH_REPORT_SORT: $BENCH_REPORT_SORT (want result or framework)" >&2; return 1 ;;
+esac
+
 # The servers that take the -taskpool flags. The rest have no pool to swap
 # and would exit on a flag they do not define.
 #

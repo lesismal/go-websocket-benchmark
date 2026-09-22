@@ -66,6 +66,11 @@ for f in ${frameworks[@]}; do
     fi
 done
 
+# The report step reads BENCH_REPORT_SORT for the row order of its three
+# tables: "result" (the default) ranks the best result first, "framework"
+# keeps config.FrameworkList's order. Both carry the same rows and numbers, so
+# script/report.sh alone re-reads a finished run the other way round. See
+# script/config.sh.
 for c in ${Connections[@]}; do
     for b in ${BodySize[@]}; do
         for n in ${BenchTime[@]}; do

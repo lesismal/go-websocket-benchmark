@@ -2,9 +2,11 @@ package report
 
 import (
 	"encoding/json"
+	"fmt"
 	"go-websocket-benchmark/config"
 	"math"
 	"os"
+	"sort"
 
 	"github.com/lesismal/perf"
 )
@@ -17,6 +19,65 @@ type Report interface {
 	String(bool) string
 	PprofCPU() []byte
 	PprofMEM() []byte
+
+	// SortKey is the result SortResult ranks the row by, biggest first.
+	// Each benchmark has its own: see the implementations.
+	SortKey() float64
+}
+
+// The orders a report table can be written in, as -sort takes them.
+const (
+	// SortResult puts the best result first: the TPS for Connections and
+	// BenchEcho, and the bytes the clients read back off the server for
+	// BenchRate, which is the rate benchmark's answer the way TPS is the
+	// other two's. Rows that tie keep the framework order between them, so
+	// a run is reproducible rather than merely sorted.
+	SortResult = "result"
+
+	// SortFramework is the order config.FrameworkList lists the frameworks
+	// in, which is what every report was written in before this existed.
+	// It puts the same framework on the same row across every table and
+	// across runs, whatever it scored. It is not the order the scripts
+	// build and run them in: script/config.sh has a frameworks list of its
+	// own carrying the same names in a different order, and only this one
+	// reaches a report.
+	SortFramework = "framework"
+)
+
+// DefaultSort is the order a caller that names none gets. A report is read to
+// compare frameworks, so it is ranked by default.
+const DefaultSort = SortResult
+
+// SortOrders lists the orders, for a flag's usage text and its validation.
+func SortOrders() []string { return []string{SortResult, SortFramework} }
+
+// ValidateSort reports whether order names an order, so that a caller can
+// refuse a misspelled flag rather than quietly writing the report in the
+// other order.
+func ValidateSort(order string) error {
+	for _, v := range SortOrders() {
+		if order == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("report: unknown sort order %q, want one of %v", order, SortOrders())
+}
+
+// SortReports orders reports in place and returns them.
+//
+// ReadReports builds the slice in config.FrameworkList order, so SortFramework
+// is already what it holds and only SortResult has anything to do. The sort is
+// stable, which is what leaves a tie - two frameworks that scored the same, or
+// a benchmark that did not run and left both at zero - in framework order
+// instead of in whatever order the sort happened to land on. An unknown order
+// is left alone; ValidateSort is where a caller catches that.
+func SortReports(reports []Report, order string) []Report {
+	if order == SortResult {
+		sort.SliceStable(reports, func(i, j int) bool {
+			return reports[i].SortKey() > reports[j].SortKey()
+		})
+	}
+	return reports
 }
 
 // EER is the throughput a server got for each percent of a CPU core it spent,
@@ -41,13 +102,14 @@ func JSON(report Report) string {
 	return string(b)
 }
 
-func Markdown(reports []Report, enableTPN bool, filter func(string) bool) string {
+func Markdown(reports []Report, enableTPN bool, order string, filter func(string) bool) string {
 	if len(reports) == 0 {
 		return ""
 	}
 	if filter == nil {
 		filter = func(string) bool { return true }
 	}
+	reports = SortReports(reports, order)
 
 	table := perf.NewTable()
 	table.SetTitle(Headers(reports[0], filter))
@@ -99,25 +161,25 @@ func Fields(r Report, enableTPN bool, filter func(string) bool) []string {
 	return filtFieldsByHeaders(r.Fields(enableTPN), filter)
 }
 
-func GenerateConnectionsReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
+func GenerateConnectionsReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &ConnectionsReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, enableTPN, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
 
-func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
+func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &BenchEchoReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, enableTPN, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
 
-func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, filter func(string) bool) string {
+func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
 	create := func(framework string) Report {
 		return &BenchRateReport{Framework: framework}
 	}
-	return GenerateReports(preffix, suffix, enableTPN, create, filter)
+	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
 
 func ReadConnectionsReports(preffix, suffix string) []Report {
@@ -157,9 +219,9 @@ func ReadReports(preffix, suffix string, create func(framework string) Report) [
 	return reports
 }
 
-func GenerateReports(preffix, suffix string, enableTPN bool, create func(framework string) Report, filter func(string) bool) string {
+func GenerateReports(preffix, suffix string, enableTPN bool, order string, create func(framework string) Report, filter func(string) bool) string {
 	reports := ReadReports(preffix, suffix, create)
-	return Markdown(reports, enableTPN, filter)
+	return Markdown(reports, enableTPN, order, filter)
 }
 
 // func Join(reports []Report) Report {

@@ -22,6 +22,8 @@ Environment overrides:
   BENCH_FRAMEWORKS         Comma-separated framework subset
   BENCH_TASKPOOL           Pool the servers run their callbacks on, and
   BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script/config.sh)
+  BENCH_REPORT_SORT        Report row order: result (default, best first) or
+                           framework (see script/config.sh)
   DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available)
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
@@ -203,6 +205,8 @@ run_args=(
     --env "BENCH_TASKPOOL_MIN=$BENCH_TASKPOOL_MIN"
     --env "BENCH_TASKPOOL_MAX=$BENCH_TASKPOOL_MAX"
     --env "BENCH_TASKPOOL_QUEUE=$BENCH_TASKPOOL_QUEUE"
+    # Likewise the report row order, which the run writes its tables in.
+    --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
 )
 if [ -n "$run_frameworks" ]; then
     run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
