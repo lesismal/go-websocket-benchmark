@@ -40,6 +40,79 @@ Use `BENCH_CLIENT=benchcli-go` to select the Go client. Run
 the image and downloads the pinned Go and C++ dependencies; later runs use the
 Docker build cache.
 
+## Goroutine pool
+
+The frameworks here schedule their callbacks in different ways, and some of the
+difference a benchmark shows between two of them is the pool rather than the
+framework. [`taskpool`](taskpool) collects those pools behind one interface -
+the fib, nbio and greatws entries import those projects' own pools, and `uws`
+is the sharded executor this benchmark has always given the uws servers - so
+that one pool can be run under several frameworks, or one framework under
+several pools.
+
+`script/config.sh` selects it with `BENCH_TASKPOOL`, which defaults to
+`fib_adaptive`: a run nobody configured puts every framework that has a pool
+hook on the one pool, and `BENCH_TASKPOOL=default` asks for the scheduling each
+framework ships with instead. Two servers lose their distinguishing feature to
+that default and are worth setting explicitly: `greatws_event` runs its
+callbacks in the event loop only under `default` (or `inline`, which is the
+same arrangement), and `uws` runs its own sharded executor only under `default`
+(or `uws`).
+
+```sh
+# Every framework that can, on nbio's pool
+BENCH_TASKPOOL=nbio bash script/benchmark.sh
+
+# fib's pool, sized by hand
+BENCH_TASKPOOL=fib_adaptive BENCH_TASKPOOL_MIN=500 BENCH_TASKPOOL_MAX=5000 \
+BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
+```
+
+| `BENCH_TASKPOOL` | pool |
+| --- | --- |
+| `default` | each framework's own scheduling; not a pool, and no longer what a run without the variable measures |
+| `inline` | no pool: the callback runs on the I/O goroutine that read the frame |
+| `go` | one goroutine per task, bounded by nothing |
+| `fib_adaptive`, `fib_cond`, `fib_elastic` | `github.com/lesismal/fib/go/taskpool`, in each of its three modes (`fib_adaptive` is fib's own default, and this benchmark's) |
+| `nbio` | `github.com/lesismal/nbio/taskpool` |
+| `greatws` | greatws's `stream2` business pool |
+| `uws` | the sharded channel executor uws runs on here |
+
+`BENCH_TASKPOOL_MIN`, `_MAX` and `_QUEUE` are requests rather than promises: 0
+leaves each pool the sizing it has in the framework it came from, and a pool
+that has no use for one of them ignores it. What a worker count buys also
+differs between pools - a population of parked goroutines in one, a ceiling on
+forked ones in another - so the same `_MAX` does not mean the same thing to
+all of them.
+
+The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
+`-tpqueue`, which default the same way, and log which pool they installed. Eight of the server binaries
+accept them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
+`nbio_nonblocking`, `uws_events` and `uws_std`. The rest have no pool to swap
+and exit on a flag they do not define, which is why `script/servers.sh` passes
+these only to the eight.
+
+Three things to keep in mind when reading a report:
+
+- Whichever pool is selected, one connection's messages are still handled and
+  answered in the order they arrived. No pool promises that by itself - `go`
+  runs a goroutine per task - so the order comes from never handing a pool
+  more than one task per connection at a time: fib submits the connection
+  itself, nbio, uws and greatws each keep one per-connection queue and submit
+  a drain only when it was empty, and `fnet`, which has no such arrangement of
+  its own, gets one from [`taskpool.Serial`](taskpool/serial.go). See the
+  `Ordering` section of [the package doc](taskpool/taskpool.go) for which
+  mechanism each framework uses.
+- `uws` is the only pool that refuses work rather than waiting for room, which
+  is how uws surfaces application backpressure. fib and uws close the
+  connections behind the work their pool refused; nbio and fnet run it on the
+  caller instead, because a dropped task there would stall a connection rather
+  than lose one message.
+- `fnet` has no pool hook of its own - it calls `OnMessage` inline on the
+  reactor goroutine and the payload is only valid for that call - so its
+  pooled runs copy the payload. That copy is the one cost the pooled run pays
+  and the `default` run does not.
+
 ## before running the test
 - make sure setting the correct system env, for example:
 

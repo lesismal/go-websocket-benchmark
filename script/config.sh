@@ -8,6 +8,31 @@ case "$BENCH_CLIENT" in
     *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
 esac
 
+# Goroutine pool the servers run their callbacks on. The taskpool package
+# registers inline, go, fib_adaptive, fib_cond, fib_elastic, nbio, greatws and
+# uws; "default" is not one of them but leaves each framework on the
+# scheduling it ships with.
+# Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
+BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
+# Pool sizing. 0 leaves each pool its own default, which is the sizing the
+# framework it came from runs it at.
+BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
+BENCH_TASKPOOL_MAX=${BENCH_TASKPOOL_MAX:-0}
+BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
+
+# The servers that take the -taskpool flags. The rest have no pool to swap
+# and would exit on a flag they do not define.
+taskpool_frameworks=(
+    "fib"
+    "fnet"
+    "greatws"
+    "greatws_event"
+    "nbio_mixed"
+    "nbio_nonblocking"
+    "uws_events"
+    "uws_std"
+)
+
 Connections=(5000 50000)
 BodySize=(512 1024)
 BenchTime=(2000000)
