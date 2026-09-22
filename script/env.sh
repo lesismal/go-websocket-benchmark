@@ -107,6 +107,8 @@ print_env() {
     echo $line
     echo "benchmark client: ${BENCH_CLIENT}"
     echo $line
+    echo "taskpool: ${BENCH_TASKPOOL} (min ${BENCH_TASKPOOL_MIN}, max ${BENCH_TASKPOOL_MAX}, queue ${BENCH_TASKPOOL_QUEUE})"
+    echo $line
     echo "go env:"
     echo
     go env

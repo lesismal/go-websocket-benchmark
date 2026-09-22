@@ -13,6 +13,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/taskpool"
 
 	"github.com/lesismal/nbio/mempool"
 	"github.com/lesismal/nbio/nbhttp"
@@ -60,14 +61,23 @@ func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	frameworks.HandleCommon(mux)
-	engine := nbhttp.NewEngine(nbhttp.Config{
+	engineConfig := nbhttp.Config{
 		Network:                 "tcp",
 		Addrs:                   addrs,
 		Handler:                 mux,
 		IOMod:                   nbhttp.IOModNonBlocking,
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
-	})
+	}
+
+	// nbio runs the reading callbacks on a task pool of its own sizing.
+	// -taskpool hands that work to one of the shared pools instead, so that
+	// nbio can be measured on another framework's scheduler.
+	if pool := taskpool.FromFlags(); pool != nil {
+		engineConfig.ServerExecutor = taskpool.NbioExecute(pool)
+	}
+
+	engine := nbhttp.NewEngine(engineConfig)
 
 	err := engine.Start()
 	if err != nil {

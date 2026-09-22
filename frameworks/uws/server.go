@@ -7,19 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync/atomic"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/taskpool"
 
 	"github.com/urpc/uio"
 	"github.com/urpc/uio/uws"
-)
-
-const (
-	executorWorkers = 256
-	executorPending = 65536
 )
 
 var (
@@ -50,46 +45,6 @@ func (echoHandler) OnMessage(conn *uws.Conn, message uws.Message) {
 
 func (echoHandler) OnClose(*uws.Conn, uws.CloseEvent) {}
 
-type benchmarkExecutor struct {
-	shards []chan func()
-	next   atomic.Uint64
-}
-
-func newBenchmarkExecutor() *benchmarkExecutor {
-	shardCount := min(runtime.GOMAXPROCS(0), executorWorkers/8, executorPending)
-	executor := &benchmarkExecutor{shards: make([]chan func(), shardCount)}
-	for index := range executor.shards {
-		queueSize := executorPending / shardCount
-		if index < executorPending%shardCount {
-			queueSize++
-		}
-		executor.shards[index] = make(chan func(), queueSize)
-		workerCount := executorWorkers / shardCount
-		if index < executorWorkers%shardCount {
-			workerCount++
-		}
-		for range workerCount {
-			queue := executor.shards[index]
-			go func() {
-				for task := range queue {
-					task()
-				}
-			}()
-		}
-	}
-	return executor
-}
-
-func (executor *benchmarkExecutor) Submit(task func()) bool {
-	index := (executor.next.Add(1) - 1) % uint64(len(executor.shards))
-	select {
-	case executor.shards[index] <- task:
-		return true
-	default:
-		return false
-	}
-}
-
 func main() {
 	flag.Parse()
 
@@ -109,10 +64,12 @@ func main() {
 		Pollers:       runtime.NumCPU(),
 		MaxBufferSize: maxBufferSize,
 	}
-	server.Executor = newBenchmarkExecutor()
+	// uws has always run its callbacks on the sharded executor that is now
+	// the shared pool named "uws", so that is what -taskpool=default means
+	// here rather than no pool at all.
+	server.Executor = taskpool.UwsExecutor{Pool: taskpool.FromFlagsDefault(taskpool.Uws)}
 	logging.Printf(
-		"uws benchmark config: executor=sharded workers=%d pending=%d pollers=%d GOMAXPROCS=%d NumCPU=%d",
-		executorWorkers, executorPending,
+		"uws benchmark config: pollers=%d GOMAXPROCS=%d NumCPU=%d",
 		server.Events.Pollers, runtime.GOMAXPROCS(0), runtime.NumCPU(),
 	)
 	serveDone := make(chan error, 1)

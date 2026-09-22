@@ -13,6 +13,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/taskpool"
 
 	//"time"
 
@@ -33,6 +34,16 @@ var upgrader *greatws.UpgradeServer
 func main() {
 	flag.Parse()
 
+	// greatws picks the task pool its callbacks run on by name, so a shared
+	// pool goes in as a task driver of its own. It has to be registered
+	// before the event loops are built, since greatws instantiates every
+	// registered driver for each of them.
+	pool := taskpool.FromFlags()
+	taskMode := ""
+	if pool != nil {
+		taskMode = taskpool.RegisterGreatwsTaskDriver(pool)
+	}
+
 	var h Handler
 	h.m = greatws.NewMultiEventLoopMust(
 		greatws.WithEventLoops(runtime.NumCPU()), // 控制io go程数
@@ -44,7 +55,15 @@ func main() {
 		// greatws.WithServerIgnorePong(),
 		greatws.WithServerCallback(&Handler{}),
 		greatws.WithServerMultiEventLoop(h.m),
-		greatws.WithServerCallbackInEventLoop(),
+	}
+	if taskMode != "" {
+		opt = append(opt, greatws.WithServerCustomTaskMode(taskMode))
+	} else {
+		// This server's point is that the callbacks run on the event loop,
+		// which greatws calls its "io" task mode. Only -taskpool=default
+		// reaches it now that the flag defaults to a pool; -taskpool=inline
+		// is the same arrangement reached through the shared registry.
+		opt = append(opt, greatws.WithServerCallbackInEventLoop())
 	}
 
 	if !*nodelay {

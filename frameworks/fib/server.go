@@ -13,6 +13,7 @@ import (
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
 	"go-websocket-benchmark/logging"
+	"go-websocket-benchmark/taskpool"
 
 	fib "github.com/lesismal/fib/go"
 	"github.com/lesismal/fib/go/websocket"
@@ -99,10 +100,14 @@ func startServer(addrs []string) *fib.Engine {
 	serverConfig.Network = "tcp4"
 	serverConfig.Addrs = addrs
 
-	// by default, fib uses a shared task pool with ModeAdaptive, which is tuned for the benchmark.
-	// serverConfig.SetTaskPool(taskpool.NewAdaptive(taskpool.AdaptiveConfig{
-	// 	MinWorkers: 500, MaxWorkers: 5000, QueueSize: 10000,
-	// }))
+	// fib's own pool is ModeAdaptive, which is also what -taskpool
+	// defaults to, so the default run measures the same arrangement
+	// reached through the shared registry. Another -taskpool runs the
+	// engine on another framework's scheduler; -taskpool=default leaves
+	// fib to build its pool itself.
+	if pool := taskpool.FromFlags(); pool != nil {
+		serverConfig.SetTaskPool(taskpool.FibTaskPool{Pool: pool})
+	}
 
 	server, err := fib.Bind(serverConfig, handler)
 	if err != nil {
