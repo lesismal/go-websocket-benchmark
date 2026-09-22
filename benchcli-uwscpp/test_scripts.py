@@ -76,9 +76,10 @@ class ScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("DOCKER_BENCH_CPUS", result.stdout)
 
-    # Every framework list is kept in framework-name order, and the shell one
-    # carries the same names as config.FrameworkList, which is what a report's
-    # rows are ordered by. See the frameworks array in script/config.sh.
+    # Every framework list is kept in framework-name order, and the shell ones
+    # carry names config.FrameworkList knows - which is what a report's rows are
+    # ordered by. A subset rather than the whole list, since commenting
+    # frameworks out of script/config.sh is how a focused run is set up.
     def test_framework_lists_are_sorted_and_match_go(self):
         result = subprocess.run(
             ["bash", "-c", ". ./script/config.sh && printf '%s\n' \"${frameworks[*]}\" \"${taskpool_frameworks[*]}\""],
@@ -89,23 +90,21 @@ class ScriptTests(unittest.TestCase):
             timeout=10,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        shell, taskpool = (line.split() for line in result.stdout.splitlines())
-        self.assertEqual(shell, sorted(shell))
-        self.assertEqual(taskpool, sorted(taskpool))
-        self.assertTrue(set(taskpool) <= set(shell), taskpool)
 
         config = (ROOT / "config/config.go").read_text()
         names = dict(re.findall(r'^\s*(\w+)\s*=\s*"([^"\n]+)"', config, re.M))
         order = re.search(r"var FrameworkList = \[\]string\{(.*?)\}", config, re.S).group(1)
         go = [names[name] for name in re.findall(r"(\w+)\s*,", order)]
         self.assertEqual(go, sorted(go))
-        self.assertEqual(shell, go)
 
         subset = (ROOT / "script/1m_conns_benchmark.sh").read_text()
         million = re.findall(r'^\s*"([a-z0-9_]+)"$', re.search(
             r"frameworks=\((.*?)\)", subset, re.S).group(1), re.M)
-        self.assertEqual(million, sorted(million))
-        self.assertTrue(set(million) <= set(go), million)
+        shell, taskpool = (line.split() for line in result.stdout.splitlines())
+        for name, listed in [("frameworks", shell), ("taskpool_frameworks", taskpool),
+                             ("1m_conns_benchmark.sh frameworks", million)]:
+            self.assertEqual(listed, sorted(listed), name)
+            self.assertTrue(listed and set(listed) <= set(go), (name, listed))
 
     def test_build_dispatch_contains_both_clients(self):
         source = (ROOT / "script/build.sh").read_text()
