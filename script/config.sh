@@ -9,9 +9,9 @@ case "$BENCH_CLIENT" in
 esac
 
 # Goroutine pool the servers run their callbacks on. The taskpool package
-# registers inline, go, fib_adaptive, fib_cond, fib_elastic, nbio, greatws and
-# uws; "default" is not one of them but leaves each framework on the
-# scheduling it ships with.
+# registers inline, go, fib_adaptive, fib_cond, fib_elastic, fnet, greatws, 
+# nbio and uws; "default" is not one of them but leaves each framework on
+# the scheduling it ships with.
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
 BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
 # Pool sizing. 0 leaves each pool its own default, which is the sizing the

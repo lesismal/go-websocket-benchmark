@@ -31,19 +31,19 @@
 //     Its blocking connections read on a goroutine of their own and never
 //     reach the pool at all.
 //   - uws keeps a mailbox per connection with a single runner, likewise.
+//   - fnet queues one connection's frames behind a drain flag and submits a
+//     drain only when none is in flight, likewise. It also copies the payload
+//     out of the reactor's read buffer before the callback runs, so the echo
+//     sees a buffer of its own.
 //   - greatws asks each connection for its own executor;
 //     RegisterGreatwsTaskDriver gives it one that keeps at most one drain in
-//     flight, which is where its part of this lives.
-//   - fnet has no such arrangement to lend, since it calls OnMessage inline
-//     on its reactor, so its server wraps the pool in a Serial per
-//     connection.
+//     flight, which is the one piece of this the package supplies itself;
+//     TestGreatwsTaskDriverKeepsAConnectionsOrder holds it to that on every
+//     registered pool.
 //
-// The first four are the frameworks' own invariants, which is why nothing is
+// All but greatws are the frameworks' own invariants, which is why nothing is
 // layered on top of them: a second queue would cost a handoff per burst and
-// measure a scheduling step the framework does not take. Serial and the
-// greatws executor are the two this package owns, and TestSerialKeepsOrder
-// and TestGreatwsTaskDriverKeepsAConnectionsOrder hold both to it on every
-// registered pool.
+// measure a scheduling step the framework does not take.
 //
 // Refusal keeps the order too: a pool that declines leaves the queue intact
 // for the next submission to carry, or the caller runs it inline, and neither
@@ -78,6 +78,7 @@ const (
 	FibCond     = "fib_cond"
 	FibElastic  = "fib_elastic"
 	Nbio        = "nbio"
+	Fnet        = "fnet"
 	Greatws     = "greatws"
 	Uws         = "uws"
 )

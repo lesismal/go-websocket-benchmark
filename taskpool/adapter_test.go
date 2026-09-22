@@ -63,6 +63,16 @@ func TestUwsExecutorPassesTheRefusalThrough(t *testing.T) {
 	waitOrFail(t, &done, "uws task did not run")
 }
 
+func TestFnetWorkerPoolRunsWhatThePoolRefuses(t *testing.T) {
+	// A dropped task would leave fnet's drain flag set and wedge that
+	// connection, so a refusal has to run on the caller instead.
+	ran := false
+	FnetWorkerPool(refusingPool{})(func() { ran = true })
+	if !ran {
+		t.Error("the refused task did not run on the caller")
+	}
+}
+
 func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {
 	// greatws expects one connection's callbacks to run in the order they
 	// were added however many workers the pool has.
