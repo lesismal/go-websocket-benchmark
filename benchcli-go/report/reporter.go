@@ -3,6 +3,7 @@ package report
 import (
 	"encoding/json"
 	"go-websocket-benchmark/config"
+	"math"
 	"os"
 
 	"github.com/lesismal/perf"
@@ -16,6 +17,23 @@ type Report interface {
 	String(bool) string
 	PprofCPU() []byte
 	PprofMEM() []byte
+}
+
+// EER is the throughput a server got for each percent of a CPU core it spent,
+// or 0 when there is nothing to divide by. Both callers go through this rather
+// than dividing for themselves: a server whose CPU samples did not arrive
+// leaves CPUAvg at 0, and the +Inf that came out of that division took the
+// whole row out of the report file with it, since encoding/json refuses to
+// marshal Inf and NaN and ToFile's error was dropped.
+func EER(throughput, cpuAvg float64) float64 {
+	if cpuAvg <= 0 || math.IsNaN(cpuAvg) || math.IsInf(throughput, 0) || math.IsNaN(throughput) {
+		return 0
+	}
+	eer := throughput / cpuAvg
+	if math.IsInf(eer, 0) || math.IsNaN(eer) {
+		return 0
+	}
+	return eer
 }
 
 func JSON(report Report) string {

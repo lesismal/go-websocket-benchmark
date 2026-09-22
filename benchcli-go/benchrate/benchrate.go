@@ -175,7 +175,12 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 	}
 	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
 	r.TaskPool = config.GetFrameworkTaskPool(br.Framework, br.Ip)
-	br.PsCounter, _ = config.GetFrameworkPsInfo(br.Framework, br.Ip)
+	var psErr error
+	br.PsCounter, psErr = config.GetFrameworkPsInfo(br.Framework, br.Ip)
+	if psErr != nil {
+		logging.Printf("BenchRate: resource statistics for %v incomplete, EchoEER will read 0: %v",
+			br.Framework, psErr)
+	}
 	if br.PsCounter != nil {
 		// r.GoMin = br.PsCounter.NumGoroutineMin()
 		// r.GoAvg = br.PsCounter.NumGoroutineAvg()
@@ -186,7 +191,10 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		r.MEMRSSMin = br.PsCounter.MEMRSSMin()
 		r.MEMRSSAvg = br.PsCounter.MEMRSSAvg()
 		r.MEMRSSMax = br.PsCounter.MEMRSSMax()
-		r.EchoEER = float64(r.RecvTimes) / float64(r.Duration/time.Second.Nanoseconds()) / r.CPUAvg
+		// In floating point: r.Duration is nanoseconds, and an integer
+		// division by the second first would make every sub-second run a
+		// division by zero.
+		r.EchoEER = report.EER(float64(r.RecvTimes)/(float64(r.Duration)/float64(time.Second)), r.CPUAvg)
 	}
 	return r
 }

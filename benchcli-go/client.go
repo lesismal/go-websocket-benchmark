@@ -93,7 +93,7 @@ func main() {
 	cs.Run()
 	defer cs.Stop()
 	csReport := cs.Report()
-	report.ToFile(csReport, *preffix, *suffix)
+	saveReport(csReport)
 	logging.Print(logging.ShortLine)
 	logging.Print(csReport.String(*enableTPN))
 	logging.Print("\n")
@@ -145,7 +145,7 @@ func main() {
 	be.Run()
 	defer be.Stop()
 	beReport := be.Report()
-	report.ToFile(beReport, *preffix, *suffix)
+	saveReport(beReport)
 	logging.Print(logging.ShortLine)
 	logging.Print(beReport.String(*enableTPN))
 	logging.Print("\n")
@@ -180,11 +180,20 @@ func main() {
 		br.Run()
 		defer br.Stop()
 		brReport := br.Report()
-		report.ToFile(brReport, *preffix, *suffix)
+		saveReport(brReport)
 		logging.Print(logging.ShortLine)
 		logging.Print(brReport.String(*enableTPN))
 		logging.Print("\n")
 		logging.Print(logging.ShortLine)
+	}
+}
+
+// saveReport writes one report and says so when it cannot. The error used to
+// be dropped, which is how a row could go missing from the report files
+// without a word in the log.
+func saveReport(r report.Report) {
+	if err := report.ToFile(r, *preffix, *suffix); err != nil {
+		logging.Printf("%v: writing the %v report failed: %v", r.Name(), r.Type(), err)
 	}
 }
 

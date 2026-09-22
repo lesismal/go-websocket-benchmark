@@ -137,7 +137,9 @@ int benchmark(const Options &o) {
     if (!dial.success) throw std::runtime_error("no WebSocket connections established");
     try {
         auto body=json{{"PsInterval",int64_t(o.integer("pi"))*1'000'000}}.dump();
-        auto pid=http(controlURL(o)+"/init",&body);
+        // A failed /init is not just a missing pid: it is a server that never started
+        // sampling, so every CPU and MEM column of the run would read 0.
+        auto pid=httpRetry(controlURL(o)+"/init",&body);
         std::cout<<"Server PID: "<<pid<<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
     } catch (const std::exception &e) {std::cerr<<"server initialization: "<<e.what()<<'\n';}
     int ec=o.integer("ec");if (!ec) ec=availableCPUs()*1000;

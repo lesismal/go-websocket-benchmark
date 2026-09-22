@@ -161,7 +161,12 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 
 	r.TaskPool = config.GetFrameworkTaskPool(be.Framework, be.Ip)
 
-	be.PsCounter, _ = config.GetFrameworkPsInfo(be.Framework, be.Ip)
+	var psErr error
+	be.PsCounter, psErr = config.GetFrameworkPsInfo(be.Framework, be.Ip)
+	if psErr != nil {
+		logging.Printf("BenchEcho: resource statistics for %v incomplete, EER will read 0: %v",
+			be.Framework, psErr)
+	}
 	if be.PsCounter != nil {
 		// r.GoMin = be .PsCounter.NumGoroutineMin()
 		// r.GoAvg = be .PsCounter.NumGoroutineAvg()
@@ -172,7 +177,7 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 		r.MEMRSSMin = be.PsCounter.MEMRSSMin()
 		r.MEMRSSAvg = be.PsCounter.MEMRSSAvg()
 		r.MEMRSSMax = be.PsCounter.MEMRSSMax()
-		r.EER = float64(r.TPS) / r.CPUAvg
+		r.EER = report.EER(float64(r.TPS), r.CPUAvg)
 	}
 	return r
 }

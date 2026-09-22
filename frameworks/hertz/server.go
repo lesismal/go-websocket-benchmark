@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"time"
 
 	"go-websocket-benchmark/config"
@@ -70,6 +71,12 @@ func startServers(addrs []string) []*server.Hertz {
 			if err != nil {
 				logging.Fatalf("perf.NewPSCounter failed: %v", err)
 			}
+			// Started once, however many times /init arrives: a client that
+			// retried the request because its own read failed can deliver it
+			// twice, and a second Start would reset the sample slices under
+			// the goroutines already appending to them. frameworks.HandleCommon,
+			// which the rest of the servers use, guards it the same way.
+			var psStarted atomic.Bool
 
 			srv.GET("/ws", onWebsocket)
 			srv.POST("/init", func(c context.Context, ctx *app.RequestContext) {
@@ -80,16 +87,20 @@ func startServers(addrs []string) []*server.Hertz {
 				}
 				var args config.InitArgs
 				json.Unmarshal(body, &args)
-				go func() {
-					psCounter.Start(perf.PSCountOptions{
-						CountCPU: true,
-						CountMEM: true,
-						CountIO:  true,
-						CountNET: true,
-						Interval: args.PsInterval,
-					})
-					time.Sleep(args.PsInterval)
-				}()
+				if psStarted.CompareAndSwap(false, true) {
+					go func() {
+						psCounter.Start(perf.PSCountOptions{
+							CountCPU: true,
+							CountMEM: true,
+							CountIO:  true,
+							CountNET: true,
+							Interval: args.PsInterval,
+						})
+						time.Sleep(args.PsInterval)
+					}()
+				} else {
+					logging.Printf("/init called again; the ps counter is already running")
+				}
 
 				ctx.Response.BodyWriter().Write([]byte(fmt.Sprintf("%d", os.Getpid())))
 			})
