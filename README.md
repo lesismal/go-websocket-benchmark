@@ -107,7 +107,7 @@ OS threads on top of the loop threads, not goroutines sharing the pollers'
 rest run loops. The CPU count it divides is the one `sched_getaffinity`
 reports, since `script/env.sh` pins the server with `taskset` and
 `hardware_concurrency()` does not read the mask - sizing by that was costing
-this server about 58% of its throughput with the pool on. `-loops` overrides
+this server about 61% of its throughput with the pool on. `-loops` overrides
 the loop count. See [its README](frameworks/uwebsockets/README.md) for the
 measurement.
 
