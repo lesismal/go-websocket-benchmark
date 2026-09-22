@@ -61,6 +61,7 @@ Existing Go flags and defaults are accepted (`-flag=value`, `-flag value`, and
 | `-f`, `-ip`, `-nodelay` | Framework, server IP/hostname and TCP_NODELAY |
 | `-c`, `-dc`, `-dt`, `-dr`, `-dri` | Connections, concurrent dials, TCP+upgrade timeout, attempts, retry interval |
 | `-b`, `-check`, `-tpn`, `-pi` | Payload size, binary response validation, latency percentiles, server sampling interval in milliseconds |
+| `-ps` | Where the server's CPU and MEM samples come from: `auto` (default) samples the server process here when it runs on this machine and asks it over `/ps` when it does not, `local` always samples here, `remote` always asks |
 | `-ec`, `-en`, `-el` | Echo concurrency, measured round trips, global messages/second limit |
 | `-ep`, `-epd` | Echo CPU/heap profiles and CPU profile duration in seconds |
 | `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, global messages/second limit |

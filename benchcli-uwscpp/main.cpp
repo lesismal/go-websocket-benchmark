@@ -135,13 +135,11 @@ int benchmark(const Options &o) {
     connections["Concurrency"]=dc;
     saveReport(o,"Connections",connections);
     if (!dial.success) throw std::runtime_error("no WebSocket connections established");
-    try {
-        auto body=json{{"PsInterval",int64_t(o.integer("pi"))*1'000'000}}.dump();
-        // A failed /init is not just a missing pid: it is a server that never started
-        // sampling, so every CPU and MEM column of the run would read 0.
-        auto pid=httpRetry(controlURL(o)+"/init",&body);
-        std::cout<<"Server PID: "<<pid<<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
-    } catch (const std::exception &e) {std::cerr<<"server initialization: "<<e.what()<<'\n';}
+    // Where this run's CPU and MEM samples come from. On a run whose server is on
+    // this machine the client samples the process itself and the server is never
+    // asked, which is one less request to fail at the far end of a benchmark
+    // carrying a million connections; see setupPS.
+    auto ps=setupPS(o);
     int ec=o.integer("ec");if (!ec) ec=availableCPUs()*1000;
     int concurrency=runner.allocate(ec);
     if (!concurrency) throw std::runtime_error("all connections closed before echo benchmark");
@@ -155,7 +153,7 @@ int benchmark(const Options &o) {
     auto stats=runner.collect(false);
     setLatency(echo,stats,o.boolean("tpn"));
     echo["Total"]=o.integer("en");echo["Conns"]=dial.success;echo["Concurrency"]=concurrency;echo["Payload"]=runner.shared.payloads[0].size();
-    resourceStats(echo,o,false);
+    resourceStats(echo,o,false,ps);
     if (echoProfile.valid()) echoProfile.get();
     saveReport(o,"BenchEcho",echo);
     if (o.boolean("rate")) {
@@ -174,7 +172,7 @@ int benchmark(const Options &o) {
         rate["SendRate"]=std::max(1,o.integer("rr"));rate["Payload"]=runner.shared.payloads[0].size();
         rate["SendTimes"]=sent;rate["SendBytes"]=sent*int64_t(runner.shared.payloads[0].size());
         rate["RecvTimes"]=received;rate["RecvBytes"]=bytes;
-        resourceStats(rate,o,true);
+        resourceStats(rate,o,true,ps);
         if(rateProfile.valid())rateProfile.get();
         saveReport(o,"BenchRate",rate);
     }

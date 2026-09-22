@@ -32,6 +32,8 @@ type BenchRate struct {
 
 	ServerPid int
 	PsCounter *perf.PSCounter
+	// Where the CPU and MEM columns come from; see config.SetupPS.
+	PsSource config.PSSource
 
 	wsOptions *websocket.Options
 	ConnsMap  map[*websocket.Conn]struct{}
@@ -176,7 +178,7 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
 	r.TaskPool = config.GetFrameworkTaskPool(br.Framework, br.Ip)
 	var psErr error
-	br.PsCounter, psErr = config.GetFrameworkPsInfo(br.Framework, br.Ip)
+	br.PsCounter, psErr = br.psInfo()
 	if psErr != nil {
 		logging.Printf("BenchRate: resource statistics for %v incomplete, EchoEER will read 0: %v",
 			br.Framework, psErr)
@@ -197,6 +199,15 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		r.EchoEER = report.EER(float64(r.RecvTimes)/(float64(r.Duration)/float64(time.Second)), r.CPUAvg)
 	}
 	return r
+}
+
+// psInfo reads the server's resource samples from wherever this run takes
+// them; see BenchEcho.psInfo.
+func (br *BenchRate) psInfo() (*perf.PSCounter, error) {
+	if br.PsSource != nil {
+		return br.PsSource.PsInfo()
+	}
+	return config.GetFrameworkPsInfo(br.Framework, br.Ip)
 }
 
 func (br *BenchRate) init() {

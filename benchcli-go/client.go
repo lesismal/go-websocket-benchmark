@@ -38,7 +38,10 @@ var (
 	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchrate, 1000 ms by default`)
-	enableTPN  = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
+	psMode     = flag.String("ps", config.PSModeAuto, `benchmark: where the server's CPU and MEM samples come from: `+
+		`"auto" samples the server here when it runs on this machine and asks it over HTTP when it does not, `+
+		`"local" always samples here, "remote" always asks`)
+	enableTPN = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
 	// BenchEcho
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -78,6 +81,9 @@ func main() {
 	if err := report.ValidateSort(*reportSort); err != nil {
 		logging.Fatalf("%v", err)
 	}
+	if err := config.ValidatePSMode(*psMode); err != nil {
+		logging.Fatalf("%v", err)
+	}
 
 	if *genReport {
 		generateReports()
@@ -110,12 +116,17 @@ func main() {
 	cpuProfileUrlEcho := ""
 	cpuProfileUrlRate := ""
 	memProfileUrl := ""
-	serverPid, pprofAddr, err := config.InitAndGetFrameworkPid(*framework, *ip, &config.InitArgs{
-		PsInterval: time.Millisecond * time.Duration(*psInterval),
-	})
+	// How the server's CPU and MEM - and so EER - are sampled. On a run whose
+	// server is on this machine the client samples the process itself and the
+	// server is never asked, which is one less request to fail at the far end
+	// of a benchmark carrying a million connections; see config.SetupPS.
+	psSetup, err := config.SetupPS(*framework, *ip, *psMode, time.Millisecond*time.Duration(*psInterval))
+	defer psSetup.Source.Stop()
+	serverPid, pprofAddr := psSetup.ServerPid, psSetup.PprofAddr
 	if err != nil {
-		logging.Printf("InitAndGetFrameworkPid(%v) failed: %v", *framework, err)
-	} else {
+		logging.Printf("SetupPS(%v) failed: %v", *framework, err)
+	}
+	if pprofAddr != "" {
 		cpuProfileUrl := pprofAddr + "/debug/pprof/profile"
 		cpuProfileUrlEcho = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *echoPprofDuration)
 		cpuProfileUrlRate = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *ratePprofDuration)
@@ -127,6 +138,7 @@ func main() {
 		logging.Print(logging.ShortLine)
 	}
 	be := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
+	be.PsSource = psSetup.Source
 	be.Concurrency = *echoConcurrency
 	be.Payload = *payload
 	be.Total = *echoTimes
@@ -161,6 +173,7 @@ func main() {
 
 	if *rateEnabled {
 		br := benchrate.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
+		br.PsSource = psSetup.Source
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate

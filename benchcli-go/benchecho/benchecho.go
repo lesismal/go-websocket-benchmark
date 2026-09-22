@@ -41,6 +41,10 @@ type BenchEcho struct {
 
 	ServerPid int
 	PsCounter *perf.PSCounter
+	// Where the CPU and MEM columns come from: this machine's own sampling of
+	// the server process on a single-node run, and the server's /ps route
+	// otherwise. See config.SetupPS.
+	PsSource config.PSSource
 
 	ConnsMap map[*websocket.Conn]struct{}
 
@@ -162,7 +166,7 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 	r.TaskPool = config.GetFrameworkTaskPool(be.Framework, be.Ip)
 
 	var psErr error
-	be.PsCounter, psErr = config.GetFrameworkPsInfo(be.Framework, be.Ip)
+	be.PsCounter, psErr = be.psInfo()
 	if psErr != nil {
 		logging.Printf("BenchEcho: resource statistics for %v incomplete, EER will read 0: %v",
 			be.Framework, psErr)
@@ -180,6 +184,16 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 		r.EER = report.EER(float64(r.TPS), r.CPUAvg)
 	}
 	return r
+}
+
+// psInfo reads the server's resource samples from wherever this run takes
+// them. A client that was given no source falls back to asking the server,
+// which is what every run did before local sampling existed.
+func (be *BenchEcho) psInfo() (*perf.PSCounter, error) {
+	if be.PsSource != nil {
+		return be.PsSource.PsInfo()
+	}
+	return config.GetFrameworkPsInfo(be.Framework, be.Ip)
 }
 
 func (be *BenchEcho) init() {
