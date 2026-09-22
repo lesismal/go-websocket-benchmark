@@ -50,7 +50,7 @@ func TestNamesCoversEveryFramework(t *testing.T) {
 	for _, name := range Names() {
 		registered[name] = true
 	}
-	for _, name := range []string{Default, Inline, Goroutine, FibAdaptive, FibCond, FibElastic, Nbio, Greatws, Uws} {
+	for _, name := range []string{Default, Inline, Goroutine, FibAdaptive, FibCond, FibElastic, Nbio, Fnet, Greatws, Uws} {
 		if !registered[name] {
 			t.Errorf("Names omits %q", name)
 		}
@@ -140,57 +140,6 @@ func TestPoolRunsTasksConcurrently(t *testing.T) {
 			}
 			waitOrFail(t, &done, "pool ran the tasks one after the other")
 		})
-	}
-}
-
-func TestSerialKeepsOrder(t *testing.T) {
-	for _, name := range pooled() {
-		t.Run(name, func(t *testing.T) {
-			pool := newTestPool(t, name)
-			serial := NewSerial(pool)
-
-			const tasks = 500
-			order := make([]int, 0, tasks)
-			var done sync.WaitGroup
-			done.Add(tasks)
-			for i := range tasks {
-				// Only the stream touches order, and the stream runs one
-				// task at a time, so this needs no lock of its own.
-				if !serial.Go(func() { order = append(order, i); done.Done() }) {
-					for _, queued := range serial.Take() {
-						queued()
-					}
-				}
-			}
-			waitOrFail(t, &done, "stream did not finish")
-
-			if len(order) != tasks {
-				t.Fatalf("%s ran %d of %d tasks", name, len(order), tasks)
-			}
-			for i, got := range order {
-				if got != i {
-					t.Fatalf("%s ran task %d in position %d", name, got, i)
-				}
-			}
-		})
-	}
-}
-
-// TestSerialTakeReturnsTheUnrun covers the path a server takes when a
-// rejecting pool declines the stream's work and the server has to run it
-// itself.
-func TestSerialTakeReturnsTheUnrun(t *testing.T) {
-	serial := NewSerial(refusingPool{})
-
-	if serial.Go(func() { t.Error("a refused task ran") }) {
-		t.Fatal("Go reported that a refusing pool took the work")
-	}
-	pending := serial.Take()
-	if len(pending) != 1 {
-		t.Fatalf("Take returned %d tasks, want the one that was refused", len(pending))
-	}
-	if got := serial.Take(); len(got) != 0 {
-		t.Fatalf("Take returned %d tasks the second time, want none", len(got))
 	}
 }
 

@@ -45,9 +45,9 @@ Docker build cache.
 The frameworks here schedule their callbacks in different ways, and some of the
 difference a benchmark shows between two of them is the pool rather than the
 framework. [`taskpool`](taskpool) collects those pools behind one interface -
-the fib, nbio and greatws entries import those projects' own pools, and `uws`
-is the sharded executor this benchmark has always given the uws servers - so
-that one pool can be run under several frameworks, or one framework under
+the fib, nbio, fnet and greatws entries import those projects' own pools, and
+`uws` is the sharded executor this benchmark has always given the uws servers -
+so that one pool can be run under several frameworks, or one framework under
 several pools.
 
 `script/config.sh` selects it with `BENCH_TASKPOOL`, which defaults to
@@ -75,6 +75,7 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `go` | one goroutine per task, bounded by nothing |
 | `fib_adaptive`, `fib_cond`, `fib_elastic` | `github.com/lesismal/fib/go/taskpool`, in each of its three modes (`fib_adaptive` is fib's own default, and this benchmark's) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
+| `fnet` | `fnet.WorkerPool`, sharded and elastic: workers spawn on demand and retire when idle |
 | `greatws` | greatws's `stream2` business pool |
 | `uws` | the sharded channel executor uws runs on here |
 
@@ -98,20 +99,21 @@ Three things to keep in mind when reading a report:
   answered in the order they arrived. No pool promises that by itself - `go`
   runs a goroutine per task - so the order comes from never handing a pool
   more than one task per connection at a time: fib submits the connection
-  itself, nbio, uws and greatws each keep one per-connection queue and submit
-  a drain only when it was empty, and `fnet`, which has no such arrangement of
-  its own, gets one from [`taskpool.Serial`](taskpool/serial.go). See the
-  `Ordering` section of [the package doc](taskpool/taskpool.go) for which
-  mechanism each framework uses.
+  itself, and nbio, fnet, uws and greatws each keep one per-connection queue
+  and submit a drain only when none is in flight. See the `Ordering` section
+  of [the package doc](taskpool/taskpool.go) for which mechanism each
+  framework uses.
 - `uws` is the only pool that refuses work rather than waiting for room, which
   is how uws surfaces application backpressure. fib and uws close the
   connections behind the work their pool refused; nbio and fnet run it on the
   caller instead, because a dropped task there would stall a connection rather
   than lose one message.
-- `fnet` has no pool hook of its own - it calls `OnMessage` inline on the
-  reactor goroutine and the payload is only valid for that call - so its
-  pooled runs copy the payload. That copy is the one cost the pooled run pays
-  and the `default` run does not.
+- `fnet`'s pool goes on its `websocket.Upgrader`, not on its `fnet.Server`:
+  the latter runs the HTTP request loop and holds a worker for as long as a
+  connection stays unupgraded, so a bounded pool there would wedge on the
+  handshake burst rather than measure the callbacks. `-tpmax` and `-tpqueue`
+  are read per shard by the `fnet` pool, which picks its own shard count from
+  `GOMAXPROCS`.
 
 ## before running the test
 - make sure setting the correct system env, for example:
