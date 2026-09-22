@@ -95,12 +95,13 @@ BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 #              the load rather than the answer, and Packet Recv counts a small
 #              reply the same as a large one
 #   framework  the order FrameworkList in config/config.go lists them in,
-#              which is the order every report was written in before this
-#              variable existed. Note it is not the order the frameworks array
-#              below runs them in - the two lists carry the same names in
-#              different orders, and only the Go one reaches a report. This is
-#              what puts a framework on the same row in every table and across
-#              runs, whatever it scored, so two reports can be diffed
+#              which is by framework name, and which is also the order every
+#              report was written in before this variable existed. It is what
+#              puts a framework on the same row in every table and across runs,
+#              whatever it scored, so two reports can be diffed. Only the Go
+#              list reaches a report; the frameworks array below decides what
+#              is built and run, and is kept in the same order so that the two
+#              read alike
 #
 # Neither order ranks by EER or EchoEER, which divide throughput by the CPU it
 # cost and so answer a different question; both are still columns to read.
@@ -117,8 +118,9 @@ case "$BENCH_REPORT_SORT" in
     *) echo "Unsupported BENCH_REPORT_SORT: $BENCH_REPORT_SORT (want result or framework)" >&2; return 1 ;;
 esac
 
-# The servers that take the -taskpool flags. The rest have no pool to swap
-# and would exit on a flag they do not define.
+# The servers that take the -taskpool flags, in framework-name order like every
+# other framework list here. The rest have no pool to swap and would exit on a
+# flag they do not define.
 #
 # uwebsockets takes them too, but it is a C++ server, so none of the Go pools
 # can run under it. It reads the value for what it says about where a server
@@ -145,14 +147,18 @@ BodySize=(512 1024)
 BenchTime=(2000000)
 SleepTime=5
 
+# Which frameworks a run measures, and the order the servers are started and
+# the clients run in. In framework-name order, like config.FrameworkList and
+# taskpool_frameworks above, so that a framework is in the same place in every
+# list and a new one has one obvious place to go.
 frameworks=(
     "fasthttp"
     "fib"
+    "fnet"
     "gobwas"
-    "greatws_event"
-    "greatws"
-    "quickws"
     "gorilla"
+    "greatws"
+    "greatws_event"
     "gws"
     "gws_std"
     "hertz"
@@ -163,10 +169,10 @@ frameworks=(
     "nbio_std"
     "nettyws"
     "nhooyr"
-    "uws_std"
-    "uws_events"
-    "fnet"
+    "quickws"
     "uwebsockets"
+    "uws_events"
+    "uws_std"
 )
 
 # Optional comma-separated subset, used by the Docker smoke test and useful for

@@ -19,11 +19,21 @@ type InitArgs struct {
 	PsInterval time.Duration
 }
 
+// Every framework this benchmark knows, by the name that -f, the server binary
+// and the report row all take.
+//
+// This list, Ports and FrameworkList below are kept in framework-name order,
+// as are the framework lists in script/config.sh and
+// script/1m_conns_benchmark.sh, so that a framework sits in the same place in
+// all of them and a new one has one obvious place to go in each.
 const (
 	Fasthttp           = "fasthttp"
 	Fib                = "fib"
+	Fnet               = "fnet"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
+	Greatws            = "greatws"
+	GreatwsEvent       = "greatws_event"
 	Gws                = "gws"
 	GwsStd             = "gws_std"
 	Hertz              = "hertz"
@@ -35,19 +45,19 @@ const (
 	GoNettyWs          = "nettyws"
 	Nhooyr             = "nhooyr"
 	Quickws            = "quickws"
-	Greatws            = "greatws"
-	GreatwsEvent       = "greatws_event"
-	UwsStdio           = "uws_std"
-	UwsEvents          = "uws_events"
-	Fnet               = "fnet"
 	Uwebsockets        = "uwebsockets"
+	UwsEvents          = "uws_events"
+	UwsStdio           = "uws_std"
 )
 
 var Ports = map[string]string{
 	Fasthttp:           "10001:10050",
 	Fib:                "29001:29050",
+	Fnet:               "30001:30050",
 	Gobwas:             "11001:11050",
 	Gorilla:            "12001:12050",
+	Greatws:            "24001:24050",
+	GreatwsEvent:       "25001:25050",
 	Gws:                "13001:13050",
 	GwsStd:             "14001:14050",
 	Hertz:              "15001:15050",
@@ -59,19 +69,22 @@ var Ports = map[string]string{
 	GoNettyWs:          "21001:21050",
 	Nhooyr:             "22001:22050",
 	Quickws:            "23001:23050",
-	Greatws:            "24001:24050",
-	GreatwsEvent:       "25001:25050",
-	UwsStdio:           "26001:26050",
-	UwsEvents:          "28001:28050",
-	Fnet:               "30001:30050",
 	Uwebsockets:        "31001:31050",
+	UwsEvents:          "28001:28050",
+	UwsStdio:           "26001:26050",
 }
 
+// FrameworkList is every framework, in framework-name order. It is also the
+// row order of a -sort=framework report, which is what puts a framework on the
+// same row in every table and across runs, whatever it scored.
 var FrameworkList = []string{
 	Fasthttp,
 	Fib,
+	Fnet,
 	Gobwas,
 	Gorilla,
+	Greatws,
+	GreatwsEvent,
 	Gws,
 	GwsStd,
 	Hertz,
@@ -83,12 +96,9 @@ var FrameworkList = []string{
 	GoNettyWs,
 	Nhooyr,
 	Quickws,
-	Greatws,
-	GreatwsEvent,
-	UwsStdio,
-	UwsEvents,
-	Fnet,
 	Uwebsockets,
+	UwsEvents,
+	UwsStdio,
 }
 
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {

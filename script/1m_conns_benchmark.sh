@@ -12,12 +12,14 @@ echo $line
 
 echo $line
 
+# The subset this script measures, in framework-name order like every other
+# framework list; see script/config.sh.
 frameworks=(
-    "greatws_event"
+    "fnet"
     "greatws"
+    "greatws_event"
     "nbio_nonblocking"
     "uws_events"
-    "fnet"
 )
 
 print_env
