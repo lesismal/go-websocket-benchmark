@@ -17,10 +17,10 @@ type SummaryParameter struct {
 
 // SummaryParameters is the order the Summary table lists the run's parameters
 // in, and their descriptions. A tagged name missing from here still gets a
-// row, after these, with no description; benchcli-uwscpp reads this list for
-// the same order and the same words.
+// row, after these, with no description; benchcli-uwscpp and benchcli-rust
+// read this list for the same order and the same words.
 var SummaryParameters = []SummaryParameter{
-	{"Client", "benchmark client: go or uwscpp"},
+	{"Client", "benchmark client: rust, uwscpp or go"},
 	{"Pool", "task pool, used by Go event-loop frameworks only"},
 	{"Conns", "connections each benchmark runs over"},
 	{"Payload", "message size in bytes"},

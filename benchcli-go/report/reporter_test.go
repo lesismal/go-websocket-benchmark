@@ -3,11 +3,15 @@ package report
 import (
 	"math"
 	"math/rand"
+	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"go-websocket-benchmark/config"
 
 	"github.com/lesismal/perf"
 )
@@ -449,13 +453,13 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 	}
 }
 
-// TestRateTPSIsPacketsPerSecond puts BenchRate's TPS right after Framework,
-// works it out for a report written before it had one, and leaves Packet Recv
-// a plain column.
+// TestRateTPSIsPacketsPerSecond puts BenchRate's TPS right after Framework
+// and Lang, works it out for a report written before it had one, and leaves
+// Packet Recv a plain column.
 func TestRateTPSIsPacketsPerSecond(t *testing.T) {
 	Init(false)
-	if got := BenchRateReportMarkdownHeaders[:3]; !equal(got, []string{"Framework", "TPS", "EER"}) {
-		t.Errorf("BenchRate columns start %v, want Framework, TPS, EER", got)
+	if got := BenchRateReportMarkdownHeaders[:4]; !equal(got, []string{"Framework", "Lang", "TPS", "EER"}) {
+		t.Errorf("BenchRate columns start %v, want Framework, Lang, TPS, EER", got)
 	}
 	if got := RateTPS(39809390, 10e9); got != 3980939 {
 		t.Errorf("RateTPS = %v, want 3980939", got)
@@ -536,6 +540,59 @@ func TestPercentOfFloats(t *testing.T) {
 	for _, cell := range []string{"| 1395.73 100% |", "|  697.86  50% |"} {
 		if !strings.Contains(table, cell) {
 			t.Errorf("no %q in:\n%s", cell, table)
+		}
+	}
+}
+
+// TestLangFollowsFramework puts the Lang column right after Framework in all
+// three tables, and fills it in from the config for a report file written
+// before the column existed.
+func TestLangFollowsFramework(t *testing.T) {
+	Init(false)
+	for name, headers := range map[string][]string{
+		"Connections": ConnectionsReportMarkdownHeaders,
+		"BenchEcho":   BenchEchoReportMarkdownHeaders,
+		"BenchRate":   BenchRateReportMarkdownHeaders,
+	} {
+		if len(headers) < 2 || headers[0] != "Framework" || headers[1] != "Lang" {
+			t.Errorf("%s columns start %v, want Framework, Lang", name, headers)
+		}
+	}
+
+	dir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(wd)
+	if err := os.MkdirAll("output/report", 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Written the way a client wrote them before the column: no "Lang".
+	for _, framework := range []string{config.Gorilla, config.SockudoWs, config.Uwebsockets} {
+		body := `{"Framework":"` + framework + `","BenchClient":"benchcli-go","TPS":100}`
+		if err := os.WriteFile("output/report/"+framework+"-BenchEcho.json", []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := map[string]string{config.Gorilla: "go", config.SockudoWs: "rust", config.Uwebsockets: "c++"}
+	reports := ReadBenchEchoReports("", "")
+	if len(reports) != len(want) {
+		t.Fatalf("read %d reports, want %d", len(reports), len(want))
+	}
+	for _, r := range reports {
+		echo := r.(*BenchEchoReport)
+		if echo.Lang != want[echo.Framework] {
+			t.Errorf("%s: Lang = %q, want %q", echo.Framework, echo.Lang, want[echo.Framework])
+		}
+	}
+	table := Markdown(reports, false, SortFramework, nil)
+	for framework, lang := range want {
+		if !regexp.MustCompile(`\| *` + framework + ` *\| *` + regexp.QuoteMeta(lang) + ` *\|`).MatchString(table) {
+			t.Errorf("no %s row with Lang %s in:\n%s", framework, lang, table)
 		}
 	}
 }

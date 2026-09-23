@@ -45,6 +45,7 @@ const (
 	GoNettyWs          = "nettyws"
 	Nhooyr             = "nhooyr"
 	Quickws            = "quickws"
+	SockudoWs          = "sockudo_ws"
 	Uwebsockets        = "uwebsockets"
 	UwsEvents          = "uws_events"
 	UwsStdio           = "uws_std"
@@ -69,9 +70,56 @@ var Ports = map[string]string{
 	GoNettyWs:          "21001:21050",
 	Nhooyr:             "22001:22050",
 	Quickws:            "23001:23050",
+	SockudoWs:          "32001:32050",
 	Uwebsockets:        "31001:31050",
 	UwsEvents:          "28001:28050",
 	UwsStdio:           "26001:26050",
+}
+
+// The languages a framework's server is written in, as the reports' Lang
+// column shows them.
+const (
+	LangCPP  = "c++"
+	LangGo   = "go"
+	LangRust = "rust"
+)
+
+// Langs is the language of every framework's server, in framework-name order
+// like Ports.
+var Langs = map[string]string{
+	Fasthttp:           LangGo,
+	Fib:                LangGo,
+	Fnet:               LangGo,
+	Gobwas:             LangGo,
+	Gorilla:            LangGo,
+	Greatws:            LangGo,
+	GreatwsEvent:       LangGo,
+	Gws:                LangGo,
+	GwsStd:             LangGo,
+	Hertz:              LangGo,
+	HertzStd:           LangGo,
+	NbioModBlocking:    LangGo,
+	NbioModMixed:       LangGo,
+	NbioModNonblocking: LangGo,
+	NbioStd:            LangGo,
+	GoNettyWs:          LangGo,
+	Nhooyr:             LangGo,
+	Quickws:            LangGo,
+	SockudoWs:          LangRust,
+	Uwebsockets:        LangCPP,
+	UwsEvents:          LangGo,
+	UwsStdio:           LangGo,
+}
+
+// FrameworkLang is the language framework's server is written in, for the
+// reports' Lang column, or "-" for a framework it does not know.
+// benchcli-uwscpp reads the same table, through
+// benchcli-uwscpp/generate_metadata.py.
+func FrameworkLang(framework string) string {
+	if lang, ok := Langs[framework]; ok {
+		return lang
+	}
+	return "-"
 }
 
 // FrameworkList is every framework, in framework-name order. It is also the
@@ -96,6 +144,7 @@ var FrameworkList = []string{
 	GoNettyWs,
 	Nhooyr,
 	Quickws,
+	SockudoWs,
 	Uwebsockets,
 	UwsEvents,
 	UwsStdio,

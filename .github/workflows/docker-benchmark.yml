@@ -32,8 +32,8 @@ on:
       client:
         description: "Benchmark client"
         type: choice
-        options: [benchcli-uwscpp, benchcli-go]
-        default: benchcli-uwscpp
+        options: [benchcli-rust, benchcli-uwscpp, benchcli-go]
+        default: benchcli-rust
       taskpool:
         description: "BENCH_TASKPOOL (empty = fib_adaptive, the script default)"
         type: string
@@ -113,7 +113,7 @@ jobs:
           # an input cannot become shell of its own.
           INPUT_MODE: ${{ env.BENCH_MODE }}
           INPUT_FRAMEWORKS: ${{ inputs.frameworks }}
-          INPUT_CLIENT: ${{ inputs.client || 'benchcli-uwscpp' }}
+          INPUT_CLIENT: ${{ inputs.client || 'benchcli-rust' }}
           INPUT_TASKPOOL: ${{ inputs.taskpool }}
           INPUT_CPUS: ${{ env.BENCH_RUN_CPUS }}
           INPUT_MEMORY: ${{ inputs.memory }}

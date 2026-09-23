@@ -18,7 +18,8 @@ Options:
   -h, --help    Show this help.
 
 Environment overrides:
-  BENCH_CLIENT             benchcli-uwscpp (default) or benchcli-go
+  BENCH_CLIENT             benchcli-rust (default), benchcli-uwscpp or
+                           benchcli-go
   BENCH_FRAMEWORKS         Comma-separated framework subset
   BENCH_TASKPOOL           Pool the servers run their callbacks on, and
   BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script/config.sh)
@@ -38,7 +39,12 @@ Environment overrides:
   DOCKER_BENCH_GITHUB_MIRROR Space-separated prefixes tried before
                            https://github.com/ for the image's native
                            dependencies, each download checked by SHA-256
-  (script/docker_benchmark_cn.sh sets the last four to mainland China mirrors.)
+  DOCKER_BENCH_RUSTUP_MIRROR Replaces https://static.rust-lang.org for the
+                           image's Rust toolchain, e.g. https://rsproxy.cn
+  DOCKER_BENCH_CARGO_MIRROR A sparse index standing in for crates.io, e.g.
+                           sparse+https://rsproxy.cn/index/; each crate is
+                           checked against Cargo.lock
+  (script/docker_benchmark_cn.sh sets the last six to mainland China mirrors.)
 
 Examples:
   bash script/docker_benchmark.sh --smoke
@@ -93,6 +99,8 @@ if [ -n "${DOCKER_BENCH_GO_IMAGE:-}" ]; then build_args+=(--build-arg "GO_IMAGE=
 if [ -n "${DOCKER_BENCH_APT_MIRROR:-}" ]; then build_args+=(--build-arg "APT_MIRROR=$DOCKER_BENCH_APT_MIRROR"); fi
 if [ -n "${DOCKER_BENCH_GOPROXY:-}" ]; then build_args+=(--build-arg "GO_PROXY=$DOCKER_BENCH_GOPROXY"); fi
 if [ -n "${DOCKER_BENCH_GITHUB_MIRROR:-}" ]; then build_args+=(--build-arg "GITHUB_MIRROR=$DOCKER_BENCH_GITHUB_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_RUSTUP_MIRROR:-}" ]; then build_args+=(--build-arg "RUSTUP_DIST_SERVER=$DOCKER_BENCH_RUSTUP_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_CARGO_MIRROR:-}" ]; then build_args+=(--build-arg "CARGO_REGISTRY=$DOCKER_BENCH_CARGO_MIRROR"); fi
 if [ "${DOCKER_BENCH_SKIP_BUILD:-0}" != 1 ]; then
     echo "Building Docker benchmark image: $image"
     docker build "${build_args[@]}" .

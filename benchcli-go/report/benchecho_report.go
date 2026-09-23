@@ -20,6 +20,7 @@ type EchoSession struct {
 // the one that spent less CPU on it first.
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
+	Lang        string  `json:"Lang" md:"Lang"`
 	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool" summary:"Pool"`
 	TPS         int64   `json:"TPS" md:"TPS" rank:"1"`

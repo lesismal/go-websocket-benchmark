@@ -1,0 +1,21 @@
+[package]
+name = "benchcli-rust"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Pinned by Cargo.lock beside it, as frameworks/sockudo_ws is.
+[dependencies]
+base64 = "0.22"
+libc = "0.2"
+mio = { version = "1", features = ["os-poll", "net"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha1 = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = false
+strip = true

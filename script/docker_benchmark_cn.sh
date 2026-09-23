@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # script/docker_benchmark.sh with the image built from mirrors reachable from
-# mainland China: Docker Hub, Debian apt, the Go module proxy and GitHub. Only
-# the build downloads anything; the benchmark runs with --network none either
-# way, so the numbers are the same as script/docker_benchmark.sh's.
+# mainland China: Docker Hub, Debian apt, the Go module proxy, GitHub, the Rust
+# toolchain and crates.io. Only the build downloads anything; the benchmark
+# runs with --network none either way, so the numbers are the same as
+# script/docker_benchmark.sh's.
 #
 # Every option and flag is script/docker_benchmark.sh's; see its --help. Each
 # mirror below can be overridden, or set to an empty value to use the upstream:
@@ -20,5 +21,11 @@ export DOCKER_BENCH_GOPROXY=${DOCKER_BENCH_GOPROXY-https://goproxy.cn}
 # serves something else only costs a retry. Add or replace one of the same
 # https://<proxy>/https://github.com/ form if these stop working.
 export DOCKER_BENCH_GITHUB_MIRROR=${DOCKER_BENCH_GITHUB_MIRROR-https://ghfast.top/https://github.com/ https://gh-proxy.com/https://github.com/}
+# rsproxy.cn for the Rust toolchain and the crates benchcli-rust and
+# frameworks/sockudo_ws build with. rustup-init is checked against a pinned
+# SHA-256 and every crate against Cargo.lock, and a failure falls back to the
+# upstream (script/docker_rust.sh).
+export DOCKER_BENCH_RUSTUP_MIRROR=${DOCKER_BENCH_RUSTUP_MIRROR-https://rsproxy.cn}
+export DOCKER_BENCH_CARGO_MIRROR=${DOCKER_BENCH_CARGO_MIRROR-sparse+https://rsproxy.cn/index/}
 
 exec bash "$script_dir/docker_benchmark.sh" "$@"

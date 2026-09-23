@@ -83,6 +83,11 @@ inline std::string frameworkTaskPool(const Options &o) {
         return name.substr(first,last-first+1);
     } catch (const std::exception &) { return none; }
 }
+// The language a framework's server is written in, for the report's Lang column, as
+// config.FrameworkLang has it.
+inline std::string frameworkLang(const std::string &framework) {
+    return metadata["langs"].value(framework,std::string("-"));
+}
 inline json emptyReport(const std::string &kind,const Options &o) {
     json r=json::object();
     for (const auto &field:metadata["schemas"][kind]) {
@@ -91,6 +96,7 @@ inline json emptyReport(const std::string &kind,const Options &o) {
         else r[key]=0;
     }
     r["Framework"]=o.get("f");
+    r["Lang"]=frameworkLang(o.get("f"));
     r["BenchClient"]="benchcli-uwscpp";
     r["TaskPool"]=frameworkTaskPool(o);
     return r;
@@ -303,7 +309,11 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
         if (!in) continue;
         try { json row; in>>row; rows.push_back(std::move(row)); }
         catch (const std::exception &e) { throw std::runtime_error(path+": "+e.what()); }
-        if (kind=="BenchRate") fillRateTPS(rows.back());
+        // A report written before the Lang column existed gets it from the config here.
+        auto &row=rows.back();
+        if (!row.contains("Lang") || !row["Lang"].is_string() || row["Lang"].get<std::string>().empty())
+            row["Lang"]=frameworkLang(f.get<std::string>());
+        if (kind=="BenchRate") fillRateTPS(row);
     }
     return rows;
 }

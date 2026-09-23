@@ -7,7 +7,7 @@ fi
 
 build_benchmark() {
     case "$BENCH_CLIENT" in
-        benchcli-go|benchcli-uwscpp) ;;
+        benchcli-go|benchcli-rust|benchcli-uwscpp) ;;
         *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
     esac
     . ./script/clean.sh
@@ -19,6 +19,7 @@ build_benchmark() {
         for f in "${frameworks[@]}"; do
             echo "build ${f} ..."
             case "${f}" in
+                sockudo_ws) bash ./frameworks/sockudo_ws/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uwebsockets) bash ./frameworks/uwebsockets/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uws_events) go build -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;
                 uws_std) go build -tags=stdio -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;
@@ -36,6 +37,7 @@ build_benchmark() {
         echo "build client: ${BENCH_CLIENT} ..."
         case "$BENCH_CLIENT" in
             benchcli-go) go build -o ./output/bin/bench.client ./benchcli-go || return 1 ;;
+            benchcli-rust) bash ./benchcli-rust/build.sh "$(pwd)/output/bin/bench.client" || return 1 ;;
             benchcli-uwscpp) bash ./benchcli-uwscpp/build.sh || return 1 ;;
         esac
         echo "build client done"

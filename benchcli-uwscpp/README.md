@@ -21,15 +21,12 @@ sudo apt-get install build-essential git python3 libcurl4-openssl-dev
 # Build just the C++ client (first build downloads pinned dependencies).
 bash benchcli-uwscpp/build.sh
 
-# The full benchmark defaults to C++ via script/config.sh.
-bash script/benchmark.sh
-
-# Select the original Go client instead.
-BENCH_CLIENT=benchcli-go bash script/benchmark.sh
+# Run the full benchmark with this client; script/config.sh defaults to benchcli-rust.
+BENCH_CLIENT=benchcli-uwscpp bash script/benchmark.sh
 ```
 
-Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}` in `script/config.sh` to change the
-persistent default. Both builds produce `output/bin/bench.client`; rerun the build
+Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-rust}` in `script/config.sh` to change the
+persistent default. Every client's build produces `output/bin/bench.client`; rerun the build
 when switching clients. The runner and report scripts use that binary.
 
 The build caches sources in `.deps/` and objects in `.build/` (both ignored by Git,
@@ -122,7 +119,8 @@ parameters (`summary:"<name>"` fields) in front of the three.
 ## Tests
 
 The Python fixture binds the Gorilla test port range (127.0.0.1:12001–12050).
-Run with no other Gorilla benchmark server listening on those ports:
+Run with no other Gorilla benchmark server listening on those ports. `test_client.py` takes
+the binary to test, and `benchcli-rust` runs the same suite:
 
 ```sh
 python3 benchcli-uwscpp/test_client.py ./output/bin/bench.client
