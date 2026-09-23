@@ -5,11 +5,14 @@
 # documents. A push has no inputs, so every one of them falls back to the
 # default given in the job's env block.
 #
-# The benchmark gets 8 CPUs, which the standard GitHub-hosted runner (a shared
-# 4-CPU VM) does not have. Point the repository variable DOCKER_BENCH_RUNNER
-# (Settings > Secrets and variables > Actions > Variables) at the label of a
-# runner with at least 8 CPUs - a larger GitHub-hosted runner or a self-hosted
-# one. Until it is set, the job runs on ubuntu-24.04 and stops at the CPU check.
+# The benchmark asks for 8 CPUs, which the standard GitHub-hosted runner (a
+# shared 4-CPU VM) does not have. Point the repository variable
+# DOCKER_BENCH_RUNNER (Settings > Secrets and variables > Actions > Variables)
+# at the label of a runner with at least 8 CPUs - a larger GitHub-hosted runner
+# or a self-hosted one. Until it is set, the job runs on ubuntu-24.04 and falls
+# back to every CPU that runner has: the run still passes, but its numbers are
+# for 4 CPUs rather than 8, which the job summary and resources.txt say, and
+# the full matrix takes hours there.
 name: Docker benchmark
 
 on:
@@ -36,7 +39,7 @@ on:
         type: string
         default: ""
       cpus:
-        description: "DOCKER_BENCH_CPUS, an integer; the runner needs at least this many"
+        description: "DOCKER_BENCH_CPUS, an integer; a runner with fewer runs on all of its own"
         type: string
         default: "8"
       memory:
@@ -67,6 +70,8 @@ jobs:
     timeout-minutes: 360
 
     # The inputs with a push's defaults filled in; a dispatch passes its own.
+    # BENCH_CPUS is what was asked for; the runner check sets BENCH_RUN_CPUS
+    # to what the run actually gets.
     env:
       BENCH_MODE: ${{ inputs.mode || 'full' }}
       BENCH_CPUS: ${{ inputs.cpus || '8' }}
@@ -90,11 +95,14 @@ jobs:
             echo "cpus must be an integer; got $BENCH_CPUS" >&2
             exit 1
           fi
+          run_cpus=$BENCH_CPUS
           if [ "$cpus" -lt "$BENCH_CPUS" ]; then
-            echo "the benchmark wants $BENCH_CPUS CPUs, but this runner has $cpus;" \
-              "set the repository variable DOCKER_BENCH_RUNNER to a runner with at least $BENCH_CPUS" >&2
-            exit 1
+            # Run on what there is rather than not at all, and say so where
+            # the results are read.
+            run_cpus=$cpus
+            echo "::warning title=Benchmark ran on $cpus of the $BENCH_CPUS CPUs asked for::this runner has $cpus CPUs, so the results are for $cpus, not the $BENCH_CPUS asked for; set the repository variable DOCKER_BENCH_RUNNER to a runner with at least $BENCH_CPUS"
           fi
+          echo "BENCH_RUN_CPUS=$run_cpus" >> "$GITHUB_ENV"
           free -h
           df -h /
           docker version
@@ -107,7 +115,7 @@ jobs:
           INPUT_FRAMEWORKS: ${{ inputs.frameworks }}
           INPUT_CLIENT: ${{ inputs.client || 'benchcli-uwscpp' }}
           INPUT_TASKPOOL: ${{ inputs.taskpool }}
-          INPUT_CPUS: ${{ env.BENCH_CPUS }}
+          INPUT_CPUS: ${{ env.BENCH_RUN_CPUS }}
           INPUT_MEMORY: ${{ inputs.memory }}
           INPUT_BENCHMARK_ARGS: ${{ inputs.benchmark_args }}
           INPUT_REBUILD: ${{ inputs.rebuild || false }}
@@ -145,7 +153,19 @@ jobs:
         if: always()
         run: |
           result_dir=output/docker/ci
+          run_cpus=${BENCH_RUN_CPUS:-$BENCH_CPUS}
+          if [ "$run_cpus" = "$BENCH_CPUS" ]; then
+            cpu_note="CPUs: $run_cpus"
+          else
+            cpu_note="CPUs: $run_cpus (asked for $BENCH_CPUS; this runner has only $run_cpus, so these are not $BENCH_CPUS-CPU numbers)"
+          fi
+          # Into the artifact as well, which outlives the summary.
+          if [ -f "$result_dir/resources.txt" ]; then
+            echo "Benchmark $cpu_note" >> "$result_dir/resources.txt"
+          fi
           {
+            echo "**$cpu_note**"
+            echo
             if [ -f "$result_dir/resources.txt" ]; then
               echo "## Run"
               echo
