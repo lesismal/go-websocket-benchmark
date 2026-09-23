@@ -115,12 +115,27 @@ func rankedBefore(a, b []float64) bool {
 
 // Percent is how a row's result reads against the best in its table: floored,
 // so that only the best shows 100%, and 0% for a table where nothing scored.
+//
+// The best is 100% by comparison rather than by division: for one float in
+// twenty or so, EER among them, value*100/value is 99.99999999999999, which
+// floored left a table with no row at 100%. The same rounding put an exact
+// fraction a hair under its percent - half the best read 49% - so the rest
+// are nudged up by far less than any two results could be told apart by, and
+// held under 100%, which stays the best's.
 func Percent(value, best float64) string {
 	if best <= 0 || value <= 0 {
 		return "0%"
 	}
-	return fmt.Sprintf("%d%%", int64(math.Floor(value*100/best)))
+	if value >= best {
+		return "100%"
+	}
+	percent := int64(math.Floor(value*100/best + percentSlack))
+	return fmt.Sprintf("%d%%", min(percent, 99))
 }
+
+// percentSlack is the nudge Percent gives a quotient before flooring it: many
+// times the error a division leaves, and nothing next to a percent.
+const percentSlack = 1e-9
 
 // withPercent appends each row's percentage of the best to its cell in column
 // col, whatever order the rows are in. The value and the percentage are each

@@ -261,10 +261,14 @@ inline bool rankedBefore(const std::vector<json> &ranks,const json &a,const json
     }
     return false;
 }
-// percent mirrors report.Percent: floored, so only the best shows 100%.
+// percent mirrors report.Percent: floored, so only the best shows 100%. The best is 100% by
+// comparison, since value*100/value can come out a hair under 100 for a float EER, and the
+// rest get the same nudge up against the division's rounding, held under 100.
 inline std::string percent(double value,double best) {
     if (best<=0 || value<=0) return "0%";
-    return std::to_string((long long)std::floor(value*100/best))+"%";
+    if (value>=best) return "100%";
+    auto p=(long long)std::floor(value*100/best+1e-9);
+    return std::to_string(std::min(p,99LL))+"%";
 }
 // withPercent mirrors report.withPercent: each cell of column col gets its row's share of
 // the best after it, the value and the percentage each right-aligned.
