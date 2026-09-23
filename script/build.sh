@@ -19,7 +19,7 @@ build_benchmark() {
         for f in "${frameworks[@]}"; do
             echo "build ${f} ..."
             case "${f}" in
-                sockudo_ws) bash ./frameworks/sockudo_ws/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
+                tokio_tungstenite) bash ./frameworks/tokio_tungstenite/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uwebsockets) bash ./frameworks/uwebsockets/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uws_events) go build -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;
                 uws_std) go build -tags=stdio -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;

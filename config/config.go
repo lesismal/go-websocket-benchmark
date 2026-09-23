@@ -45,7 +45,7 @@ const (
 	GoNettyWs          = "nettyws"
 	Nhooyr             = "nhooyr"
 	Quickws            = "quickws"
-	SockudoWs          = "sockudo_ws"
+	TokioTungstenite   = "tokio_tungstenite"
 	Uwebsockets        = "uwebsockets"
 	UwsEvents          = "uws_events"
 	UwsStdio           = "uws_std"
@@ -70,7 +70,7 @@ var Ports = map[string]string{
 	GoNettyWs:          "21001:21050",
 	Nhooyr:             "22001:22050",
 	Quickws:            "23001:23050",
-	SockudoWs:          "32001:32050",
+	TokioTungstenite:   "32001:32050",
 	Uwebsockets:        "31001:31050",
 	UwsEvents:          "28001:28050",
 	UwsStdio:           "26001:26050",
@@ -105,7 +105,7 @@ var Langs = map[string]string{
 	GoNettyWs:          LangGo,
 	Nhooyr:             LangGo,
 	Quickws:            LangGo,
-	SockudoWs:          LangRust,
+	TokioTungstenite:   LangRust,
 	Uwebsockets:        LangCPP,
 	UwsEvents:          LangGo,
 	UwsStdio:           LangGo,
@@ -144,7 +144,7 @@ var FrameworkList = []string{
 	GoNettyWs,
 	Nhooyr,
 	Quickws,
-	SockudoWs,
+	TokioTungstenite,
 	Uwebsockets,
 	UwsEvents,
 	UwsStdio,

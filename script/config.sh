@@ -213,7 +213,7 @@ frameworks=(
     "nettyws"
     "nhooyr"
     "quickws"
-    "sockudo_ws"
+    "tokio_tungstenite"
     "uwebsockets"
     "uws_events"
     "uws_std"

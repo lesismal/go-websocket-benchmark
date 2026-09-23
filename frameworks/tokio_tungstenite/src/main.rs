@@ -1,41 +1,44 @@
-// Echo WebSocket server built on sockudo-ws (https://github.com/sockudo/sockudo-ws), a Rust
-// WebSocket library on Tokio. One multi-threaded Tokio runtime with a worker thread per CPU the
-// process may run on, one listener per benchmark port, one task per connection - the Rust
-// counterpart of a Go server's goroutine per connection on GOMAXPROCS threads.
+// Echo WebSocket server built on tokio-tungstenite (https://github.com/snapview/tokio-tungstenite),
+// the Tokio binding of tungstenite, Rust's most widely used WebSocket implementation. One
+// multi-threaded Tokio runtime with a worker thread per CPU the process may run on, one listener
+// per benchmark port, one task per connection - the Rust counterpart of a Go server's goroutine
+// per connection on GOMAXPROCS threads.
 //
 // The /init and /ps routes replicate just enough of frameworks.HandleCommon (see
 // frameworks/handlers.go) for the benchmark clients' resource reporting, the way the uwebsockets
 // server does: /init starts a background CPU%/RSS sampler and returns the PID, /ps returns the
 // samples as JSON. They are served on every benchmark port, so config.Ports' last port doubles as
-// the control port. There is no /taskpool: this server takes no -taskpool flag, and the reports
-// show "-" for it as they do for every framework without a pool hook.
+// the control port. A connection's request head is peeked at, not read, to tell the two apart,
+// so that an upgrade reaches tungstenite's handshake whole. There is no /taskpool: this server
+// takes no -taskpool flag, and the reports show "-" for it as they do for every framework
+// without a pool hook.
 //
 // # Echo
 //
-// sockudo-ws's WebSocketStream is a futures Stream + Sink. Sink::start_send only encodes into the
-// stream's cork buffer and poll_flush writes it out, so the echo loop feeds every message that is
-// already readable - those parsed out of the same read, without waiting on the socket - and
-// flushes once for the batch, which is one vectored write where sending each message would have
-// been one apiece. uWS corks the sends a message callback makes the same way.
+// WebSocketStream is a futures Stream + Sink, and Sink::start_send only frames a message into
+// tungstenite's write buffer; poll_flush writes it out. So the echo loop feeds every message that
+// is already readable - those parsed out of the same read, without waiting on the socket - and
+// flushes once for the batch, which is one write where sending each message would have been one
+// apiece. uWS corks the sends a message callback makes the same way.
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use bytes::BytesMut;
 use futures_util::{FutureExt, SinkExt, StreamExt};
-use sockudo_ws::handshake::{build_response, generate_accept_key, parse_request};
-use sockudo_ws::{Config, Message, Role, WebSocketStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
-// Must match config.Ports[config.SockudoWs] in config/config.go; config/native_ports_test.go
+// Must match config.Ports[config.TokioTungstenite] in config/config.go; config/native_ports_test.go
 // holds the two to it.
 const PORT_START: u16 = 32001;
 const PORT_END: u16 = 32050;
 
-// The same ceiling sockudo-ws puts on a handshake, applied to the control requests too.
+// The longest request head read before giving up on a connection.
 const MAX_REQUEST_HEAD: usize = 8192;
 
 struct Flags {
@@ -48,8 +51,8 @@ struct Flags {
 // Takes -name=value and a bare -name for true, as Go's flag package does for the flags the
 // scripts pass. script/servers.sh hands every server the same set - -nodelay, -reuseport, -b, -m
 // - and only the first two mean anything here, so the rest are reported and ignored rather than
-// fatal: the Go servers each define the ones they read, and this one cannot define -b's read
-// buffer size, since sockudo-ws sizes its own.
+// fatal: the Go servers each define the ones they read, and this one keeps tungstenite's own
+// buffer sizes rather than -b's; see ws_config.
 fn parse_flags() -> Flags {
     let mut flags = Flags {
         nodelay: true,
@@ -79,7 +82,7 @@ fn parse_flags() -> Flags {
             "reuseport" => flags.reuseport = as_bool(value),
             "threads" => match value.and_then(|v| v.parse().ok()) {
                 Some(threads) => flags.threads = threads,
-                None => eprintln!("sockudo_ws: ignoring {arg}, want -threads=<count>"),
+                None => eprintln!("tokio_tungstenite: ignoring {arg}, want -threads=<count>"),
             },
             _ => flags.ignored.push(arg),
         }
@@ -103,12 +106,12 @@ fn main() {
     };
 
     eprintln!(
-        "sockudo_ws benchmark config: threads={threads} cpus={cpus} nodelay={} reuseport={} ports={PORT_START}-{PORT_END}",
+        "tokio_tungstenite benchmark config: threads={threads} cpus={cpus} nodelay={} reuseport={} ports={PORT_START}-{PORT_END}",
         flags.nodelay, flags.reuseport
     );
     if !flags.ignored.is_empty() {
         eprintln!(
-            "sockudo_ws: ignoring flags this server does not define: {}",
+            "tokio_tungstenite: ignoring flags this server does not define: {}",
             flags.ignored.join(" ")
         );
     }
@@ -125,7 +128,7 @@ fn main() {
             let listener = match listen(port, flags.reuseport) {
                 Ok(listener) => listener,
                 Err(err) => {
-                    eprintln!("sockudo_ws: failed to listen on port {port}: {err}");
+                    eprintln!("tokio_tungstenite: failed to listen on port {port}: {err}");
                     std::process::exit(1);
                 }
             };
@@ -166,7 +169,7 @@ async fn accept_loop(listener: TcpListener, nodelay: bool) {
             Err(err) => {
                 // Out of file descriptors, most likely. Back off rather than spin on it; the
                 // connections already accepted keep being served meanwhile.
-                eprintln!("sockudo_ws: accept failed: {err}");
+                eprintln!("tokio_tungstenite: accept failed: {err}");
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         }
@@ -215,50 +218,45 @@ fn parse_head(buf: &[u8]) -> Result<Option<RequestHead>, ()> {
 }
 
 async fn handle_connection(mut stream: TcpStream) {
-    let mut buf = BytesMut::with_capacity(4096);
+    // Peeked, not read: an upgrade is handed to tungstenite's handshake with its request still
+    // in the socket, and a control request is read below once it is known to be one. A peek
+    // returns at once while what it has already seen is unread, so a head that has not all
+    // arrived yet is waited on a millisecond at a time rather than spun on.
+    let mut buf = vec![0u8; MAX_REQUEST_HEAD];
+    let mut seen = 0;
     let head = loop {
-        match stream.read_buf(&mut buf).await {
+        let n = match stream.peek(&mut buf).await {
             Ok(0) | Err(_) => return,
-            Ok(_) => {}
-        }
-        match parse_head(&buf) {
+            Ok(n) => n,
+        };
+        match parse_head(&buf[..n]) {
             Ok(Some(head)) => break head,
-            Ok(None) if buf.len() < MAX_REQUEST_HEAD => continue,
+            Ok(None) if n < MAX_REQUEST_HEAD => {}
             _ => return,
         }
+        if n == seen {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        seen = n;
     };
 
     if head.upgrade {
-        // sockudo-ws's own parser does the validation - method, Connection, key, version - so
-        // the handshake is the library's, not this file's.
-        let response = match parse_request(&buf[..head.head_len]) {
-            Ok(Some((req, _))) => build_response(&generate_accept_key(req.key), None, None),
-            _ => {
-                let _ = stream.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await;
-                return;
-            }
-        };
-        if stream.write_all(&response).await.is_err() {
-            return;
+        // The handshake - the method, Connection, the key and its answer, the version - is
+        // tungstenite's.
+        if let Ok(ws) = tokio_tungstenite::accept_async_with_config(stream, Some(ws_config())).await
+        {
+            echo(ws).await;
         }
-        // Frames the client wrote straight after its upgrade request arrive in the same read.
-        let _ = buf.split_to(head.head_len);
-        let leftover = (!buf.is_empty()).then(|| buf.freeze());
-        let ws =
-            WebSocketStream::from_raw_with_leftover(stream, Role::Server, ws_config(), leftover);
-        echo(ws).await;
         return;
     }
 
     let total = head.head_len + head.content_length;
-    while buf.len() < total {
-        match stream.read_buf(&mut buf).await {
-            Ok(0) | Err(_) => return,
-            Ok(_) => {}
-        }
+    let mut request = vec![0u8; total];
+    if stream.read_exact(&mut request).await.is_err() {
+        return;
     }
-    let body = &buf[head.head_len..total];
-    let (status, content_type, reply) = control(&head.method, &head.path, body);
+    let (status, content_type, reply) =
+        control(&head.method, &head.path, &request[head.head_len..]);
     let response = format!(
         "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
         reply.len()
@@ -289,16 +287,18 @@ fn control(method: &str, path: &str, body: &[u8]) -> (&'static str, &'static str
     }
 }
 
-// A benchmark connection lives as long as the run: no idle deadline and no pings of the
-// server's own, as the uwebsockets server sets uWS up (idleTimeout 0, sendPingsAutomatically
-// false), since a connection opened in the Connections phase sits idle until the echo phase and
-// the clients do not all answer pings. Payload limits as uWS's maxPayloadLength there, 64MiB.
-fn ws_config() -> Config {
-    Config::builder()
-        .max_payload_length(64 * 1024 * 1024)
-        .idle_timeout(0)
-        .auto_ping(false)
-        .build()
+// tungstenite's defaults, but for the payload limits: 64MiB for a message and a frame, as the
+// uwebsockets server sets uWS's maxPayloadLength (tungstenite's own frame limit is 16MiB). The
+// buffers stay as the library ships them - a 128KiB read buffer a connection, reserved up front
+// and zero-filled on every read, and writes gathered up to 128KiB before they go out - since that
+// is what an application on it gets; see README.md for what the read buffer does to the memory
+// column. tungstenite sends no
+// pings and has no idle timeout of its own, so a connection opened in the Connections phase stays
+// up however long it sits idle, as the uwebsockets server has uWS keep it.
+fn ws_config() -> WebSocketConfig {
+    WebSocketConfig::default()
+        .max_message_size(Some(64 << 20))
+        .max_frame_size(Some(64 << 20))
 }
 
 async fn echo(mut ws: WebSocketStream<TcpStream>) {
@@ -311,10 +311,9 @@ async fn echo(mut ws: WebSocketStream<TcpStream>) {
                         return;
                     }
                 }
-                // The stream has already answered the Close, and flushed the answer.
-                Message::Close(_) => return,
-                // Pings are answered by the stream itself.
-                Message::Ping(_) | Message::Pong(_) => {}
+                // tungstenite answers a Ping, and a Close, on its own; the answer goes out with
+                // the flush below, and after a Close the stream ends on its own.
+                Message::Ping(_) | Message::Pong(_) | Message::Close(_) | Message::Frame(_) => {}
             }
             // Take the next message only if it is already here: one the last read parsed out
             // along with this one, or bytes already sitting in the socket. Anything that would

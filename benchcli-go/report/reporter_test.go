@@ -572,13 +572,13 @@ func TestLangFollowsFramework(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Written the way a client wrote them before the column: no "Lang".
-	for _, framework := range []string{config.Gorilla, config.SockudoWs, config.Uwebsockets} {
+	for _, framework := range []string{config.Gorilla, config.TokioTungstenite, config.Uwebsockets} {
 		body := `{"Framework":"` + framework + `","BenchClient":"benchcli-go","TPS":100}`
 		if err := os.WriteFile("output/report/"+framework+"-BenchEcho.json", []byte(body), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	want := map[string]string{config.Gorilla: "go", config.SockudoWs: "rust", config.Uwebsockets: "c++"}
+	want := map[string]string{config.Gorilla: "go", config.TokioTungstenite: "rust", config.Uwebsockets: "c++"}
 	reports := ReadBenchEchoReports("", "")
 	if len(reports) != len(want) {
 		t.Fatalf("read %d reports, want %d", len(reports), len(want))
