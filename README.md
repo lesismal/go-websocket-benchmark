@@ -201,12 +201,12 @@ The report tables are written best first. `-sort` takes the two orders:
 
 Which number `result` ranks by is the one each benchmark answers with:
 `Connections` and `BenchEcho` by `TPS`, and `BenchRate` by `Packet Recv`, the
-messages the clients read back off the server, with `EER` breaking a tie. The
-rate test writes at a rate the clients set rather than to completion, so what
-the server got back under that load is its result there the way TPS is in the
-other two - `Packet Sent` is the load rather than the answer. `Connections` and
-`BenchEcho` do not rank by `EER`, which divides throughput by the CPU it cost
-and so answers a different question; it is still a column to read.
+messages the clients read back off the server. The rate test writes at a rate
+the clients set rather than to completion, so what the server got back under
+that load is its result there the way TPS is in the other two - `Packet Sent` is
+the load rather than the answer. In `BenchEcho` and `BenchRate`, rows that tie
+on that are ranked by `EER`, the one that spent less CPU on it first;
+`Connections` samples no CPU, so it has no `EER` to break a tie with.
 
 The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
 benchmark's concurrency, `Echo Total`, `Rate Duration` and `Rate SendRate` - are
@@ -217,15 +217,18 @@ disagree on lists each value with the frameworks that had it, e.g.
 field, and so does the block each benchmark prints to the console as it
 finishes.
 
-In either order, the ranked column - `TPS`, or `Packet Recv` - shows each row's
-share of the best result after the number, the best being `100%`, floored so
-that only the best reads `100%`:
+In either order, every column a table is ranked by - `TPS` or `Packet Recv`,
+and `EER` - shows each row's share of the best in that column after the
+number, the best being `100%`, floored so that only the best reads `100%`. Each
+column has its own best, so the row with the most `TPS` need not have the most
+`EER`. Their titles carry `↓1` on the key the rows are ranked by, highest
+first, and `↓2` on the one that breaks a tie on it:
 
-| Framework | TPS       |
-| --------- | --------- |
-| gorilla   | 3000 100% |
-| gobwas    | 1500  50% |
-| nhooyr    |   10   0% |
+| Framework | TPS↓1     | EER↓2         |
+| --------- | --------- | ------------- |
+| gorilla   | 3000 100% | 1250.50  50%  |
+| gobwas    | 1500  50% | 2501.00 100%  |
+| nhooyr    |   10   0% |    9.25   0%  |
 
 Rows that tie keep the framework order between them, so two frameworks that
 scored the same - or a whole table from a benchmark that did not run, which

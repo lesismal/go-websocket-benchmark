@@ -30,8 +30,8 @@ for kind, filename in [('Connections', 'connections_report.go'),
         # md:"-" keeps a field in the JSON and out of the tables and the console.
         fields.append(dict(key=tags['json'], title=tags['md'], fmt=tags.get('fmt', ''),
                            optional='tpn' in tags, hidden=tags['md'] == '-',
-                           # rank:"N" is the Nth key -sort=result compares, and rank 1's
-                           # column carries each row's percentage of the best.
+                           # rank:"N" is the Nth key -sort=result compares, and every
+                           # rank column carries each row's percentage of the best.
                            rank=int(tags.get('rank', 0)),
                            # summary:"<name>" moves the field out of the table into the
                            # Summary table, under that name.

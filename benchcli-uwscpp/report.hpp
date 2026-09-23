@@ -158,9 +158,17 @@ inline void saveReport(const Options &o,const std::string &kind,const json &r) {
 }
 // padCell mirrors github.com/lesismal/perf Table.padding so the console/markdown
 // output lines up the same way benchcli-go's report tables do.
+// textWidth is a cell's width in characters rather than bytes: the ↓1 and ↓2 on the rank
+// columns' titles are three bytes each for one character, and counting the bytes would put
+// their columns out of line. The same as report.markdownTable in benchcli-go.
+inline size_t textWidth(const std::string &s) {
+    size_t n=0;
+    for (unsigned char c:s) if ((c&0xC0)!=0x80) ++n;
+    return n;
+}
 inline std::string padCell(const std::string &s,size_t maxLen,bool isFirst,size_t titleLeftPaddingIdx) {
-    if (s.size()>=maxLen) return s;
-    size_t paddingLen=maxLen-s.size();
+    if (textWidth(s)>=maxLen) return s;
+    size_t paddingLen=maxLen-textWidth(s);
     std::string out=s;
     if (isFirst) {
         // paddingLen shrinks as spaces are added, so the loop bound must be
@@ -177,7 +185,7 @@ inline std::string padCell(const std::string &s,size_t maxLen,bool isFirst,size_
 inline std::string markdownTable(std::vector<std::string> title,std::vector<std::vector<std::string>> rows) {
     std::vector<size_t> maxLen;
     size_t columnNum=title.size();
-    for (auto &v:title) maxLen.push_back(v.size());
+    for (auto &v:title) maxLen.push_back(textWidth(v));
 
     std::vector<std::vector<std::string>> allRows;
     allRows.push_back(std::vector<std::string>(columnNum,"---"));
@@ -185,8 +193,8 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 
     for (auto &v:allRows) {
         for (size_t j=0;j<v.size();++j) {
-            if (maxLen.size()<j+1) maxLen.push_back(v[j].size());
-            else if (v[j].size()>maxLen[j]) maxLen[j]=v[j].size();
+            if (maxLen.size()<j+1) maxLen.push_back(textWidth(v[j]));
+            else if (textWidth(v[j])>maxLen[j]) maxLen[j]=textWidth(v[j]);
         }
         if (v.size()>columnNum) columnNum=v.size();
     }
@@ -202,8 +210,12 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
     for (size_t i=0;i<title.size();++i) {
         alignedTitle[i]=padCell(title[i],maxLen[i],false,0);
         if (i==0)
-            for (size_t k=0;k<alignedTitle[i].size();++k)
-                if (alignedTitle[i][k]!=' ') titleLeftPaddingIdx=k;
+            for (size_t k=0,at=0;k<alignedTitle[i].size();++k) {
+                unsigned char c=alignedTitle[i][k];
+                if ((c&0xC0)==0x80) continue;
+                if (c!=' ') titleLeftPaddingIdx=at;
+                ++at;
+            }
         s+=alignedTitle[i]+"|";
     }
     s+="\n";
@@ -217,9 +229,8 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 }
 // rankKeys is what -sort=result ranks a report by, most significant first: the fields
 // tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
-// That is TPS for Connections and BenchEcho, and for BenchRate the packets the clients
-// read back off the server, then EER. Neither Connections nor BenchEcho ranks by EER,
-// which divides throughput by the CPU it cost and answers a different question.
+// That is TPS for Connections, TPS then EER for BenchEcho, and for BenchRate the packets
+// the clients read back off the server, then EER.
 inline std::vector<json> rankFields(const std::string &kind) {
     std::vector<json> fields;
     for (const auto &field:metadata["schemas"][kind])
@@ -346,19 +357,24 @@ inline void generateReports(const Options &o) {
             for (const auto &field:metadata["schemas"][kind])
                 if (tableColumn(field,o)) fields.push_back(field);
             std::vector<std::string> titles;
-            for (const auto &f:fields) titles.push_back(f["title"].get<std::string>());
+            // Rank columns carry ↓1, ↓2, ... after their names, as report.RankMarker has it.
+            for (const auto &f:fields) {
+                std::string title=f["title"];
+                if (f["rank"].get<int>()>0) title+="↓"+std::to_string(f["rank"].get<int>());
+                titles.push_back(title);
+            }
             std::vector<std::vector<std::string>> tableRows;
             for (const auto &r:rows) {
                 std::vector<std::string> row;
                 for (const auto &f:fields) row.push_back(formatField(r,f));
                 tableRows.push_back(std::move(row));
             }
-            // The first rank column carries each row's share of the best, in either order.
-            if (!ranks.empty())
+            // Every rank column carries each row's share of the best in it, in either order.
+            for (const auto &rank:ranks)
                 for (size_t col=0;col<fields.size();++col)
-                    if (fields[col]["key"]==ranks[0]["key"]) {
+                    if (fields[col]["key"]==rank["key"]) {
                         std::vector<double> values;
-                        for (const auto &r:rows) values.push_back(rankValue(r,ranks[0]));
+                        for (const auto &r:rows) values.push_back(rankValue(r,rank));
                         withPercent(tableRows,col,values);
                         break;
                     }
