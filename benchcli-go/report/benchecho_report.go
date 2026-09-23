@@ -20,8 +20,8 @@ type EchoSession struct {
 // and so answers a different question.
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
-	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client"`
-	TaskPool    string  `json:"TaskPool" md:"Pool"`
+	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
+	TaskPool    string  `json:"TaskPool" md:"Pool" summary:"Pool"`
 	TPS         int64   `json:"TPS" md:"TPS" rank:"1"`
 	EER         float64 `json:"EER" md:"EER"`
 	Min         int64   `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
@@ -33,12 +33,12 @@ type BenchEchoReport struct {
 	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration" tpn:"opt"`
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration" tpn:"opt"`
 	Used        int64   `json:"Used" md:"Used" fmt:"duration"`
-	Total       int     `json:"Total" md:"Total"`
+	Total       int     `json:"Total" md:"Total" summary:"Echo Total"`
 	Success     int64   `json:"Success" md:"Success"`
 	Failed      int64   `json:"Failed" md:"Failed"`
-	Connections int     `json:"Conns" md:"Conns"`
-	Concurrency int     `json:"Concurrency" md:"Concurrency"`
-	Payload     int     `json:"Payload" md:"Payload"`
+	Connections int     `json:"Conns" md:"Conns" summary:"Conns"`
+	Concurrency int     `json:"Concurrency" md:"Concurrency" summary:"Echo Concurrency"`
+	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`

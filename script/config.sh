@@ -70,10 +70,10 @@ esac
 # which is also how the uwebsockets server reads this variable: see
 # taskpool_frameworks below.
 #
-# Whichever is selected, each report carries a Pool column naming the pool its
-# server installed, read from the server's own /taskpool route, so a report
-# says which scheduling produced it. "-" there is a framework with no pool
-# hook at all.
+# Whichever is selected, each report records the pool its server installed -
+# the Pool row of the report's Summary table - read from the server's own
+# /taskpool route, so a report says which scheduling produced it. "-" there is
+# a framework with no pool hook at all.
 #
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
 BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
@@ -167,7 +167,7 @@ esac
 # can run under it. It reads the value for what it says about where a server
 # answers from: default and inline install no pool, which for uWS means the
 # event loop, and every other mode hands the callback to a goroutine off the
-# loop, which its own thread pool stands in for. Its Pool column says which
+# loop, which its own thread pool stands in for. Its Pool says which
 # of the two it did, e.g. "nbio(pool)" or "default(loop)". It exits on a value
 # that names no mode, as the Go servers do. See
 # frameworks/uwebsockets/README.md.

@@ -10,8 +10,8 @@ var (
 // and completed handshakes at, which is what this benchmark measures.
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
-	BenchClient string `json:"BenchClient" md:"Client" fmt:"client"`
-	TaskPool    string `json:"TaskPool" md:"Pool"`
+	BenchClient string `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
+	TaskPool    string `json:"TaskPool" md:"Pool" summary:"Pool"`
 	TPS         int64  `json:"TPS" md:"TPS" rank:"1"`
 	Min         int64  `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
 	Avg         int64  `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
@@ -25,7 +25,7 @@ type ConnectionsReport struct {
 	Total       int    `json:"Total" md:"Total"`
 	Success     uint32 `json:"Success" md:"Success"`
 	Failed      uint32 `json:"Failed" md:"Failed"`
-	Concurrency int    `json:"Concurrency" md:"Concurrency"`
+	Concurrency int    `json:"Concurrency" md:"Concurrency" summary:"Dial Concurrency"`
 }
 
 func (r *ConnectionsReport) Type() string {

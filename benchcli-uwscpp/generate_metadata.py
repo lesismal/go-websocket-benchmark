@@ -33,12 +33,20 @@ for kind, filename in [('Connections', 'connections_report.go'),
                            # rank:"N" is the Nth key -sort=result compares, and rank 1's
                            # column carries each row's percentage of the best.
                            rank=int(tags.get('rank', 0)),
+                           # summary:"<name>" moves the field out of the table into the
+                           # Summary table, under that name.
+                           summary=tags.get('summary', ''),
                            string=typ == 'string', floating=typ.startswith('float')))
     if not fields:
         raise SystemExit(f'No report fields found for {kind}')
     schemas[kind] = fields
 assert len(ports) == len(frameworks) and ports
-metadata = dict(ports=ports, frameworks=frameworks, schemas=schemas)
+summary_go = (root / 'benchcli-go/report/summary.go').read_text()
+summary_order = re.findall(r'"([^"]+)"', re.search(r'var SummaryParameters = \[\]string\{(.*?)\}',
+                                                   summary_go, re.S).group(1))
+if not summary_order:
+    raise SystemExit('No SummaryParameters found in summary.go')
+metadata = dict(ports=ports, frameworks=frameworks, schemas=schemas, summaryOrder=summary_order)
 path = pathlib.Path(sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text('// Generated from config/ and benchcli-go/report/. Do not edit.\n'

@@ -174,7 +174,7 @@ jobs:
               echo '```'
               echo
             fi
-            for table in Connections BenchEcho BenchRate; do
+            for table in Summary Connections BenchEcho BenchRate; do
               if [ -f "$result_dir/report/$table.md" ]; then
                 echo "## $table"
                 echo

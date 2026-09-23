@@ -71,7 +71,7 @@ func HandleCommon(mux *http.ServeMux) {
 		w.Write(b)
 	})
 
-	// The pool this server installed, for the Pool column of the reports. It
+	// The pool this server installed, for the reports' Pool. It
 	// is empty in the frameworks that take no -taskpool flag, which the
 	// clients show as "-": see config.GetFrameworkTaskPool.
 	mux.HandleFunc("/taskpool", func(w http.ResponseWriter, r *http.Request) {

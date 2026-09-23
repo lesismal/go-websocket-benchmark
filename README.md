@@ -127,9 +127,9 @@ workers came out slower, since a worker only copies a payload and defers it
 back while a loop does the poll, the read, the parse and the write. See
 [its README](frameworks/uwebsockets/README.md) for the numbers.
 
-Every report carries a `Pool` column naming the pool its server installed,
-which each client reads from that server's own `/taskpool` route when it
-builds the report. It is what ran rather than what the run asked for, so a
+Every report records the pool its server installed, shown as the `Pool` row of
+the Summary table, which each client reads from that server's own `/taskpool`
+route when it builds the report. It is what ran rather than what the run asked for, so a
 server whose own scheduling is one of these pools shows that pool under
 `BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
 there. `-` is a framework with no pool hook at all, and `uwebsockets` adds
@@ -208,6 +208,15 @@ other two - `Packet Sent` is the load rather than the answer. `Connections` and
 `BenchEcho` do not rank by `EER`, which divides throughput by the CPU it cost
 and so answers a different question; it is still a column to read.
 
+The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
+benchmark's concurrency, `Echo Total`, `Rate Duration` and `Rate SendRate` - are
+not columns of the three tables: they are the Summary table printed in front of
+them and written to `Summary.md` next to them. A parameter the frameworks
+disagree on lists each value with the frameworks that had it, e.g.
+`fib_adaptive (fib, fnet); - (fasthttp)`. The JSON files still carry every
+field, and so does the block each benchmark prints to the console as it
+finishes.
+
 In either order, the ranked column - `TPS`, or `Packet Recv` - shows each row's
 share of the best result after the number, the best being `100%`, floored so
 that only the best reads `100%`:
@@ -216,6 +225,7 @@ that only the best reads `100%`:
 | --------- | --------- |
 | gorilla   | 3000 100% |
 | gobwas    | 1500  50% |
+| nhooyr    |   10   0% |
 
 Rows that tie keep the framework order between them, so two frameworks that
 scored the same - or a whole table from a benchmark that did not run, which

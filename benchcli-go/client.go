@@ -218,28 +218,24 @@ func saveReport(r report.Report) {
 	}
 }
 
+// generateReports writes the Summary table and the three report tables, each
+// to its own .md file and to the console, where each one gets a rule above it
+// and its name, and a blank line on either side of its table.
+// benchcli-uwscpp's generateReports prints the same thing.
 func generateReports() {
-	data := report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
-	filename := report.Filename("Connections", *preffix, *suffix+".md")
-	report.WriteFile(filename, data)
-	logging.Print(logging.LongLine)
-	logging.Printf("[%vConnections%v] Report\n", *preffix, *suffix)
-	logging.Print(data)
-
-	data = report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
-	filename = report.Filename("BenchEcho", *preffix, *suffix+".md")
-	report.WriteFile(filename, data)
-	logging.Print(logging.LongLine)
-	logging.Printf("[%vBenchEcho%v] Report\n", *preffix, *suffix)
-	logging.Print(data)
-	logging.Print(logging.LongLine)
-
-	data = report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, *reportSort, nil)
-	filename = report.Filename("BenchRate", *preffix, *suffix+".md")
-	report.WriteFile(filename, data)
-	logging.Print(logging.LongLine)
-	logging.Printf("[%vBenchRate%v] Report\n", *preffix, *suffix)
-	logging.Print(data)
+	sections := []struct{ name, data string }{
+		{"Summary", report.GenerateSummary(*preffix, *suffix)},
+		{"Connections", report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
+		{"BenchEcho", report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
+		{"BenchRate", report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
+	}
+	for _, section := range sections {
+		filename := report.Filename(section.name, *preffix, *suffix+".md")
+		if err := report.WriteFile(filename, section.data); err != nil {
+			logging.Printf("writing %v failed: %v", filename, err)
+		}
+		logging.Print(report.ConsoleSection(*preffix+section.name+*suffix, section.data))
+	}
 	logging.Print(logging.LongLine)
 }
 

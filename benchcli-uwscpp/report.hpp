@@ -6,6 +6,7 @@
 #include <fstream>
 #include <future>
 #include <iomanip>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -110,6 +111,11 @@ inline std::string fixed(double v,const std::string &unit="") {
 // in the JSON, and a latency percentile only when -tpn is on.
 inline bool shownField(const json &field,const Options &o) {
     return !field["hidden"].get<bool>() && (!field["optional"].get<bool>() || o.boolean("tpn"));
+}
+// tableColumn is whether a field is a column of its report's table: a run parameter, tagged
+// summary:"<name>", is shown once in the Summary table instead, as report.tableColumn has it.
+inline bool tableColumn(const json &field,const Options &o) {
+    return shownField(field,o) && field["summary"].get<std::string>().empty();
 }
 inline std::string formatField(const json &r,const json &field) {
     std::string key=field["key"], fmt=field["fmt"];
@@ -241,7 +247,7 @@ inline std::string percent(double value,double best) {
     return std::to_string((long long)std::floor(value*100/best))+"%";
 }
 // withPercent mirrors report.withPercent: each cell of column col gets its row's share of
-// the best after it, padded to one width so the percentages line up on the right.
+// the best after it, the value and the percentage each right-aligned.
 inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,const std::vector<double> &values) {
     double best=0;
     for (double v:values) best=std::max(best,v);
@@ -252,21 +258,77 @@ inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,c
         valueLen=std::max(valueLen,rows[i][col].size());
         percentLen=std::max(percentLen,percents[i].size());
     }
-    for (size_t i=0;i<rows.size();++i) {
-        size_t pad=1+valueLen-rows[i][col].size()+percentLen-percents[i].size();
-        rows[i][col]+=std::string(pad,' ')+percents[i];
+    for (size_t i=0;i<rows.size();++i)
+        rows[i][col]=std::string(valueLen-rows[i][col].size(),' ')+rows[i][col]+" "+
+                     std::string(percentLen-percents[i].size(),' ')+percents[i];
+}
+inline std::vector<json> readReports(const Options &o,const std::string &kind) {
+    std::vector<json> rows;
+    for (const auto &f:metadata["frameworks"]) {
+        auto path=filename(o,f.get<std::string>()+"-"+kind,".json");
+        std::ifstream in(path);
+        if (!in) continue;
+        try { json row; in>>row; rows.push_back(std::move(row)); }
+        catch (const std::exception &e) { throw std::runtime_error(path+": "+e.what()); }
     }
+    return rows;
+}
+// summaryTable mirrors report.Summary: the run's parameters, the summary-tagged fields of every
+// row of every report. One value where the rows agree; otherwise each value followed by the
+// frameworks that had it, "fib_adaptive (fib, fnet); - (fasthttp)".
+inline std::string summaryTable(const Options &o) {
+    struct Value { std::string value; std::vector<std::string> frameworks; };
+    std::map<std::string,std::vector<Value>> values;
+    std::vector<std::string> names;
+    for (auto kind:{"Connections","BenchEcho","BenchRate"})
+        for (const auto &r:readReports(o,kind)) {
+            std::string framework=r.value("Framework","");
+            for (const auto &field:metadata["schemas"][kind]) {
+                std::string name=field["summary"];
+                if (name.empty()) continue;
+                if (!values.count(name)) names.push_back(name);
+                auto &list=values[name];
+                auto value=formatField(r,field);
+                auto it=std::find_if(list.begin(),list.end(),[&](const Value &v){return v.value==value;});
+                if (it==list.end()) list.push_back({value,{framework}});
+                else if (std::find(it->frameworks.begin(),it->frameworks.end(),framework)==it->frameworks.end())
+                    it->frameworks.push_back(framework);
+            }
+        }
+    if (names.empty()) return "";
+    std::vector<std::string> ordered;
+    for (const auto &name:metadata["summaryOrder"])
+        if (values.count(name.get<std::string>())) ordered.push_back(name.get<std::string>());
+    for (const auto &name:names)
+        if (std::find(ordered.begin(),ordered.end(),name)==ordered.end()) ordered.push_back(name);
+    std::vector<std::vector<std::string>> rows;
+    for (const auto &name:ordered) {
+        const auto &list=values[name];
+        std::string text;
+        if (list.size()==1) text=list[0].value;
+        else for (size_t i=0;i<list.size();++i) {
+            if (i) text+="; ";
+            text+=list[i].value+" (";
+            for (size_t j=0;j<list[i].frameworks.size();++j) text+=(j?", ":"")+list[i].frameworks[j];
+            text+=")";
+        }
+        rows.push_back({name,text});
+    }
+    return markdownTable({"Parameter","Value"},rows);
+}
+// consoleSection mirrors report.ConsoleSection: a rule, the table's name, and the table
+// between blank lines.
+inline const std::string kLongLine(100,'-');
+inline std::string consoleSection(const std::string &name,std::string table) {
+    if (table.empty()) table="(no results)\n";
+    return kLongLine+"\n["+name+"]\n\n"+table+"\n";
 }
 inline void generateReports(const Options &o) {
+    auto summary=summaryTable(o);
+    writeFile(filename(o,"Summary",".md"),summary);
+    std::cout<<consoleSection(o.get("preffix")+"Summary"+o.get("suffix"),summary);
     for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
-        std::vector<json> rows;
-        for (const auto &f:metadata["frameworks"]) {
-            auto path=filename(o,f.get<std::string>()+"-"+kind,".json");
-            std::ifstream in(path);
-            if (!in) continue;
-            try { json row; in>>row; rows.push_back(std::move(row)); }
-            catch (const std::exception &e) { throw std::runtime_error(path+": "+e.what()); }
-        }
+        auto rows=readReports(o,kind);
         // The rows are read in metadata["frameworks"] order, which is
         // config.FrameworkList's, so -sort=framework is already what they are
         // in and only result has anything to do. The sort is stable, which is
@@ -282,7 +344,7 @@ inline void generateReports(const Options &o) {
         if (!rows.empty()) {
             std::vector<json> fields;
             for (const auto &field:metadata["schemas"][kind])
-                if (shownField(field,o)) fields.push_back(field);
+                if (tableColumn(field,o)) fields.push_back(field);
             std::vector<std::string> titles;
             for (const auto &f:fields) titles.push_back(f["title"].get<std::string>());
             std::vector<std::vector<std::string>> tableRows;
@@ -303,8 +365,9 @@ inline void generateReports(const Options &o) {
             md=markdownTable(titles,tableRows);
         }
         writeFile(filename(o,kind,".md"),md);
-        std::cout<<kind<<"\n"<<md;
+        std::cout<<consoleSection(o.get("preffix")+kind+o.get("suffix"),md);
     }
+    std::cout<<kLongLine<<'\n';
 }
 // PSSetup is how this run reads the server's CPU and memory; see setupPS.
 struct PSSetup {

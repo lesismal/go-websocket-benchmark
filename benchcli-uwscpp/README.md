@@ -85,7 +85,8 @@ Framework order, port ranges and report schemas are generated at build time from
 `config/config.go` and `benchcli-go/report/*.go`, so adding a framework or changing
 a report field updates both clients on the next build. JSON files retain the Go
 names and fields and can be aggregated by either client. Markdown uses the same
-columns, units and framework order; whitespace alignment can differ.
+columns, units and framework order, and the same Summary table of the run's
+parameters (`summary:"<name>"` fields) in front of the three.
 
 ```sh
 ./output/bin/bench.client -f=gorilla -c=10000 -ec=10000 -en=2000000 \
