@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# Benchmark client: benchcli-uwscpp (default) or benchcli-go.
+# Benchmark client: benchcli-rust (default, Rust), benchcli-uwscpp (C++, on
+# uWebSockets) or benchcli-go. All three take the same flags and write the same
+# reports; see each one's README.
 # Override for one run with: BENCH_CLIENT=benchcli-go bash script/benchmark.sh
-BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}
+BENCH_CLIENT=${BENCH_CLIENT:-benchcli-rust}
 case "$BENCH_CLIENT" in
-    benchcli-go|benchcli-uwscpp) ;;
+    benchcli-go|benchcli-rust|benchcli-uwscpp) ;;
     *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;
 esac
 
@@ -211,6 +213,7 @@ frameworks=(
     "nettyws"
     "nhooyr"
     "quickws"
+    "sockudo_ws"
     "uwebsockets"
     "uws_events"
     "uws_std"

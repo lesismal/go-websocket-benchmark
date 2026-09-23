@@ -11,6 +11,7 @@ var (
 // no EER to break a tie with: the connection test samples no CPU.
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
+	Lang        string `json:"Lang" md:"Lang"`
 	BenchClient string `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
 	TaskPool    string `json:"TaskPool" md:"Pool" summary:"Pool"`
 	TPS         int64  `json:"TPS" md:"TPS" rank:"1"`

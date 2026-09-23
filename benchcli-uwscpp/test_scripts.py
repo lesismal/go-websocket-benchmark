@@ -26,8 +26,13 @@ def selected(extra_env=None):
 
 
 class ScriptTests(unittest.TestCase):
-    def test_cpp_is_default(self):
+    def test_rust_is_default(self):
         result = selected()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "benchcli-rust")
+
+    def test_cpp_can_be_selected(self):
+        result = selected({"BENCH_CLIENT": "benchcli-uwscpp"})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "benchcli-uwscpp")
 
@@ -106,10 +111,11 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(listed, sorted(listed), name)
             self.assertTrue(listed and set(listed) <= set(go), (name, listed))
 
-    def test_build_dispatch_contains_both_clients(self):
+    def test_build_dispatch_contains_every_client(self):
         source = (ROOT / "script/build.sh").read_text()
         self.assertIn("go build -o ./output/bin/bench.client ./benchcli-go", source)
         self.assertIn("bash ./benchcli-uwscpp/build.sh", source)
+        self.assertIn("bash ./benchcli-rust/build.sh", source)
 
 
 if __name__ == "__main__":

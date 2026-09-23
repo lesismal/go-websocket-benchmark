@@ -38,3 +38,20 @@ func TestFrameworkListCoversPorts(t *testing.T) {
 		}
 	}
 }
+
+// Every framework needs a language for the reports' Lang column, and a
+// language entry for a framework that is not in the list would never show.
+func TestFrameworkListCoversLangs(t *testing.T) {
+	if len(FrameworkList) != len(Langs) {
+		t.Errorf("FrameworkList has %d frameworks, Langs has %d", len(FrameworkList), len(Langs))
+	}
+	for _, framework := range FrameworkList {
+		switch lang := Langs[framework]; lang {
+		case LangCPP, LangGo, LangRust:
+		case "":
+			t.Errorf("%v has no language", framework)
+		default:
+			t.Errorf("%v has language %q, which is none of the Lang constants", framework, lang)
+		}
+	}
+}

@@ -309,14 +309,14 @@ func Fields(r Report, enableTPN bool, filter func(string) bool) []string {
 
 func GenerateConnectionsReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
 	create := func(framework string) Report {
-		return &ConnectionsReport{Framework: framework}
+		return &ConnectionsReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
 
 func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
 	create := func(framework string) Report {
-		return &BenchEchoReport{Framework: framework}
+		return &BenchEchoReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
@@ -327,21 +327,21 @@ func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, order stri
 
 func ReadConnectionsReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
-		return &ConnectionsReport{Framework: framework}
+		return &ConnectionsReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	return ReadReports(preffix, suffix, create)
 }
 
 func ReadBenchEchoReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
-		return &BenchEchoReport{Framework: framework}
+		return &BenchEchoReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	return ReadReports(preffix, suffix, create)
 }
 
 func ReadBenchRateReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
-		return &BenchRateReport{Framework: framework}
+		return &BenchRateReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	reports := ReadReports(preffix, suffix, create)
 	for _, r := range reports {
@@ -357,6 +357,9 @@ func GenerateSummary(preffix, suffix string) string {
 		ReadBenchRateReports(preffix, suffix))
 }
 
+// ReadReports reads the report every framework has in files, in
+// config.FrameworkList order. create fills in the Lang column from the config,
+// which a file written before the column existed does not carry.
 func ReadReports(preffix, suffix string, create func(framework string) Report) []Report {
 	reports := make([]Report, 0, len(config.FrameworkList))
 	var reportItem Report

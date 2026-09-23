@@ -4,16 +4,25 @@
 ## Benchmark client
 
 `script/config.sh` selects the client with `BENCH_CLIENT`, defaulting to
-`benchcli-uwscpp` (uWebSockets C++). To use the Go client:
+`benchcli-rust`. The other two are `benchcli-uwscpp` (C++, on uWebSockets) and
+`benchcli-go`:
 
 ```sh
+BENCH_CLIENT=benchcli-uwscpp bash script/benchmark.sh
 BENCH_CLIENT=benchcli-go bash script/benchmark.sh
 ```
 
-The C++ client requires a C++17 compiler, Git, Python 3 and libcurl development
-headers. Its first build fetches pinned uWebSockets/uSockets and JSON dependencies.
-Both clients produce `output/bin/bench.client` and compatible JSON reports.
-See [C++ client build instructions, flags and tests](benchcli-uwscpp/README.md).
+All three take the same flags, build `output/bin/bench.client` and write the
+same JSON reports and tables, which the report step of any of them reads. The
+two native ones load a server the same way - a fixed set of event-loop threads,
+each owning its share of the connections - and pass the same end-to-end suite.
+
+- `benchcli-rust` needs cargo (Rust 1.85+) and Python 3; its first build
+  downloads the crates its `Cargo.lock` pins. See
+  [its README](benchcli-rust/README.md).
+- `benchcli-uwscpp` needs a C++17 compiler, Git, Python 3 and libcurl
+  development headers; its first build fetches pinned uWebSockets/uSockets and
+  JSON dependencies. See [its README](benchcli-uwscpp/README.md).
 
 ### Docker benchmark
 
@@ -26,7 +35,7 @@ resource plan to `output/docker/<timestamp>`.
 # Short Gorilla validation
 bash script/docker_benchmark.sh --smoke
 
-# Full benchmark using the default C++ client
+# Full benchmark using the default client, benchcli-rust
 bash script/docker_benchmark.sh
 
 # Focused run with explicit resource limits
@@ -35,14 +44,15 @@ DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
 bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
 ```
 
-Use `BENCH_CLIENT=benchcli-go` to select the Go client. Run
+`BENCH_CLIENT` selects the client here too. Run
 `bash script/docker_benchmark.sh --help` for all overrides. The first run builds
-the image and downloads the pinned Go and C++ dependencies; later runs use the
-Docker build cache.
+the image and downloads the pinned Go, C++ and Rust dependencies; later runs use
+the Docker build cache.
 
 From mainland China, run `script/docker_benchmark_cn.sh` instead: it takes the
 same options and flags, and builds the image from mirrors (DaoCloud for Docker
-Hub, Aliyun for apt, goproxy.cn for Go modules, ghfast.top then gh-proxy.com for GitHub). Each one
+Hub, Aliyun for apt, goproxy.cn for Go modules, ghfast.top then gh-proxy.com for GitHub,
+rsproxy.cn for the Rust toolchain and crates.io). Each one
 is a `DOCKER_BENCH_*` variable listed in `--help`; set one to an empty value to
 go direct. Only the build downloads anything, so the results are comparable
 with `script/docker_benchmark.sh`'s.
@@ -50,6 +60,24 @@ with `script/docker_benchmark.sh`'s.
 ```sh
 bash script/docker_benchmark_cn.sh --smoke
 ```
+
+## Servers not written in Go
+
+Two of the servers are not Go, and each builds with its own toolchain, which a
+server node needs besides Go:
+
+- `uwebsockets` - [uWebSockets](https://github.com/uNetworking/uWebSockets),
+  C++. A C++20 compiler and zlib headers; its first build fetches the pinned
+  uWebSockets/uSockets sources. See [its README](frameworks/uwebsockets/README.md).
+- `sockudo_ws` - [sockudo-ws](https://github.com/sockudo/sockudo-ws), Rust, on
+  Tokio. Cargo 1.85 or newer; its first build downloads the crates its
+  `Cargo.lock` pins. It answers on the task that read the frame - Tokio's
+  counterpart of a Go server's `inline` - and takes no `-taskpool` flag, so its
+  `Pool` is `-`. See [its README](frameworks/sockudo_ws/README.md).
+
+The Docker image installs both toolchains - the Rust one also builds the default
+client, `benchcli-rust` - and fetches every pinned source at build time, so the
+benchmark in the container still runs with `--network none`.
 
 ## Goroutine pool
 
@@ -222,6 +250,13 @@ report written before it recorded `TPS` gets it from `Packet Recv` and
 on that are ranked by `EER`, the one that spent less CPU on it first;
 `Connections` samples no CPU, so it has no `EER` to break a tie with.
 
+Every table's first two columns are `Framework` and `Lang`, the language that
+framework's server is written in - `go`, `c++` (`uwebsockets`) or `rust`
+(`sockudo_ws`) - so that a row of another language stands out in a table
+otherwise of Go servers. It comes from `config.Langs`, which both clients read,
+and a report written before the column existed gets it from there when it is
+read again.
+
 The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
 benchmark's concurrency, `Echo Total`, `Rate Duration`, `Rate SendRate` and `Rate Pipeline` (messages per write, `-rpl`) - are
 not columns of the three tables: they are the Summary table printed in front of
@@ -292,10 +327,10 @@ defaults to `127.0.0.1`, which is also the single-node default.
 
 What each role does differently:
 
-- `server` builds only the servers - a server node needs no `libcurl` for
-  `benchcli-uwscpp` - starts them and stops there. `client` builds only the
-  client, so it needs none of the servers' toolchain, in particular not the
-  C++ one `uwebsockets` wants.
+- `server` builds only the servers - a server node needs no client toolchain -
+  starts them and stops there. `client` builds only the client, so it needs
+  none of the servers' toolchains, in particular not the C++ and Rust ones
+  `uwebsockets` and `sockudo_ws` want.
 - A node running one half gives it the whole machine instead of half, since
   there is nothing to divide it with. `BENCH_SERVER_CPU_LIST` and
   `BENCH_CLIENT_CPU_LIST` still pin it where a node shares its CPUs.

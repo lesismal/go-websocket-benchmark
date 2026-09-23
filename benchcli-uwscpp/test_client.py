@@ -272,9 +272,27 @@ class ClientTests(unittest.TestCase):
                  'RecvTimes': packets, 'EchoEER': 1}))
         self.run_client('-r=true')
         lines = (directory / 'BenchRate.md').read_text(encoding='utf-8').splitlines()
-        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:4]], ['Framework', 'TPS [↓1]', 'EER [↓2]'])
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:5]], ['Framework', 'Lang', 'TPS [↓1]', 'EER [↓2]'])
         self.assertIn('| 3980939 100% |', lines[2])
         self.assertIn('| 1658797  41% |', lines[3])
+
+    # Every report carries the language its framework's server is written in,
+    # right after Framework: in the JSON a run writes, and, for a report written
+    # before the column existed, from config.Langs when it is read again.
+    def test_lang_column(self):
+        self.run_client()
+        self.assertEqual(self.report('Connections')['Lang'], 'go')
+        self.assertEqual(self.report('BenchEcho')['Lang'], 'go')
+        directory = self.cwd / 'output/report'
+        for framework in ['sockudo_ws', 'uwebsockets']:
+            (directory / f'{framework}-BenchEcho.json').write_text(json.dumps(
+                {'Framework': framework, 'BenchClient': 'benchcli-uwscpp', 'TPS': 1}))
+        self.run_client('-r=true', '-sort=framework')
+        lines = (directory / 'BenchEcho.md').read_text(encoding='utf-8').splitlines()
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:3]], ['Framework', 'Lang'])
+        langs = {cells[1]: cells[2] for cells in
+                 ([cell.strip() for cell in line.split('|')] for line in lines[2:])}
+        self.assertEqual(langs, {'gorilla': 'go', 'sockudo_ws': 'rust', 'uwebsockets': 'c++'})
 
     def test_retry(self):
         self.server.mode = 'retry'

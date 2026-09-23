@@ -12,9 +12,16 @@ FROM ${GO_IMAGE}
 #                  https://github.com/ for the native dependencies, e.g.
 #                  https://ghfast.top/https://github.com/; every download is
 #                  checked against a pinned SHA-256 (script/docker_fetch_deps.sh)
+#   RUSTUP_DIST_SERVER replaces https://static.rust-lang.org for the Rust
+#                  toolchain, e.g. https://rsproxy.cn
+#   CARGO_REGISTRY a sparse index standing in for crates.io, e.g.
+#                  sparse+https://rsproxy.cn/index/; every crate is checked
+#                  against Cargo.lock (script/docker_rust.sh)
 ARG APT_MIRROR=
 ARG GO_PROXY=
 ARG GITHUB_MIRROR=
+ARG RUSTUP_DIST_SERVER=
+ARG CARGO_REGISTRY=
 
 RUN if [ -n "$APT_MIRROR" ]; then \
         for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
@@ -36,6 +43,14 @@ RUN if [ -n "$APT_MIRROR" ]; then \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# The Rust toolchain benchcli-rust and frameworks/sockudo_ws build with, pinned in
+# script/docker_rust.sh. Ahead of everything that changes more often than it.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+COPY script/docker_rust.sh /tmp/docker_rust.sh
+RUN bash /tmp/docker_rust.sh install
+
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
@@ -49,9 +64,19 @@ RUN if [ -n "$GO_PROXY" ]; then export GOPROXY="$GO_PROXY"; fi \
 COPY script/docker_fetch_deps.sh /tmp/docker_fetch_deps.sh
 RUN bash /tmp/docker_fetch_deps.sh /workspace && rm /tmp/docker_fetch_deps.sh
 
+# The crates benchcli-rust's and sockudo_ws's Cargo.lock files pin, likewise,
+# into CARGO_HOME, where the offline builds below find them.
+COPY benchcli-rust/Cargo.toml benchcli-rust/Cargo.lock /tmp/benchcli-rust/
+COPY frameworks/sockudo_ws/Cargo.toml frameworks/sockudo_ws/Cargo.lock /tmp/sockudo_ws/
+RUN bash /tmp/docker_rust.sh fetch /tmp/benchcli-rust /tmp/sockudo_ws \
+    && rm -rf /tmp/docker_rust.sh /tmp/benchcli-rust /tmp/sockudo_ws
+
 COPY . .
 
+# CARGO_NET_OFFLINE: the benchmark runs with --network none, and cargo would
+# otherwise try the registry before settling for what is already fetched.
 ENV GOCACHE=/tmp/go-build-cache \
-    BUILD_DIR=/tmp/benchcli-uwscpp-build
+    BUILD_DIR=/tmp/benchcli-uwscpp-build \
+    CARGO_NET_OFFLINE=true
 
 CMD ["bash", "script/benchmark.sh"]

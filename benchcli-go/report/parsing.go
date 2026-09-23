@@ -15,7 +15,8 @@ import (
 // same way, and benchcli-uwscpp generates its own schema from the same
 // declarations, so moving a field moves that column in every table both
 // clients write. Framework comes first, since it is what a row is about, then
-// the client that measured it and the pool its server installed.
+// Lang, the language its server is written in (config.FrameworkLang), then the
+// client that measured it and the pool its server installed.
 //
 // A field tagged md:"-" is left out of the tables and the console, and kept in
 // the JSON: that is how TP50, TP75, TP90, CPU Min and MEM Min are still
@@ -50,8 +51,9 @@ func tableColumn(field reflect.StructField, enableTPN bool) bool {
 }
 
 // clientName is how the Client column shows the client that measured a row:
-// "go" or "uwscpp". The JSON keeps the full name, "benchcli-go" or
-// "benchcli-uwscpp", which is the directory it was built from.
+// "go", "uwscpp" or "rust". The JSON keeps the full name, "benchcli-go",
+// "benchcli-uwscpp" or "benchcli-rust", which is the directory it was built
+// from.
 func clientName(name string) string {
 	return strings.TrimPrefix(name, "benchcli-")
 }

@@ -17,6 +17,7 @@ var (
 // TPS are ranked by EER (rank:"2"), the one that spent less CPU on it first.
 type BenchRateReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
+	Lang        string  `json:"Lang" md:"Lang"`
 	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool" summary:"Pool"`
 	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration" summary:"Rate Duration"`

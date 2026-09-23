@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Keep the standalone C++ client's ports and report schema aligned with Go."""
+"""Keep the native clients' ports and report schema aligned with Go.
+
+Writes a C++ header for benchcli-uwscpp, or plain JSON for benchcli-rust when
+the output path ends in .json."""
 import json
 import pathlib
 import re
@@ -12,6 +15,12 @@ ports = {names[name]: [int(lo), int(hi)] for name, lo, hi in
          re.findall(r'^\s*(\w+):\s*"(\d+):(\d+)"', config, re.M)}
 order = re.search(r'var FrameworkList = \[\]string\{(.*?)\}', config, re.S).group(1)
 frameworks = [names[name] for name in re.findall(r'(\w+)\s*,', order)]
+# The Lang column: config.Langs maps each framework to one of the Lang* constants.
+langs_block = re.search(r'var Langs = map\[string\]string\{(.*?)\n\}', config, re.S).group(1)
+langs = {names[name]: names[lang] for name, lang in re.findall(r'^\s*(\w+):\s*(\w+),', langs_block, re.M)}
+missing = [f for f in frameworks if f not in langs]
+if missing:
+    raise SystemExit(f'No language in config.Langs for: {", ".join(missing)}')
 schemas = {}
 for kind, filename in [('Connections', 'connections_report.go'),
                        ('BenchEcho', 'benchecho_report.go'),
@@ -47,8 +56,11 @@ summary_order = [dict(name=name, description=description) for name, description 
                  re.findall(r'\{"([^"]+)",\s*"([^"]*)"\}', summary_block)]
 if not summary_order:
     raise SystemExit('No SummaryParameters found in summary.go')
-metadata = dict(ports=ports, frameworks=frameworks, schemas=schemas, summaryOrder=summary_order)
+metadata = dict(ports=ports, frameworks=frameworks, langs=langs, schemas=schemas, summaryOrder=summary_order)
 path = pathlib.Path(sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text('// Generated from config/ and benchcli-go/report/. Do not edit.\n'
-                'inline const auto metadata = json::parse(R"META(' + json.dumps(metadata) + ')META");\n')
+if path.suffix == '.json':
+    path.write_text(json.dumps(metadata) + '\n')
+else:
+    path.write_text('// Generated from config/ and benchcli-go/report/. Do not edit.\n'
+                    'inline const auto metadata = json::parse(R"META(' + json.dumps(metadata) + ')META");\n')

@@ -5,5 +5,7 @@ output
 bin
 benchcli-uwscpp/.build
 benchcli-uwscpp/.deps
+benchcli-rust/target
+frameworks/sockudo_ws/target
 **/__pycache__
 **/*.pyc
