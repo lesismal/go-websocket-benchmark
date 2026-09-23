@@ -8,15 +8,15 @@ var (
 
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
-	BenchClient string `json:"BenchClient" md:"Client"`
+	BenchClient string `json:"BenchClient" md:"Client" fmt:"client"`
 	TaskPool    string `json:"TaskPool" md:"Pool"`
 	TPS         int64  `json:"TPS" md:"TPS"`
 	Min         int64  `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
 	Avg         int64  `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
 	Max         int64  `json:"Max" md:"Max" fmt:"duration" tpn:"opt"`
-	TP50        int64  `json:"TP50" md:"TP50" fmt:"duration" tpn:"opt"`
-	TP75        int64  `json:"TP75" md:"TP75" fmt:"duration" tpn:"opt"`
-	TP90        int64  `json:"TP90" md:"TP90" fmt:"duration" tpn:"opt"`
+	TP50        int64  `json:"TP50" md:"-" fmt:"duration" tpn:"opt"`
+	TP75        int64  `json:"TP75" md:"-" fmt:"duration" tpn:"opt"`
+	TP90        int64  `json:"TP90" md:"-" fmt:"duration" tpn:"opt"`
 	TP95        int64  `json:"TP95" md:"TP95" fmt:"duration" tpn:"opt"`
 	TP99        int64  `json:"TP99" md:"TP99" fmt:"duration" tpn:"opt"`
 	Used        int64  `json:"Used" md:"Used" fmt:"duration"`

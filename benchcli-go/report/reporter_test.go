@@ -159,3 +159,49 @@ func rowOrder(table string, want ...string) bool {
 	}
 	return true
 }
+
+// TestHiddenColumnsStayInTheJSON holds the tables and the console to the
+// shorter set of columns, and the JSON to all of them: TP50, TP75, TP90,
+// CPU Min and MEM Min are md:"-", the Client column drops the "benchcli-"
+// prefix, and BenchRate's EchoEER is headed EER.
+func TestHiddenColumnsStayInTheJSON(t *testing.T) {
+	BenchEchoReportMarkdownHeaders = nil
+	BenchRateReportMarkdownHeaders = nil
+	ConnectionsReportMarkdownHeaders = nil
+	Init(true)
+	hidden := []string{"TP50", "TP75", "TP90", "CPU Min", "MEM Min", "benchcli-", "EchoEER"}
+
+	echo := &BenchEchoReport{Framework: "gorilla", BenchClient: "benchcli-uwscpp", CPUMin: 1, MEMRSSMin: 1}
+	rate := &BenchRateReport{Framework: "gorilla", BenchClient: "benchcli-go", EchoEER: 12.5}
+	conns := &ConnectionsReport{Framework: "gorilla", BenchClient: "benchcli-go"}
+	for _, r := range []Report{echo, rate, conns} {
+		if got, want := len(r.Headers()), len(r.Fields(true)); got != want {
+			t.Errorf("%v: %d headers but %d fields", r.Type(), got, want)
+		}
+		for _, out := range []string{Markdown([]Report{r}, true, SortFramework, nil), r.String(true)} {
+			for _, v := range hidden {
+				if strings.Contains(out, v) {
+					t.Errorf("%v output shows %q:\n%s", r.Type(), v, out)
+				}
+			}
+		}
+	}
+
+	table := Markdown([]Report{echo}, true, SortFramework, nil)
+	if !strings.Contains(table, " uwscpp ") || !strings.Contains(table, "TP95") {
+		t.Errorf("BenchEcho table lost a column it should keep:\n%s", table)
+	}
+	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER ") ||
+		!strings.Contains(table, "12.50") || !strings.Contains(table, " go ") {
+		t.Errorf("BenchRate table:\n%s", table)
+	}
+
+	for _, v := range []string{`"TP50"`, `"TP75"`, `"TP90"`, `"CPUMin"`, `"MEMMin"`, `"BenchClient":"benchcli-uwscpp"`} {
+		if !strings.Contains(JSON(echo), v) {
+			t.Errorf("BenchEcho JSON lost %s: %s", v, JSON(echo))
+		}
+	}
+	if !strings.Contains(JSON(rate), `"EchoEER":12.5`) {
+		t.Errorf("BenchRate JSON lost EchoEER: %s", JSON(rate))
+	}
+}

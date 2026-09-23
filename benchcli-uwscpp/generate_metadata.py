@@ -27,8 +27,10 @@ for kind, filename in [('Connections', 'connections_report.go'),
         tags = dict(re.findall(r'(\w+):"([^"]*)"', tags))
         if tags.get('json', '-') == '-':
             continue
+        # md:"-" keeps a field in the JSON and out of the tables and the console.
         fields.append(dict(key=tags['json'], title=tags['md'], fmt=tags.get('fmt', ''),
-                           optional='tpn' in tags, string=typ == 'string', floating=typ.startswith('float')))
+                           optional='tpn' in tags, hidden=tags['md'] == '-',
+                           string=typ == 'string', floating=typ.startswith('float')))
     if not fields:
         raise SystemExit(f'No report fields found for {kind}')
     schemas[kind] = fields
