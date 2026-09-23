@@ -35,8 +35,9 @@ Environment overrides:
   DOCKER_BENCH_APT_MIRROR  Replaces http://deb.debian.org in the image's apt
                            sources, e.g. https://mirrors.aliyun.com
   DOCKER_BENCH_GOPROXY     GOPROXY for the image's go mod download
-  DOCKER_BENCH_GITHUB_MIRROR Prefix https://github.com/ is rewritten to for
-                           the image's git clones
+  DOCKER_BENCH_GITHUB_MIRROR Space-separated prefixes tried before
+                           https://github.com/ for the image's native
+                           dependencies, each download checked by SHA-256
   (script/docker_benchmark_cn.sh sets the last four to mainland China mirrors.)
 
 Examples:
