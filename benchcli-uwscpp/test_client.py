@@ -370,6 +370,15 @@ class ClientTests(unittest.TestCase):
             self.assertIn('|  62.50  24% |', md)
         self.assertEqual((directory / 'Connections.md').read_text().count('%'), 2)
 
+        # One of the EERs whose best*100/best floored to 99, which left its
+        # table without a 100% row.
+        write({'fasthttp': 10, 'gorilla': 40}, eer={'fasthttp': 697.86464300696265, 'gorilla': 1395.7292860139253})
+        self.run_client('-r=true')
+        for kind in ['BenchEcho', 'BenchRate']:
+            md = (directory / f'{kind}.md').read_text()
+            self.assertIn('| 1395.73 100% |', md)
+            self.assertIn('|  697.86  50% |', md)
+
         # The rank columns' titles carry [↓1] and [↓2] in either order, and the
         # table stays in line: every line is as many characters wide.
         for arg in ['-sort=result', '-sort=framework']:

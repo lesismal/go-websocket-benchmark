@@ -1,6 +1,8 @@
 package report
 
 import (
+	"math"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -485,6 +487,42 @@ func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
 		}
 		if !strings.Contains(Summary(reports), "| Pool             | "+c.want+" ") {
 			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary(reports))
+		}
+	}
+}
+
+// TestPercentOfFloats holds Percent to its promises for the float results EER
+// is: the best reads 100% against itself, which floor(best*100/best) failed
+// for one float in twenty or so, an exact whole percent of it reads that
+// percent, and anything under it reads under 100%.
+func TestPercentOfFloats(t *testing.T) {
+	random := rand.New(rand.NewSource(1))
+	for i := 0; i < 1000000; i++ {
+		best := random.Float64() * 20000
+		if best == 0 {
+			continue
+		}
+		if got := Percent(best, best); got != "100%" {
+			t.Fatalf("Percent(%v, itself) = %v", best, got)
+		}
+		k := 1 + random.Intn(99)
+		if got, want := Percent(best*float64(k)/100, best), strconv.Itoa(k)+"%"; got != want {
+			t.Fatalf("Percent(%v of %v) = %v, want %v", k, best, got, want)
+		}
+		if got := Percent(math.Nextafter(best, 0), best); got != "99%" {
+			t.Fatalf("Percent(just under %v) = %v, want 99%%", best, got)
+		}
+	}
+
+	// One of the EERs that used to leave its table without a 100% row.
+	Init(false)
+	table := Markdown([]Report{
+		&BenchEchoReport{Framework: "a", TPS: 10, EER: 1395.7292860139253},
+		&BenchEchoReport{Framework: "b", TPS: 20, EER: 697.86464300696265},
+	}, false, SortResult, nil)
+	for _, cell := range []string{"| 1395.73 100% |", "|  697.86  50% |"} {
+		if !strings.Contains(table, cell) {
+			t.Errorf("no %q in:\n%s", cell, table)
 		}
 	}
 }
