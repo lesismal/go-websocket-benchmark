@@ -31,6 +31,13 @@ Environment overrides:
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
   DOCKER_BENCH_OUTPUT      Result directory (default: output/docker/<timestamp>)
   DOCKER_BENCH_SKIP_BUILD  Set to 1 to reuse an existing image
+  DOCKER_BENCH_GO_IMAGE    Base image (default: golang:1.27-bookworm)
+  DOCKER_BENCH_APT_MIRROR  Replaces http://deb.debian.org in the image's apt
+                           sources, e.g. https://mirrors.aliyun.com
+  DOCKER_BENCH_GOPROXY     GOPROXY for the image's go mod download
+  DOCKER_BENCH_GITHUB_MIRROR Prefix https://github.com/ is rewritten to for
+                           the image's git clones
+  (script/docker_benchmark_cn.sh sets the last four to mainland China mirrors.)
 
 Examples:
   bash script/docker_benchmark.sh --smoke
@@ -80,6 +87,11 @@ build_args=(-f script/Dockerfile.benchmark -t "$image")
 if [ "$rebuild" = true ]; then
     build_args=(--no-cache "${build_args[@]}")
 fi
+# Only the ones given, so an unset one keeps the Dockerfile's default.
+if [ -n "${DOCKER_BENCH_GO_IMAGE:-}" ]; then build_args+=(--build-arg "GO_IMAGE=$DOCKER_BENCH_GO_IMAGE"); fi
+if [ -n "${DOCKER_BENCH_APT_MIRROR:-}" ]; then build_args+=(--build-arg "APT_MIRROR=$DOCKER_BENCH_APT_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_GOPROXY:-}" ]; then build_args+=(--build-arg "GO_PROXY=$DOCKER_BENCH_GOPROXY"); fi
+if [ -n "${DOCKER_BENCH_GITHUB_MIRROR:-}" ]; then build_args+=(--build-arg "GITHUB_MIRROR=$DOCKER_BENCH_GITHUB_MIRROR"); fi
 if [ "${DOCKER_BENCH_SKIP_BUILD:-0}" != 1 ]; then
     echo "Building Docker benchmark image: $image"
     docker build "${build_args[@]}" .
