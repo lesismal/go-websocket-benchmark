@@ -106,11 +106,21 @@ inline void writeFile(const std::string &path,const std::string &data) {
 inline std::string fixed(double v,const std::string &unit="") {
     std::ostringstream out; out<<std::fixed<<std::setprecision(2)<<v<<unit; return out.str();
 }
+// shownField is whether a field is printed and tabled at all: a hidden one (md:"-") is only
+// in the JSON, and a latency percentile only when -tpn is on.
+inline bool shownField(const json &field,const Options &o) {
+    return !field["hidden"].get<bool>() && (!field["optional"].get<bool>() || o.boolean("tpn"));
+}
 inline std::string formatField(const json &r,const json &field) {
     std::string key=field["key"], fmt=field["fmt"];
     if (!r.contains(key) || r[key].is_null()) return "0";
     const auto &value=r[key];
-    if (value.is_string()) return value.get<std::string>();
+    if (value.is_string()) {
+        auto s=value.get<std::string>();
+        // The Client column reads "go" or "uwscpp"; the JSON keeps the full name.
+        if (fmt=="client" && s.rfind("benchcli-",0)==0) s.erase(0,9);
+        return s;
+    }
     double n=value.get<double>();
     if (fmt=="duration") {
         if (n>=1e9) return fixed(n/1e9,"s");
@@ -128,7 +138,7 @@ inline void saveReport(const Options &o,const std::string &kind,const json &r) {
     std::string typHeader="BenchType";
     size_t maxHeaderLen=typHeader.size();
     for (const auto &field:metadata["schemas"][kind]) {
-        if (field["optional"].get<bool>() && !o.boolean("tpn")) continue;
+        if (!shownField(field,o)) continue;
         std::string title=field["title"].get<std::string>();
         maxHeaderLen=std::max(maxHeaderLen,title.size());
         lines.emplace_back(std::move(title),formatField(r,field));
@@ -235,7 +245,7 @@ inline void generateReports(const Options &o) {
         if (!rows.empty()) {
             std::vector<json> fields;
             for (const auto &field:metadata["schemas"][kind])
-                if (!field["optional"].get<bool>() || o.boolean("tpn")) fields.push_back(field);
+                if (shownField(field,o)) fields.push_back(field);
             std::vector<std::string> titles;
             for (const auto &f:fields) titles.push_back(f["title"].get<std::string>());
             std::vector<std::vector<std::string>> tableRows;

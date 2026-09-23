@@ -218,7 +218,60 @@ if [ -n "$run_frameworks" ]; then
     run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
 fi
 
+# The machine the numbers were measured on, for resources.txt. Every probe
+# falls back to "unknown" rather than stopping the run over a missing tool.
+host_os="unknown"
+host_cpu_model="unknown"
+host_cpu_sockets="unknown"
+host_cpu_cores="unknown"
+host_cpu_threads="unknown"
+case "$(uname -s)" in
+    Darwin)
+        host_os="$(sw_vers -productName 2>/dev/null || echo macOS) $(sw_vers -productVersion 2>/dev/null || true)"
+        host_cpu_model=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)
+        host_cpu_sockets=$(sysctl -n hw.packages 2>/dev/null || echo unknown)
+        host_cpu_cores=$(sysctl -n hw.physicalcpu 2>/dev/null || echo unknown)
+        host_cpu_threads=$(sysctl -n hw.logicalcpu 2>/dev/null || echo unknown)
+        ;;
+    Linux)
+        if [ -r /etc/os-release ]; then
+            host_os=$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-${NAME:-Linux}}")
+        else
+            host_os=Linux
+        fi
+        host_cpu_model=$(awk -F': *' '/^model name/ {print $2; exit}' /proc/cpuinfo 2>/dev/null || true)
+        if command -v lscpu >/dev/null 2>&1; then
+            lscpu_value() { LC_ALL=C lscpu 2>/dev/null | awk -F': *' -v k="$1" '$1 == k {print $2; exit}' || true; }
+            # ARM kernels often have no model name, and lscpu prints "-" for it.
+            [ -n "$host_cpu_model" ] || host_cpu_model=$(lscpu_value "Model name")
+            if [ -z "$host_cpu_model" ] || [ "$host_cpu_model" = "-" ]; then
+                host_cpu_model=$(lscpu_value "Vendor ID")
+            fi
+            # The parsable listing has a socket and a core for every CPU on x86
+            # and ARM alike, where the "Socket(s)" summary line does not.
+            cpu_topology=$(LC_ALL=C lscpu -p=SOCKET,CORE 2>/dev/null | grep -v '^#' || true)
+            if [ -n "$cpu_topology" ]; then
+                host_cpu_sockets=$(printf '%s\n' "$cpu_topology" | cut -d, -f1 | sort -u | wc -l | tr -d ' ')
+                host_cpu_cores=$(printf '%s\n' "$cpu_topology" | sort -u | wc -l | tr -d ' ')
+            fi
+        fi
+        if [ -z "$host_cpu_model" ] || [ "$host_cpu_model" = "-" ]; then
+            host_cpu_model=unknown
+        fi
+        host_cpu_threads=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo unknown)
+        ;;
+esac
+host_kernel=$(uname -srm 2>/dev/null || echo unknown)
+docker_os=$(docker info --format '{{.OperatingSystem}}, kernel {{.KernelVersion}}, {{.Architecture}}' 2>/dev/null || echo unknown)
+
 cat > "$result_dir/resources.txt" <<EOF
+Host OS: $host_os ($host_kernel)
+Host CPU model: $host_cpu_model
+Host CPU sockets: $host_cpu_sockets
+Host CPU physical cores: $host_cpu_cores
+Host CPU logical CPUs: $host_cpu_threads
+Docker OS: $docker_os
+Docker CPUs total: $daemon_cpu_count
 Docker CPUs available: $available_cpus ($allowed_cpu_spec)
 Docker CPUs allocated: $allocated_cpus ($selected_cpu_list)
 Server CPUs: $server_cpu_list

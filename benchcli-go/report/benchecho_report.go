@@ -17,16 +17,16 @@ type EchoSession struct {
 
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
-	BenchClient string  `json:"BenchClient" md:"Client"`
+	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool"`
 	TPS         int64   `json:"TPS" md:"TPS"`
 	EER         float64 `json:"EER" md:"EER"`
 	Min         int64   `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
 	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
 	Max         int64   `json:"Max" md:"Max" fmt:"duration" tpn:"opt"`
-	TP50        int64   `json:"TP50" md:"TP50" fmt:"duration" tpn:"opt"`
-	TP75        int64   `json:"TP75" md:"TP75" fmt:"duration" tpn:"opt"`
-	TP90        int64   `json:"TP90" md:"TP90" fmt:"duration" tpn:"opt"`
+	TP50        int64   `json:"TP50" md:"-" fmt:"duration" tpn:"opt"`
+	TP75        int64   `json:"TP75" md:"-" fmt:"duration" tpn:"opt"`
+	TP90        int64   `json:"TP90" md:"-" fmt:"duration" tpn:"opt"`
 	TP95        int64   `json:"TP95" md:"TP95" fmt:"duration" tpn:"opt"`
 	TP99        int64   `json:"TP99" md:"TP99" fmt:"duration" tpn:"opt"`
 	Used        int64   `json:"Used" md:"Used" fmt:"duration"`
@@ -39,10 +39,10 @@ type BenchEchoReport struct {
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`
-	CPUMin       float64 `json:"CPUMin" md:"CPU Min" fmt:"cpu"`
+	CPUMin       float64 `json:"CPUMin" md:"-" fmt:"cpu"`
 	CPUAvg       float64 `json:"CPUAvg" md:"CPU Avg" fmt:"cpu"`
 	CPUMax       float64 `json:"CPUMax" md:"CPU Max" fmt:"cpu"`
-	MEMRSSMin    uint64  `json:"MEMMin" md:"MEM Min" fmt:"mem"`
+	MEMRSSMin    uint64  `json:"MEMMin" md:"-" fmt:"mem"`
 	MEMRSSAvg    uint64  `json:"MEMAvg" md:"MEM Avg" fmt:"mem"`
 	MEMRSSMax    uint64  `json:"MEMMax" md:"MEM Max" fmt:"mem"`
 	pprofDataCPU []byte  `json:"-" md:"-" fmt:"-"`

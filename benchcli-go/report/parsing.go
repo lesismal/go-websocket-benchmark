@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/lesismal/perf"
 )
@@ -15,6 +16,10 @@ import (
 // declarations, so moving a field moves that column in every table both
 // clients write. Framework comes first, since it is what a row is about, then
 // the client that measured it and the pool its server installed.
+//
+// A field tagged md:"-" is left out of the tables and the console, and kept in
+// the JSON: that is how TP50, TP75, TP90, CPU Min and MEM Min are still
+// recorded without widening every table printed.
 func Init(enableTPN bool) {
 	appendTPNHeadder := func(headers []string, field reflect.StructField) []string {
 		header := field.Tag.Get("md")
@@ -49,6 +54,13 @@ func Init(enableTPN bool) {
 	}
 }
 
+// clientName is how the Client column shows the client that measured a row:
+// "go" or "uwscpp". The JSON keeps the full name, "benchcli-go" or
+// "benchcli-uwscpp", which is the directory it was built from.
+func clientName(name string) string {
+	return strings.TrimPrefix(name, "benchcli-")
+}
+
 func ObjFieldValues(obj interface{}, enableTPN bool) []string {
 	values := []string{}
 	typ := reflect.TypeOf(obj)
@@ -59,6 +71,9 @@ func ObjFieldValues(obj interface{}, enableTPN bool) []string {
 	}
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
+		if field.Tag.Get("md") == "-" {
+			continue
+		}
 		fieldValue := value.FieldByName(field.Name)
 
 		isTPN := field.Tag.Get("tpn") != ""
@@ -67,6 +82,8 @@ func ObjFieldValues(obj interface{}, enableTPN bool) []string {
 		}
 
 		switch field.Tag.Get("fmt") {
+		case "client":
+			values = append(values, clientName(fieldValue.String()))
 		case "mem":
 			if fieldValue.CanInt() {
 				values = append(values, perf.I2MemString(uint64(fieldValue.Int())))
@@ -124,6 +141,8 @@ func ObjString(obj Report, enableTPN bool) string {
 
 		fieldValue := value.FieldByName(field.Name)
 		switch field.Tag.Get("fmt") {
+		case "client":
+			values = append(values, clientName(fieldValue.String()))
 		case "cpu":
 			values = append(values, fmt.Sprintf("%.2f%%", fieldValue.Float()))
 		case "mem":
