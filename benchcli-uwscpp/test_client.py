@@ -256,7 +256,7 @@ class ClientTests(unittest.TestCase):
                  'RecvTimes': packets, 'EchoEER': 1}))
         self.run_client('-r=true')
         lines = (directory / 'BenchRate.md').read_text(encoding='utf-8').splitlines()
-        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:4]], ['Framework', 'TPS↓1', 'EER↓2'])
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:4]], ['Framework', 'TPS [↓1]', 'EER [↓2]'])
         self.assertIn('| 3980939 100% |', lines[2])
         self.assertIn('| 1658797  41% |', lines[3])
 
@@ -370,12 +370,12 @@ class ClientTests(unittest.TestCase):
             self.assertIn('|  62.50  24% |', md)
         self.assertEqual((directory / 'Connections.md').read_text().count('%'), 2)
 
-        # The rank columns' titles carry ↓1 and ↓2 in either order, and the
+        # The rank columns' titles carry [↓1] and [↓2] in either order, and the
         # table stays in line: every line is as many characters wide.
         for arg in ['-sort=result', '-sort=framework']:
             self.run_client('-r=true', arg)
-            for kind, markers in [('Connections', [' TPS↓1 ']), ('BenchEcho', [' TPS↓1 ', ' EER↓2 ']),
-                                  ('BenchRate', [' TPS↓1 ', ' EER↓2 '])]:
+            for kind, markers in [('Connections', [' TPS [↓1] ']), ('BenchEcho', [' TPS [↓1] ', ' EER [↓2] ']),
+                                  ('BenchRate', [' TPS [↓1] ', ' EER [↓2] '])]:
                 lines = (directory / f'{kind}.md').read_text(encoding='utf-8').splitlines()
                 for marker in markers:
                     self.assertIn(marker, lines[0])

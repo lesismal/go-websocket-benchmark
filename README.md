@@ -225,10 +225,10 @@ finishes.
 In either order, every column a table is ranked by - `TPS`, and `EER` - shows each row's share of the best in that column after the
 number, the best being `100%`, floored so that only the best reads `100%`. Each
 column has its own best, so the row with the most `TPS` need not have the most
-`EER`. Their titles carry `↓1` on the key the rows are ranked by, highest
-first, and `↓2` on the one that breaks a tie on it:
+`EER`. Their titles carry `[↓1]` on the key the rows are ranked by, highest
+first, and `[↓2]` on the one that breaks a tie on it:
 
-| Framework | TPS↓1     | EER↓2         |
+| Framework | TPS [↓1]  | EER [↓2]      |
 | --------- | --------- | ------------- |
 | gorilla   | 3000 100% | 1250.50  50%  |
 | gobwas    | 1500  50% | 2501.00 100%  |
