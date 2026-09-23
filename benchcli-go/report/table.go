@@ -16,8 +16,9 @@ func markdownTable(title []string, rows [][]string) string {
 }
 
 // markdownTableAligned is markdownTable, or with left set, a table whose every
-// cell is padded on the right and whose separators are ":---", so that it is
-// left-aligned in the console and wherever the markdown is rendered.
+// cell is padded on the right, so that it is left-aligned in the console. The
+// separators stay "---", which renders left-aligned too and, unlike ":---",
+// leaves nothing but dashes under the titles in a screenshot of the console.
 func markdownTableAligned(title []string, rows [][]string, left bool) string {
 	width := utf8.RuneCountInString
 	columnNum := len(title)
@@ -30,9 +31,6 @@ func markdownTableAligned(title []string, rows [][]string, left bool) string {
 	separator := make([]string, columnNum)
 	for i := range separator {
 		separator[i] = "---"
-		if left {
-			separator[i] = ":---"
-		}
 	}
 	all = append(all, separator)
 	for _, row := range rows {
