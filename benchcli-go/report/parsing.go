@@ -35,6 +35,12 @@ func Init(enableTPN bool) {
 		}
 		return headers
 	}
+	// Built from nothing each time, so that a second Init does not append a
+	// second copy of every header.
+	ConnectionsReportMarkdownHeaders = nil
+	BenchEchoReportMarkdownHeaders = nil
+	BenchRateReportMarkdownHeaders = nil
+
 	typ := reflect.TypeOf(ConnectionsReport{})
 	for i := 0; i < typ.NumField(); i++ {
 		ConnectionsReportMarkdownHeaders = appendTPNHeadder(ConnectionsReportMarkdownHeaders, typ.Field(i))

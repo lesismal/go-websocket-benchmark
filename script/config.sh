@@ -127,13 +127,12 @@ done
 # rows and the same numbers; only the order differs:
 #
 #   result     (default) best first, ranked by the number each benchmark
-#              answers with: TPS for Connections and BenchEcho, and Bytes
-#              Recv - what the clients read back off the server - for
-#              BenchRate. The rate test writes at a rate the clients set
-#              rather than to completion, so what came back under that load is
-#              its result there the way TPS is in the other two; Bytes Sent is
-#              the load rather than the answer, and Packet Recv counts a small
-#              reply the same as a large one
+#              answers with: TPS for Connections and BenchEcho, and Packet
+#              Recv - the messages the clients read back off the server - for
+#              BenchRate, with EER breaking a tie there. The rate test writes
+#              at a rate the clients set rather than to completion, so what
+#              came back under that load is its result there the way TPS is in
+#              the other two; Packet Sent is the load rather than the answer
 #   framework  the order FrameworkList in config/config.go lists them in,
 #              which is by framework name, and which is also the order every
 #              report was written in before this variable existed. It is what
@@ -143,8 +142,10 @@ done
 #              is built and run, and is kept in the same order so that the two
 #              read alike
 #
-# Neither order ranks by EER or EchoEER, which divide throughput by the CPU it
-# cost and so answer a different question; both are still columns to read.
+# Connections and BenchEcho do not rank by EER, which divides throughput by the
+# CPU it cost and so answers a different question; it is still a column to
+# read. In either order the ranked column - TPS, or Packet Recv - shows each
+# row's share of the best after it, the best being 100%.
 # Rows that tie keep the framework order between them, so two frameworks that
 # scored the same - or a whole table from a benchmark that did not run, which
 # leaves every row at zero - come out the same way on every run.

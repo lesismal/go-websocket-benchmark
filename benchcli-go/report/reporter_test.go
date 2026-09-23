@@ -56,18 +56,19 @@ func TestSortResultRanksConnectionsAndEchoByTPS(t *testing.T) {
 	}
 }
 
-// TestSortResultRanksRateByBytesReceived holds the rate benchmark to the bytes
-// the clients read back, not to what they sent and not to the packet count: a
-// server that answered fewer, bigger messages did more work than one that
-// answered more, smaller ones.
-func TestSortResultRanksRateByBytesReceived(t *testing.T) {
+// TestSortResultRanksRateByPacketsThenEER holds the rate benchmark to the
+// packets the clients read back, not to what they sent or to the bytes, and
+// breaks a tie on those by EER.
+func TestSortResultRanksRateByPacketsThenEER(t *testing.T) {
 	rate := []Report{
-		&BenchRateReport{Framework: "small", SendBytes: 9000, RecvTimes: 900, RecvBytes: 100},
-		&BenchRateReport{Framework: "big", SendBytes: 10, RecvTimes: 1, RecvBytes: 9000},
-		&BenchRateReport{Framework: "mid", SendBytes: 5000, RecvTimes: 500, RecvBytes: 500},
+		&BenchRateReport{Framework: "few", SendBytes: 9000, RecvTimes: 100, RecvBytes: 9000, EchoEER: 900},
+		&BenchRateReport{Framework: "many-costly", RecvTimes: 900, RecvBytes: 10, EchoEER: 5},
+		&BenchRateReport{Framework: "mid", RecvTimes: 500, EchoEER: 1},
+		&BenchRateReport{Framework: "many-cheap", RecvTimes: 900, RecvBytes: 10, EchoEER: 50},
 	}
-	if got := names(SortReports(rate, SortResult)); !equal(got, []string{"big", "mid", "small"}) {
-		t.Errorf("BenchRate ranked %v, want big, mid, small", got)
+	want := []string{"many-cheap", "many-costly", "mid", "few"}
+	if got := names(SortReports(rate, SortResult)); !equal(got, want) {
+		t.Errorf("BenchRate ranked %v, want %v", got, want)
 	}
 }
 
@@ -165,9 +166,6 @@ func rowOrder(table string, want ...string) bool {
 // CPU Min and MEM Min are md:"-", the Client column drops the "benchcli-"
 // prefix, and BenchRate's EchoEER is headed EER.
 func TestHiddenColumnsStayInTheJSON(t *testing.T) {
-	BenchEchoReportMarkdownHeaders = nil
-	BenchRateReportMarkdownHeaders = nil
-	ConnectionsReportMarkdownHeaders = nil
 	Init(true)
 	hidden := []string{"TP50", "TP75", "TP90", "CPU Min", "MEM Min", "benchcli-", "EchoEER"}
 
@@ -203,5 +201,48 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	}
 	if !strings.Contains(JSON(rate), `"EchoEER":12.5`) {
 		t.Errorf("BenchRate JSON lost EchoEER: %s", JSON(rate))
+	}
+}
+
+func TestPercent(t *testing.T) {
+	for _, c := range []struct {
+		value, best float64
+		want        string
+	}{
+		{300, 300, "100%"}, {299, 300, "99%"}, {29, 100, "29%"}, {1, 300, "0%"}, {0, 300, "0%"}, {0, 0, "0%"},
+	} {
+		if got := Percent(c.value, c.best); got != c.want {
+			t.Errorf("Percent(%v, %v) = %q, want %q", c.value, c.best, got, c.want)
+		}
+	}
+}
+
+// TestMarkdownShowsThePercentOfTheBest puts each row's share of the best
+// result after it in the ranked column, right-aligned, in either order.
+func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
+	Init(false)
+	for _, order := range SortOrders() {
+		table := Markdown([]Report{
+			&BenchEchoReport{Framework: "slow", TPS: 10},
+			&BenchEchoReport{Framework: "fast", TPS: 3000},
+			&BenchEchoReport{Framework: "mid", TPS: 1500},
+		}, false, order, nil)
+		for _, cell := range []string{"| 3000 100% |", "| 1500  50% |", "| 10     0% |"} {
+			if !strings.Contains(table, cell) {
+				t.Errorf("-sort=%v: no %q in:\n%s", order, cell, table)
+			}
+		}
+	}
+
+	table := Markdown([]Report{
+		&BenchRateReport{Framework: "a", RecvTimes: 200, EchoEER: 1},
+		&BenchRateReport{Framework: "b", RecvTimes: 50, EchoEER: 9},
+	}, false, SortResult, nil)
+	// Packet Recv is wider than its cells, so the table centres them; the
+	// cells themselves are one width, which keeps the percentages aligned.
+	for _, cell := range []string{" 200 100% ", " 50   25% "} {
+		if !strings.Contains(table, cell) {
+			t.Errorf("BenchRate: no %q in:\n%s", cell, table)
+		}
 	}
 }

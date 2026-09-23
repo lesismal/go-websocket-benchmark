@@ -8,15 +8,20 @@ var (
 	BenchRateReportMarkdownHeaders = []string{}
 )
 
+// BenchRateReport is ranked by Packet Recv (rank:"1"), the messages the clients
+// read back off the server: the rate benchmark writes at a rate the clients set
+// rather than to completion, so what the server answered under that load is
+// its result, the way TPS is in the other two. Rows with the same Packet Recv
+// are ranked by EER (rank:"2"), the one that spent less CPU on it first.
 type BenchRateReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool"`
 	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration"`
-	EchoEER     float64 `json:"EchoEER" md:"EER"`
+	EchoEER     float64 `json:"EchoEER" md:"EER" rank:"2"`
 	SendTimes   int64   `json:"SendTimes" md:"Packet Sent"`
 	SendBytes   int64   `json:"SendBytes" md:"Bytes Sent" fmt:"mem"`
-	RecvTimes   int64   `json:"RecvTimes" md:"Packet Recv"`
+	RecvTimes   int64   `json:"RecvTimes" md:"Packet Recv" rank:"1"`
 	RecvBytes   int64   `json:"RecvBytes" md:"Bytes Recv" fmt:"mem"`
 	Connections int     `json:"Conns" md:"Conns"`
 	SendRate    int     `json:"SendRate" md:"SendRate"`
@@ -65,13 +70,4 @@ func (r *BenchRateReport) PprofMEM() []byte {
 
 func (r *BenchRateReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
-}
-
-// SortKey ranks a rate run by the bytes the clients read back off the server.
-// The rate benchmark writes at a rate the clients set rather than to
-// completion, so what the server managed to send back under that load is its
-// result here, the way TPS is in the other two; SendBytes is the load, not the
-// answer, and RecvTimes counts a 1-byte reply the same as a 4KB one.
-func (r *BenchRateReport) SortKey() float64 {
-	return float64(r.RecvBytes)
 }

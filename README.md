@@ -200,14 +200,22 @@ The report tables are written best first. `-sort` takes the two orders:
 | `framework` | the order `config.FrameworkList` lists the frameworks in, which is what every report was written in before `-sort` existed |
 
 Which number `result` ranks by is the one each benchmark answers with:
-`Connections` and `BenchEcho` by `TPS`, and `BenchRate` by `Bytes Recv`, the
-bytes the clients read back off the server. The rate test writes at a rate the
-clients set rather than to completion, so what the server got back under that
-load is its result there the way TPS is in the other two - `Bytes Sent` is the
-load rather than the answer, and `Packet Recv` counts a small reply the same as
-a large one. Neither order ranks by `EER` or `EchoEER`, which divide throughput
-by the CPU it cost and so answer a different question; both are still columns
-to read.
+`Connections` and `BenchEcho` by `TPS`, and `BenchRate` by `Packet Recv`, the
+messages the clients read back off the server, with `EER` breaking a tie. The
+rate test writes at a rate the clients set rather than to completion, so what
+the server got back under that load is its result there the way TPS is in the
+other two - `Packet Sent` is the load rather than the answer. `Connections` and
+`BenchEcho` do not rank by `EER`, which divides throughput by the CPU it cost
+and so answers a different question; it is still a column to read.
+
+In either order, the ranked column - `TPS`, or `Packet Recv` - shows each row's
+share of the best result after the number, the best being `100%`, floored so
+that only the best reads `100%`:
+
+| Framework | TPS       |
+| --------- | --------- |
+| gorilla   | 3000 100% |
+| gobwas    | 1500  50% |
 
 Rows that tie keep the framework order between them, so two frameworks that
 scored the same - or a whole table from a benchmark that did not run, which

@@ -30,6 +30,9 @@ for kind, filename in [('Connections', 'connections_report.go'),
         # md:"-" keeps a field in the JSON and out of the tables and the console.
         fields.append(dict(key=tags['json'], title=tags['md'], fmt=tags.get('fmt', ''),
                            optional='tpn' in tags, hidden=tags['md'] == '-',
+                           # rank:"N" is the Nth key -sort=result compares, and rank 1's
+                           # column carries each row's percentage of the best.
+                           rank=int(tags.get('rank', 0)),
                            string=typ == 'string', floating=typ.startswith('float')))
     if not fields:
         raise SystemExit(f'No report fields found for {kind}')

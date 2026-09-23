@@ -15,11 +15,14 @@ type EchoSession struct {
 	Bytes []byte
 }
 
+// BenchEchoReport is ranked by TPS (rank:"1"), the round trips the server
+// completed per second, rather than EER, which divides that by the CPU it took
+// and so answers a different question.
 type BenchEchoReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client"`
 	TaskPool    string  `json:"TaskPool" md:"Pool"`
-	TPS         int64   `json:"TPS" md:"TPS"`
+	TPS         int64   `json:"TPS" md:"TPS" rank:"1"`
 	EER         float64 `json:"EER" md:"EER"`
 	Min         int64   `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
 	Avg         int64   `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
@@ -80,11 +83,4 @@ func (r *BenchEchoReport) SetPprofData(cpu, mem []byte) {
 
 func (r *BenchEchoReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
-}
-
-// SortKey ranks an echo run by its TPS: the round trips the server completed
-// per second, rather than EER, which divides that by the CPU it took and so
-// answers a different question.
-func (r *BenchEchoReport) SortKey() float64 {
-	return float64(r.TPS)
 }
