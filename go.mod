@@ -14,7 +14,7 @@ require (
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d
-	github.com/lesismal/nbio v1.6.12
+	github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/linfeip/fnet v0.0.0-20260922112700-236750508401
