@@ -182,13 +182,23 @@ inline std::string padCell(const std::string &s,size_t maxLen,bool isFirst,size_
     }
     return out;
 }
-inline std::string markdownTable(std::vector<std::string> title,std::vector<std::vector<std::string>> rows) {
+// padLeft mirrors report.padLeft: one space before the cell, the rest after.
+inline std::string padLeft(const std::string &s,size_t maxLen,bool,size_t) {
+    if (textWidth(s)>=maxLen) return s;
+    return " "+s+std::string(maxLen-textWidth(s)-1,' ');
+}
+// markdownTable mirrors report.markdownTableAligned: with left set, every cell is padded on
+// the right and the separators are ":---", so the table is left-aligned in the console and
+// wherever the markdown is rendered.
+inline std::string markdownTable(std::vector<std::string> title,std::vector<std::vector<std::string>> rows,
+                                 bool left=false) {
+    auto pad=left?padLeft:padCell;
     std::vector<size_t> maxLen;
     size_t columnNum=title.size();
     for (auto &v:title) maxLen.push_back(textWidth(v));
 
     std::vector<std::vector<std::string>> allRows;
-    allRows.push_back(std::vector<std::string>(columnNum,"---"));
+    allRows.push_back(std::vector<std::string>(columnNum,left?":---":"---"));
     for (auto &r:rows) allRows.push_back(std::move(r));
 
     for (auto &v:allRows) {
@@ -208,7 +218,7 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
     size_t titleLeftPaddingIdx=0;
     std::vector<std::string> alignedTitle(title.size());
     for (size_t i=0;i<title.size();++i) {
-        alignedTitle[i]=padCell(title[i],maxLen[i],false,0);
+        alignedTitle[i]=pad(title[i],maxLen[i],false,0);
         if (i==0)
             for (size_t k=0,at=0;k<alignedTitle[i].size();++k) {
                 unsigned char c=alignedTitle[i][k];
@@ -222,15 +232,15 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 
     for (auto &v:allRows) {
         s+="|";
-        for (size_t j=0;j<v.size();++j) s+=padCell(v[j],maxLen[j],j==0,titleLeftPaddingIdx)+"|";
+        for (size_t j=0;j<v.size();++j) s+=pad(v[j],maxLen[j],j==0,titleLeftPaddingIdx)+"|";
         s+="\n";
     }
     return s;
 }
 // rankKeys is what -sort=result ranks a report by, most significant first: the fields
 // tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
-// That is TPS for Connections, TPS then EER for BenchEcho, and for BenchRate the packets
-// the clients read back off the server, then EER.
+// That is TPS for Connections, and TPS then EER for BenchEcho and BenchRate, whose TPS is
+// the packets the clients read back off the server per second.
 inline std::vector<json> rankFields(const std::string &kind) {
     std::vector<json> fields;
     for (const auto &field:metadata["schemas"][kind])
@@ -273,6 +283,15 @@ inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,c
         rows[i][col]=std::string(valueLen-rows[i][col].size(),' ')+rows[i][col]+" "+
                      std::string(percentLen-percents[i].size(),' ')+percents[i];
 }
+// fillRateTPS mirrors BenchRateReport.fillTPS and benchrate.Report: a rate run's TPS is the
+// packets the clients read back per second of its duration, floored. A report written before
+// it had one gets it here, so that an earlier run still ranks by it when it is read again.
+inline void fillRateTPS(json &r) {
+    auto number=[&r](const char *key) { return r.contains(key)&&r[key].is_number()?r[key].get<double>():0.0; };
+    if (number("TPS")!=0 || number("RecvTimes")<=0) return;
+    double duration=number("Duration");
+    r["TPS"]=duration>0?int64_t(std::floor(number("RecvTimes")/(duration/1e9))):int64_t(0);
+}
 inline std::vector<json> readReports(const Options &o,const std::string &kind) {
     std::vector<json> rows;
     for (const auto &f:metadata["frameworks"]) {
@@ -281,14 +300,33 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
         if (!in) continue;
         try { json row; in>>row; rows.push_back(std::move(row)); }
         catch (const std::exception &e) { throw std::runtime_error(path+": "+e.what()); }
+        if (kind=="BenchRate") fillRateTPS(rows.back());
     }
     return rows;
 }
+struct SummaryValue { std::string value; std::vector<std::string> frameworks; };
+// poolSummary mirrors report.poolSummary: the pools that ran, once each, without the
+// frameworks, the "-" of those that installed none, or uwebsockets' "(pool)"/"(loop)".
+inline std::string poolSummary(const std::vector<SummaryValue> &values) {
+    std::vector<std::string> pools;
+    for (const auto &v:values) {
+        auto pool=v.value;
+        auto paren=pool.find('(');
+        if (paren!=std::string::npos && paren>0) pool.resize(paren);
+        if (pool=="-" || pool.empty() || std::find(pools.begin(),pools.end(),pool)!=pools.end()) continue;
+        pools.push_back(pool);
+    }
+    if (pools.empty()) return "-";
+    std::string text;
+    for (size_t i=0;i<pools.size();++i) text+=(i?", ":"")+pools[i];
+    return text+" (Go event-loop frameworks only)";
+}
 // summaryTable mirrors report.Summary: the run's parameters, the summary-tagged fields of every
-// row of every report. One value where the rows agree; otherwise each value followed by the
-// frameworks that had it, "fib_adaptive (fib, fnet); - (fasthttp)".
+// row of every report, left-aligned. One value where the rows agree; otherwise each value
+// followed by the frameworks that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool,
+// which poolSummary writes.
 inline std::string summaryTable(const Options &o) {
-    struct Value { std::string value; std::vector<std::string> frameworks; };
+    using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
     std::vector<std::string> names;
     for (auto kind:{"Connections","BenchEcho","BenchRate"})
@@ -316,7 +354,8 @@ inline std::string summaryTable(const Options &o) {
     for (const auto &name:ordered) {
         const auto &list=values[name];
         std::string text;
-        if (list.size()==1) text=list[0].value;
+        if (name=="Pool") text=poolSummary(list);
+        else if (list.size()==1) text=list[0].value;
         else for (size_t i=0;i<list.size();++i) {
             if (i) text+="; ";
             text+=list[i].value+" (";
@@ -325,7 +364,7 @@ inline std::string summaryTable(const Options &o) {
         }
         rows.push_back({name,text});
     }
-    return markdownTable({"Parameter","Value"},rows);
+    return markdownTable({"Parameter","Value"},rows,true);
 }
 // consoleSection mirrors report.ConsoleSection: a rule, the table's name, and the table
 // between blank lines.

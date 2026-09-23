@@ -173,6 +173,7 @@ int benchmark(const Options &o) {
         rate["SendRate"]=std::max(1,o.integer("rr"));rate["Payload"]=runner.shared.payloads[0].size();
         rate["SendTimes"]=sent;rate["SendBytes"]=sent*int64_t(runner.shared.payloads[0].size());
         rate["RecvTimes"]=received;rate["RecvBytes"]=bytes;
+        fillRateTPS(rate);
         resourceStats(rate,o,true,ps);
         if(rateProfile.valid())rateProfile.get();
         saveReport(o,"BenchRate",rate);

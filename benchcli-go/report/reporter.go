@@ -25,10 +25,9 @@ type Report interface {
 
 // The orders a report table can be written in, as -sort takes them.
 const (
-	// SortResult puts the best result first: TPS for Connections, TPS then
-	// EER for BenchEcho, and for BenchRate the packets the clients read back
-	// off the server - the rate benchmark's answer the way TPS is the other
-	// two's - then EER. The fields tagged rank:"1", rank:"2" and so on are
+	// SortResult puts the best result first: TPS for Connections, and TPS
+	// then EER for BenchEcho and BenchRate, whose TPS is the packets the
+	// clients read back off the server per second. The fields tagged rank:"1", rank:"2" and so on are
 	// what it compares, in that order. Rows that tie on all of them keep the
 	// framework order between them, so a run is reproducible rather than
 	// merely sorted.
@@ -307,10 +306,7 @@ func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, order stri
 }
 
 func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
-	create := func(framework string) Report {
-		return &BenchRateReport{Framework: framework}
-	}
-	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
+	return Markdown(ReadBenchRateReports(preffix, suffix), enableTPN, order, filter)
 }
 
 func ReadConnectionsReports(preffix, suffix string) []Report {
@@ -331,7 +327,11 @@ func ReadBenchRateReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
 		return &BenchRateReport{Framework: framework}
 	}
-	return ReadReports(preffix, suffix, create)
+	reports := ReadReports(preffix, suffix, create)
+	for _, r := range reports {
+		r.(*BenchRateReport).fillTPS()
+	}
+	return reports
 }
 
 // GenerateSummary is the Summary table of the run the three reports' files

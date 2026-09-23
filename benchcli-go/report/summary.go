@@ -2,7 +2,10 @@ package report
 
 import (
 	"reflect"
+	"slices"
 	"strings"
+
+	"go-websocket-benchmark/config"
 )
 
 // SummaryParameters is the order the Summary table lists the run's parameters
@@ -32,10 +35,12 @@ type summaryValue struct {
 // Summary is the table of the run's parameters, taken off the summary-tagged
 // fields of every row of every report. A parameter every row agrees on - the
 // client, the payload, the concurrency a flag set - reads as that value. One
-// the rows disagree on, which the pool does for a server that installs none,
-// lists each value with the frameworks that had it:
+// the rows disagree on lists each value with the frameworks that had it:
 //
-//	fib_adaptive (fib, fnet); - (fasthttp)
+//	20000 (fib, fnet); 19998 (fasthttp)
+//
+// except Pool, which says only which pools ran; see poolSummary. The table is
+// left-aligned, so that a long value reads from its start.
 func Summary(tables ...[]Report) string {
 	values := map[string][]summaryValue{}
 	var names []string
@@ -63,9 +68,13 @@ func Summary(tables ...[]Report) string {
 
 	var rows [][]string
 	for _, name := range summaryOrder(names) {
-		rows = append(rows, []string{name, summaryString(values[name])})
+		text := summaryString(values[name])
+		if name == "Pool" {
+			text = poolSummary(values[name])
+		}
+		rows = append(rows, []string{name, text})
 	}
-	return markdownTable([]string{"Parameter", "Value"}, rows)
+	return markdownTableAligned([]string{"Parameter", "Value"}, rows, true)
 }
 
 func addSummaryValue(values []summaryValue, value, framework string) []summaryValue {
@@ -92,6 +101,31 @@ func summaryString(values []summaryValue) string {
 		parts[i] = v.value + " (" + strings.Join(v.frameworks, ", ") + ")"
 	}
 	return strings.Join(parts, "; ")
+}
+
+// poolSummary is the Pool row: the pools the servers installed, without the
+// frameworks, which would make the row as long as the run. Only the Go
+// event-loop frameworks install one - the rest report "-" and are left out -
+// and uwebsockets' "(pool)" or "(loop)", which side of its loop the echo ran
+// on, is dropped as well:
+//
+//	fib_adaptive (Go event-loop frameworks only)
+func poolSummary(values []summaryValue) string {
+	var pools []string
+	for _, v := range values {
+		pool := v.value
+		if i := strings.IndexByte(pool, '('); i > 0 {
+			pool = pool[:i]
+		}
+		if pool == config.TaskPoolNone || pool == "" || slices.Contains(pools, pool) {
+			continue
+		}
+		pools = append(pools, pool)
+	}
+	if len(pools) == 0 {
+		return config.TaskPoolNone
+	}
+	return strings.Join(pools, ", ") + " (Go event-loop frameworks only)"
 }
 
 // summaryOrder puts names in SummaryParameters order, and any it does not

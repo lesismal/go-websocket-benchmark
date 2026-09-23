@@ -12,6 +12,13 @@ import (
 // are three bytes each for one character. An ASCII table comes out the same
 // byte for byte, and benchcli-uwscpp's markdownTable is the same code.
 func markdownTable(title []string, rows [][]string) string {
+	return markdownTableAligned(title, rows, false)
+}
+
+// markdownTableAligned is markdownTable, or with left set, a table whose every
+// cell is padded on the right and whose separators are ":---", so that it is
+// left-aligned in the console and wherever the markdown is rendered.
+func markdownTableAligned(title []string, rows [][]string, left bool) string {
 	width := utf8.RuneCountInString
 	columnNum := len(title)
 	maxLen := make([]int, 0, columnNum)
@@ -23,6 +30,9 @@ func markdownTable(title []string, rows [][]string) string {
 	separator := make([]string, columnNum)
 	for i := range separator {
 		separator[i] = "---"
+		if left {
+			separator[i] = ":---"
+		}
 	}
 	all = append(all, separator)
 	for _, row := range rows {
@@ -55,8 +65,12 @@ func markdownTable(title []string, rows [][]string) string {
 	var b strings.Builder
 	b.WriteString("|")
 	titleLeftPaddingIdx := 0
+	pad := padCell
+	if left {
+		pad = padLeft
+	}
 	for i, v := range title {
-		aligned := padCell(v, maxLen[i], false, 0)
+		aligned := pad(v, maxLen[i], false, 0)
 		if i == 0 {
 			// The last character that is not a space, as perf has it.
 			for k, r := range []rune(aligned) {
@@ -72,7 +86,7 @@ func markdownTable(title []string, rows [][]string) string {
 	for _, row := range all {
 		b.WriteString("|")
 		for j, cell := range row {
-			b.WriteString(padCell(cell, maxLen[j], j == 0, titleLeftPaddingIdx))
+			b.WriteString(pad(cell, maxLen[j], j == 0, titleLeftPaddingIdx))
 			b.WriteString("|")
 		}
 		b.WriteString("\n")
@@ -96,4 +110,13 @@ func padCell(s string, maxLen int, isFirst bool, titleLeftPaddingIdx int) string
 	}
 	half := paddingLen / 2
 	return strings.Repeat(" ", half) + s + strings.Repeat(" ", paddingLen-half)
+}
+
+// padLeft left-aligns a cell: one space before it, the rest after.
+func padLeft(s string, maxLen int, _ bool, _ int) string {
+	paddingLen := maxLen - utf8.RuneCountInString(s)
+	if paddingLen <= 0 {
+		return s
+	}
+	return " " + s + strings.Repeat(" ", paddingLen-1)
 }
