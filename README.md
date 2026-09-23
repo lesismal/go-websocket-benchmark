@@ -199,26 +199,30 @@ The report tables are written best first. `-sort` takes the two orders:
 | `result` (the default) | ranked by the benchmark's own result, biggest first |
 | `framework` | the order `config.FrameworkList` lists the frameworks in, which is what every report was written in before `-sort` existed |
 
-Which number `result` ranks by is the one each benchmark answers with:
-`Connections` and `BenchEcho` by `TPS`, and `BenchRate` by `Packet Recv`, the
-messages the clients read back off the server. The rate test writes at a rate
-the clients set rather than to completion, so what the server got back under
-that load is its result there the way TPS is in the other two - `Packet Sent` is
-the load rather than the answer. In `BenchEcho` and `BenchRate`, rows that tie
+Which number `result` ranks by is the one each benchmark answers with: `TPS`
+in all three. In `BenchRate` that is `Packet Recv` per second of
+`Rate Duration`, the messages the clients read back off the server per second:
+the rate test writes at a rate the clients set rather than to completion, so
+what the server got back under that load is its result there the way TPS is in
+the other two - `Packet Sent` is the load rather than the answer. `EER` is that
+`TPS` divided by `CPU Avg` in both `BenchEcho` and `BenchRate`. A `BenchRate`
+report written before it recorded `TPS` gets it from `Packet Recv` and
+`Duration` when the report is read again. In `BenchEcho` and `BenchRate`, rows that tie
 on that are ranked by `EER`, the one that spent less CPU on it first;
 `Connections` samples no CPU, so it has no `EER` to break a tie with.
 
 The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
 benchmark's concurrency, `Echo Total`, `Rate Duration` and `Rate SendRate` - are
 not columns of the three tables: they are the Summary table printed in front of
-them and written to `Summary.md` next to them. A parameter the frameworks
+them and written to `Summary.md` next to them, left-aligned. `Pool` names only
+the pools that ran, e.g. `fib_adaptive (Go event-loop frameworks only)`: the
+frameworks that install none are left out. Any other parameter the frameworks
 disagree on lists each value with the frameworks that had it, e.g.
-`fib_adaptive (fib, fnet); - (fasthttp)`. The JSON files still carry every
+`20000 (fib, fnet); 19998 (fasthttp)`. The JSON files still carry every
 field, and so does the block each benchmark prints to the console as it
 finishes.
 
-In either order, every column a table is ranked by - `TPS` or `Packet Recv`,
-and `EER` - shows each row's share of the best in that column after the
+In either order, every column a table is ranked by - `TPS`, and `EER` - shows each row's share of the best in that column after the
 number, the best being `100%`, floored so that only the best reads `100%`. Each
 column has its own best, so the row with the most `TPS` need not have the most
 `EER`. Their titles carry `↓1` on the key the rows are ranked by, highest

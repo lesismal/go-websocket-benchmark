@@ -242,6 +242,23 @@ class ClientTests(unittest.TestCase):
         self.assertTrue(120 <= r['RecvTimes'] <= r['SendTimes'] <= 160, r)
         self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
         self.assertEqual(r['Concurrency'], 1, r)
+        # -rd=1: a second's packets are its TPS.
+        self.assertEqual(r['TPS'], r['RecvTimes'], r)
+
+    # A rate report written before TPS was recorded gets it from Packet Recv
+    # and Duration when the report is read again, and ranks by it.
+    def test_rate_tps_of_an_earlier_report(self):
+        directory = self.cwd / 'output/report'
+        directory.mkdir(parents=True)
+        for framework, packets in [('fasthttp', 16587970), ('gorilla', 39809399)]:
+            (directory / f'{framework}-BenchRate.json').write_text(json.dumps(
+                {'Framework': framework, 'BenchClient': 'benchcli-uwscpp', 'Duration': 10_000_000_000,
+                 'RecvTimes': packets, 'EchoEER': 1}))
+        self.run_client('-r=true')
+        lines = (directory / 'BenchRate.md').read_text(encoding='utf-8').splitlines()
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:4]], ['Framework', 'TPS↓1', 'EER↓2'])
+        self.assertIn('| 3980939 100% |', lines[2])
+        self.assertIn('| 1658797  41% |', lines[3])
 
     def test_retry(self):
         self.server.mode = 'retry'
@@ -298,14 +315,14 @@ class ClientTests(unittest.TestCase):
         directory = self.cwd / 'output/report'
         directory.mkdir(parents=True)
 
-        # BenchRate ranks by RecvTimes, then EchoEER; RecvBytes runs the other
-        # way here, so a table ranked by it would come out reversed.
+        # BenchRate ranks by TPS, then EchoEER; RecvBytes runs the other way
+        # here, so a table ranked by it would come out reversed.
         def write(scores, eer=None):
             for framework, score in scores.items():
                 for kind in ['Connections', 'BenchEcho', 'BenchRate']:
                     (directory / f'{framework}-{kind}.json').write_text(json.dumps(
                         {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
-                         'TPS': score, 'RecvTimes': score, 'RecvBytes': 100 - score,
+                         'TPS': score, 'RecvTimes': score * 10, 'RecvBytes': 100 - score,
                          'EER': (eer or {}).get(framework, 0),
                          'EchoEER': (eer or {}).get(framework, 0)}))
 
@@ -358,7 +375,7 @@ class ClientTests(unittest.TestCase):
         for arg in ['-sort=result', '-sort=framework']:
             self.run_client('-r=true', arg)
             for kind, markers in [('Connections', [' TPS↓1 ']), ('BenchEcho', [' TPS↓1 ', ' EER↓2 ']),
-                                  ('BenchRate', [' EER↓2 ', ' Packet Recv↓1 '])]:
+                                  ('BenchRate', [' TPS↓1 ', ' EER↓2 '])]:
                 lines = (directory / f'{kind}.md').read_text(encoding='utf-8').splitlines()
                 for marker in markers:
                     self.assertIn(marker, lines[0])
@@ -378,8 +395,12 @@ class ClientTests(unittest.TestCase):
                 {**common, 'TPS': 1, 'Conns': 100, 'Concurrency': 50, 'Total': 1000, 'Payload': 64}))
         result = self.run_client('-r=true')
         summary = (directory / 'Summary.md').read_text()
-        rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in summary.splitlines()[2:]]
-        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', '- (fasthttp); nbio (gorilla)'],
+        lines = summary.splitlines()
+        self.assertEqual(lines[:3], ['| Parameter        | Value                                |',
+                                     '| :---             | :---                                 |',
+                                     '| Client           | uwscpp                               |'])
+        rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in lines[2:]]
+        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', 'nbio (Go event-loop frameworks only)'],
                                 ['Conns', '100'], ['Payload', '64'], ['Dial Concurrency', '20'],
                                 ['Echo Concurrency', '50'], ['Echo Total', '1000']])
         for kind in ['Connections', 'BenchEcho']:

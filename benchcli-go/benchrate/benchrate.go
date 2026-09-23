@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"math"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -194,11 +195,9 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		r.MEMRSSMin = br.PsCounter.MEMRSSMin()
 		r.MEMRSSAvg = br.PsCounter.MEMRSSAvg()
 		r.MEMRSSMax = br.PsCounter.MEMRSSMax()
-		// In floating point: r.Duration is nanoseconds, and an integer
-		// division by the second first would make every sub-second run a
-		// division by zero.
-		r.EchoEER = report.EER(float64(r.RecvTimes)/(float64(r.Duration)/float64(time.Second)), r.CPUAvg)
+		r.EchoEER = report.EER(report.RateTPS(r.RecvTimes, r.Duration), r.CPUAvg)
 	}
+	r.TPS = int64(math.Floor(report.RateTPS(r.RecvTimes, r.Duration)))
 	return r
 }
 

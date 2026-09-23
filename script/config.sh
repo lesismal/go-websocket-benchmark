@@ -127,13 +127,13 @@ done
 # rows and the same numbers; only the order differs:
 #
 #   result     (default) best first, ranked by the number each benchmark
-#              answers with: TPS for Connections and BenchEcho, and Packet
-#              Recv - the messages the clients read back off the server - for
-#              BenchRate, with EER breaking a tie in BenchEcho and BenchRate
-#              (Connections samples no CPU, so it has none). The rate test writes
-#              at a rate the clients set rather than to completion, so what
-#              came back under that load is its result there the way TPS is in
-#              the other two; Packet Sent is the load rather than the answer
+#              answers with: TPS in all three - for BenchRate the messages the
+#              clients read back off the server per second - with EER breaking
+#              a tie in BenchEcho and BenchRate (Connections samples no CPU, so
+#              it has none). The rate test writes at a rate the clients set
+#              rather than to completion, so what came back under that load is
+#              its result there the way TPS is in the other two; Packet Sent is
+#              the load rather than the answer
 #   framework  the order FrameworkList in config/config.go lists them in,
 #              which is by framework name, and which is also the order every
 #              report was written in before this variable existed. It is what
@@ -143,7 +143,7 @@ done
 #              is built and run, and is kept in the same order so that the two
 #              read alike
 #
-# In either order every ranked column - TPS or Packet Recv, and EER - shows
+# In either order every ranked column - TPS, and EER - shows
 # each row's share of the best in that column after it, the best being 100%,
 # and carries ↓1 or ↓2 after its title for which key it is.
 # Rows that tie keep the framework order between them, so two frameworks that

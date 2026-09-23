@@ -2,6 +2,7 @@ package report
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -60,15 +61,15 @@ func TestSortResultRanksConnectionsAndEchoByTPS(t *testing.T) {
 	}
 }
 
-// TestSortResultRanksRateByPacketsThenEER holds the rate benchmark to the
-// packets the clients read back, not to what they sent or to the bytes, and
-// breaks a tie on those by EER.
-func TestSortResultRanksRateByPacketsThenEER(t *testing.T) {
+// TestSortResultRanksRateByTPSThenEER holds the rate benchmark to its TPS, the
+// packets the clients read back per second, not to what they sent or to the
+// bytes, and breaks a tie on it by EER.
+func TestSortResultRanksRateByTPSThenEER(t *testing.T) {
 	rate := []Report{
-		&BenchRateReport{Framework: "few", SendBytes: 9000, RecvTimes: 100, RecvBytes: 9000, EchoEER: 900},
-		&BenchRateReport{Framework: "many-costly", RecvTimes: 900, RecvBytes: 10, EchoEER: 5},
-		&BenchRateReport{Framework: "mid", RecvTimes: 500, EchoEER: 1},
-		&BenchRateReport{Framework: "many-cheap", RecvTimes: 900, RecvBytes: 10, EchoEER: 50},
+		&BenchRateReport{Framework: "few", SendBytes: 9000, TPS: 10, RecvBytes: 9000, EchoEER: 900},
+		&BenchRateReport{Framework: "many-costly", TPS: 90, RecvBytes: 10, EchoEER: 5},
+		&BenchRateReport{Framework: "mid", TPS: 50, EchoEER: 1},
+		&BenchRateReport{Framework: "many-cheap", TPS: 90, RecvBytes: 10, EchoEER: 50},
 	}
 	want := []string{"many-cheap", "many-costly", "mid", "few"}
 	if got := names(SortReports(rate, SortResult)); !equal(got, want) {
@@ -242,12 +243,10 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 	}
 
 	table := Markdown([]Report{
-		&BenchRateReport{Framework: "a", RecvTimes: 200, EchoEER: 1},
-		&BenchRateReport{Framework: "b", RecvTimes: 50, EchoEER: 9},
+		&BenchRateReport{Framework: "a", TPS: 200, EchoEER: 1},
+		&BenchRateReport{Framework: "b", TPS: 50, EchoEER: 9},
 	}, false, SortResult, nil)
-	// Packet Recv is wider than its cells, so the table centres them; the
-	// cells themselves are one width, which keeps the percentages aligned.
-	for _, cell := range []string{" 200 100% ", "  50  25% "} {
+	for _, cell := range []string{"| 200 100% |", "|  50  25% |"} {
 		if !strings.Contains(table, cell) {
 			t.Errorf("BenchRate: no %q in:\n%s", cell, table)
 		}
@@ -272,7 +271,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Payload: 1024},
 	}
 	summary := Summary(conns, echo, rate)
-	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive (fib, fnet); - (fasthttp)", "Conns", "20000",
+	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive (Go event-loop frameworks only)", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
 		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200"}
 	if !rowOrder(summary, rows...) {
@@ -292,6 +291,14 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 	// asked for, and moves to the Summary.
 	if table := Markdown(echo, false, SortResult, nil); strings.Contains(table, " Total ") {
 		t.Errorf("BenchEcho table still has a Total column:\n%s", table)
+	}
+
+	// Left-aligned, in the console and in the markdown.
+	lines := strings.Split(summary, "\n")
+	if lines[0] != "| Parameter        | Value                                        |" ||
+		lines[1] != "| :---             | :---                                         |" ||
+		lines[2] != "| Client           | uwscpp                                       |" {
+		t.Errorf("Summary is not left-aligned:\n%s", summary)
 	}
 
 	if Summary() != "" || Summary(nil, nil) != "" {
@@ -353,8 +360,8 @@ func TestMarkdownShowsThePercentOfTheBestEER(t *testing.T) {
 		}
 	}
 	rate := Markdown([]Report{
-		&BenchRateReport{Framework: "a", RecvTimes: 200, EchoEER: 40},
-		&BenchRateReport{Framework: "b", RecvTimes: 50, EchoEER: 160},
+		&BenchRateReport{Framework: "a", TPS: 200, EchoEER: 40},
+		&BenchRateReport{Framework: "b", TPS: 50, EchoEER: 160},
 	}, false, SortFramework, nil)
 	for _, cell := range []string{"|  40.00  25% |", "| 160.00 100% |"} {
 		if !strings.Contains(rate, cell) {
@@ -401,7 +408,7 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 		}{
 			{[]Report{&ConnectionsReport{Framework: "a", TPS: 5}, &ConnectionsReport{Framework: "b", TPS: 50}}, []string{" TPS↓1 "}},
 			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, EER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, EER: 1}}, []string{" TPS↓1 ", " EER↓2 "}},
-			{[]Report{&BenchRateReport{Framework: "a", RecvTimes: 5, EchoEER: 2}}, []string{" Packet Recv↓1 ", " EER↓2 "}},
+			{[]Report{&BenchRateReport{Framework: "a", TPS: 5, RecvTimes: 50, EchoEER: 2}}, []string{" TPS↓1 ", " EER↓2 "}},
 		} {
 			table := Markdown(c.reports, false, order, nil)
 			title := strings.SplitN(table, "\n", 2)[0]
@@ -425,5 +432,59 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 	// The markers go on a copy: the headers the next table reads are plain.
 	if strings.Contains(strings.Join(BenchEchoReportMarkdownHeaders, ","), "↓") {
 		t.Errorf("Markdown marked the shared headers: %v", BenchEchoReportMarkdownHeaders)
+	}
+}
+
+// TestRateTPSIsPacketsPerSecond puts BenchRate's TPS right after Framework,
+// works it out for a report written before it had one, and leaves Packet Recv
+// a plain column.
+func TestRateTPSIsPacketsPerSecond(t *testing.T) {
+	Init(false)
+	if got := BenchRateReportMarkdownHeaders[:3]; !equal(got, []string{"Framework", "TPS", "EER"}) {
+		t.Errorf("BenchRate columns start %v, want Framework, TPS, EER", got)
+	}
+	if got := RateTPS(39809390, 10e9); got != 3980939 {
+		t.Errorf("RateTPS = %v, want 3980939", got)
+	}
+	if got := RateTPS(10, 0); got != 0 {
+		t.Errorf("RateTPS of no duration = %v, want 0", got)
+	}
+
+	old := &BenchRateReport{Framework: "fib", RecvTimes: 39809399, Duration: 10e9}
+	old.fillTPS()
+	if old.TPS != 3980939 {
+		t.Errorf("fillTPS set %v, want 3980939", old.TPS)
+	}
+	recorded := &BenchRateReport{TPS: 7, RecvTimes: 1000, Duration: 1e9}
+	recorded.fillTPS()
+	if recorded.TPS != 7 {
+		t.Errorf("fillTPS replaced a recorded TPS with %v", recorded.TPS)
+	}
+
+	table := Markdown([]Report{old}, false, SortResult, nil)
+	if !strings.Contains(table, "| 3980939 100% |") || !strings.Contains(table, " 39809399 ") {
+		t.Errorf("BenchRate table:\n%s", table)
+	}
+}
+
+// TestPoolSummaryNamesOnlyThePools keeps the Pool row short: the pools that
+// ran, once each, without the frameworks or uwebsockets' side of its loop, and
+// "-" when no server installed one.
+func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
+	for _, c := range []struct {
+		pools []string
+		want  string
+	}{
+		{[]string{"fib_adaptive", "-", "fib_adaptive"}, "fib_adaptive (Go event-loop frameworks only)"},
+		{[]string{"-", "nbio", "nbio(pool)", "ants"}, "nbio, ants (Go event-loop frameworks only)"},
+		{[]string{"-", "-"}, "-"},
+	} {
+		var reports []Report
+		for i, pool := range c.pools {
+			reports = append(reports, &ConnectionsReport{Framework: strconv.Itoa(i), TaskPool: pool})
+		}
+		if !strings.Contains(Summary(reports), "| Pool             | "+c.want+" ") {
+			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary(reports))
+		}
 	}
 }
