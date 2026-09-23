@@ -67,7 +67,7 @@ Existing Go flags and defaults are accepted (`-flag=value`, `-flag value`, and
 | `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, global messages/second limit |
 | `-rp`, `-rpd` | Rate CPU/heap profiles and CPU profile duration in seconds |
 | `-r`, `-preffix`, `-suffix` | Aggregate reports, filename prefix (original spelling), filename suffix |
-| `-sort` | Report row order: `result` (default) ranks the best result first - TPS for Connections and BenchEcho, Packet Recv then EER for BenchRate, with each row's percentage of the best shown in that column - and `framework` keeps the `config.FrameworkList` order. Ties keep the framework order in both |
+| `-sort` | Report row order: `result` (default) ranks the best result first - TPS for Connections, TPS then EER for BenchEcho, Packet Recv then EER for BenchRate, with each row's percentage of the best shown in each of those columns - and `framework` keeps the `config.FrameworkList` order. Ties keep the framework order in both |
 | `-m` | Native memory budget in bytes; 0 disables it |
 | `-threads` | C++ event-loop thread count; 0 uses available CPUs, capped by concurrency |
 | `-io-timeout` | C++ echo response timeout, default 30s |

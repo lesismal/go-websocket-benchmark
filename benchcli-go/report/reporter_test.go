@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/lesismal/perf"
 )
 
 // names reads the frameworks back off a sorted slice, which is the whole of
@@ -190,7 +193,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	if !strings.Contains(table, "TP95") {
 		t.Errorf("BenchEcho table lost a column it should keep:\n%s", table)
 	}
-	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER ") ||
+	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER↓2 ") ||
 		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchRate table:\n%s", table)
 	}
@@ -311,5 +314,116 @@ func TestSummaryParametersListsEveryTag(t *testing.T) {
 					typ.Name(), typ.Field(i).Name, name)
 			}
 		}
+	}
+}
+
+// TestSortResultBreaksAnEchoTieByEER ranks two echo runs with the same TPS by
+// the CPU they spent on it; Connections, which has no EER, keeps a tie in
+// framework order.
+func TestSortResultBreaksAnEchoTieByEER(t *testing.T) {
+	echo := []Report{
+		&BenchEchoReport{Framework: "costly", TPS: 300, EER: 5},
+		&BenchEchoReport{Framework: "slow", TPS: 10, EER: 900},
+		&BenchEchoReport{Framework: "cheap", TPS: 300, EER: 50},
+	}
+	if got, want := names(SortReports(echo, SortResult)), []string{"cheap", "costly", "slow"}; !equal(got, want) {
+		t.Errorf("BenchEcho ranked %v, want %v", got, want)
+	}
+	conns := []Report{
+		&ConnectionsReport{Framework: "b", TPS: 300},
+		&ConnectionsReport{Framework: "a", TPS: 300},
+	}
+	if got, want := names(SortReports(conns, SortResult)), []string{"b", "a"}; !equal(got, want) {
+		t.Errorf("Connections ranked %v, want %v", got, want)
+	}
+}
+
+// TestMarkdownShowsThePercentOfTheBestEER gives the EER column its own
+// percentages, of the best EER rather than of the row ranked first.
+func TestMarkdownShowsThePercentOfTheBestEER(t *testing.T) {
+	Init(false)
+	echo := Markdown([]Report{
+		&BenchEchoReport{Framework: "fast", TPS: 3000, EER: 1250.5},
+		&BenchEchoReport{Framework: "lean", TPS: 1500, EER: 2501},
+		&BenchEchoReport{Framework: "slow", TPS: 10, EER: 9.25},
+	}, false, SortResult, nil)
+	for _, cell := range []string{"| 1250.50  50% |", "| 2501.00 100% |", "|    9.25   0% |"} {
+		if !strings.Contains(echo, cell) {
+			t.Errorf("BenchEcho: no %q in:\n%s", cell, echo)
+		}
+	}
+	rate := Markdown([]Report{
+		&BenchRateReport{Framework: "a", RecvTimes: 200, EchoEER: 40},
+		&BenchRateReport{Framework: "b", RecvTimes: 50, EchoEER: 160},
+	}, false, SortFramework, nil)
+	for _, cell := range []string{"|  40.00  25% |", "| 160.00 100% |"} {
+		if !strings.Contains(rate, cell) {
+			t.Errorf("BenchRate: no %q in:\n%s", cell, rate)
+		}
+	}
+	if conns := Markdown([]Report{&ConnectionsReport{Framework: "a", TPS: 5}}, false, SortResult, nil); strings.Count(conns, "%") != 1 {
+		t.Errorf("Connections shows a percentage outside TPS:\n%s", conns)
+	}
+}
+
+// TestMarkdownTableIsPerfsForASCII holds the port to perf's own output on the
+// tables every report wrote before the rank markers, cell for cell.
+func TestMarkdownTableIsPerfsForASCII(t *testing.T) {
+	for _, c := range []struct {
+		title []string
+		rows  [][]string
+	}{
+		{[]string{"Framework", "TPS", "EER"}, [][]string{{"fib", "474843 100%", "1650.41"}, {"fasthttp", "4", "1.5"}}},
+		{[]string{"Parameter", "Value"}, [][]string{{"Pool", "- (fasthttp); fib_adaptive (fib, fnet)"}, {"Conns", "20000"}}},
+		{[]string{"A"}, [][]string{{"a much longer first cell", "extra"}, {}}},
+		{[]string{"Framework", "Odd"}, nil},
+	} {
+		want := perf.NewTable()
+		want.SetTitle(append([]string(nil), c.title...))
+		for _, row := range c.rows {
+			want.AddRow(append([]string(nil), row...))
+		}
+		if got := markdownTable(c.title, c.rows); got != want.Markdown() {
+			t.Errorf("markdownTable differs from perf:\n%s\nwant:\n%s", got, want.Markdown())
+		}
+	}
+}
+
+// TestRankMarkersKeepTheColumnsInLine puts ↓1 and ↓2 on the rank columns'
+// titles in either order, and every line of the table at one width, which
+// counting the markers' bytes would not.
+func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
+	Init(false)
+	for _, order := range SortOrders() {
+		for _, c := range []struct {
+			reports []Report
+			markers []string
+		}{
+			{[]Report{&ConnectionsReport{Framework: "a", TPS: 5}, &ConnectionsReport{Framework: "b", TPS: 50}}, []string{" TPS↓1 "}},
+			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, EER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, EER: 1}}, []string{" TPS↓1 ", " EER↓2 "}},
+			{[]Report{&BenchRateReport{Framework: "a", RecvTimes: 5, EchoEER: 2}}, []string{" Packet Recv↓1 ", " EER↓2 "}},
+		} {
+			table := Markdown(c.reports, false, order, nil)
+			title := strings.SplitN(table, "\n", 2)[0]
+			for _, marker := range c.markers {
+				if !strings.Contains(title, marker) {
+					t.Errorf("-sort=%v: no %q in %q", order, marker, title)
+				}
+			}
+			if strings.Count(title, "↓") != len(c.markers) {
+				t.Errorf("-sort=%v: %q marks other columns too", order, title)
+			}
+			lines := strings.Split(strings.TrimSuffix(table, "\n"), "\n")
+			for _, line := range lines {
+				if utf8.RuneCountInString(line) != utf8.RuneCountInString(lines[0]) {
+					t.Errorf("-sort=%v: lines of different widths:\n%s", order, table)
+					break
+				}
+			}
+		}
+	}
+	// The markers go on a copy: the headers the next table reads are plain.
+	if strings.Contains(strings.Join(BenchEchoReportMarkdownHeaders, ","), "↓") {
+		t.Errorf("Markdown marked the shared headers: %v", BenchEchoReportMarkdownHeaders)
 	}
 }

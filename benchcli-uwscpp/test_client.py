@@ -306,6 +306,7 @@ class ClientTests(unittest.TestCase):
                     (directory / f'{framework}-{kind}.json').write_text(json.dumps(
                         {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
                          'TPS': score, 'RecvTimes': score, 'RecvBytes': 100 - score,
+                         'EER': (eer or {}).get(framework, 0),
                          'EchoEER': (eer or {}).get(framework, 0)}))
 
         # Column 1 is Framework: the report's columns are its struct's fields in
@@ -327,11 +328,11 @@ class ClientTests(unittest.TestCase):
         write({'fasthttp': 0, 'gorilla': 0})
         self.assertEqual(order('-sort=result'), [['fasthttp', 'gorilla']] * 3)
 
-        # BenchRate breaks a tie on packets by EER; the other two keep the
-        # framework order.
+        # BenchEcho and BenchRate break a tie by EER; Connections, which has
+        # none, keeps the framework order.
         write({'fasthttp': 7, 'gorilla': 7}, eer={'fasthttp': 1, 'gorilla': 2})
         self.assertEqual(order('-sort=result'),
-                         [['fasthttp', 'gorilla'], ['fasthttp', 'gorilla'], ['gorilla', 'fasthttp']])
+                         [['fasthttp', 'gorilla'], ['gorilla', 'fasthttp'], ['gorilla', 'fasthttp']])
 
         # The ranked column carries each row's share of the best, right-aligned
         # and in either order, as benchcli-go writes it.
@@ -342,6 +343,27 @@ class ClientTests(unittest.TestCase):
                 md = (directory / f'{kind}.md').read_text()
                 self.assertIn(' 40 100% ', md)
                 self.assertIn(' 10  25% ', md)
+
+        # EER carries percentages of its own best, in BenchEcho and BenchRate.
+        write({'fasthttp': 10, 'gorilla': 40}, eer={'fasthttp': 250.5, 'gorilla': 62.5})
+        self.run_client('-r=true')
+        for kind in ['BenchEcho', 'BenchRate']:
+            md = (directory / f'{kind}.md').read_text()
+            self.assertIn('| 250.50 100% |', md)
+            self.assertIn('|  62.50  24% |', md)
+        self.assertEqual((directory / 'Connections.md').read_text().count('%'), 2)
+
+        # The rank columns' titles carry ↓1 and ↓2 in either order, and the
+        # table stays in line: every line is as many characters wide.
+        for arg in ['-sort=result', '-sort=framework']:
+            self.run_client('-r=true', arg)
+            for kind, markers in [('Connections', [' TPS↓1 ']), ('BenchEcho', [' TPS↓1 ', ' EER↓2 ']),
+                                  ('BenchRate', [' EER↓2 ', ' Packet Recv↓1 '])]:
+                lines = (directory / f'{kind}.md').read_text(encoding='utf-8').splitlines()
+                for marker in markers:
+                    self.assertIn(marker, lines[0])
+                self.assertEqual(lines[0].count('↓'), len(markers))
+                self.assertEqual({len(line) for line in lines}, {len(lines[0])}, lines)
 
     # The run's parameters leave the three tables for a Summary table in front of
     # them, in its own file and in the console, as benchcli-go writes it.

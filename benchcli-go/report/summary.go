@@ -3,8 +3,6 @@ package report
 import (
 	"reflect"
 	"strings"
-
-	"github.com/lesismal/perf"
 )
 
 // SummaryParameters is the order the Summary table lists the run's parameters
@@ -63,12 +61,11 @@ func Summary(tables ...[]Report) string {
 		return ""
 	}
 
-	table := perf.NewTable()
-	table.SetTitle([]string{"Parameter", "Value"})
+	var rows [][]string
 	for _, name := range summaryOrder(names) {
-		table.AddRow([]string{name, summaryString(values[name])})
+		rows = append(rows, []string{name, summaryString(values[name])})
 	}
-	return table.Markdown()
+	return markdownTable([]string{"Parameter", "Value"}, rows)
 }
 
 func addSummaryValue(values []summaryValue, value, framework string) []summaryValue {

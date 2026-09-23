@@ -11,8 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/lesismal/perf"
 )
 
 type Report interface {
@@ -27,10 +25,10 @@ type Report interface {
 
 // The orders a report table can be written in, as -sort takes them.
 const (
-	// SortResult puts the best result first: the TPS for Connections and
-	// BenchEcho, and for BenchRate the packets the clients read back off the
-	// server, then EER, which is the rate benchmark's answer the way TPS is
-	// the other two's. The fields tagged rank:"1", rank:"2" and so on are
+	// SortResult puts the best result first: TPS for Connections, TPS then
+	// EER for BenchEcho, and for BenchRate the packets the clients read back
+	// off the server - the rate benchmark's answer the way TPS is the other
+	// two's - then EER. The fields tagged rank:"1", rank:"2" and so on are
 	// what it compares, in that order. Rows that tie on all of them keep the
 	// framework order between them, so a run is reproducible rather than
 	// merely sorted.
@@ -198,18 +196,22 @@ func Markdown(reports []Report, enableTPN bool, order string, filter func(string
 	}
 	reports = SortReports(reports, order)
 
-	// The first rank column carries each row's share of the best result, in
+	// Every rank column carries each row's share of the best in it, in
 	// either order.
 	rows := make([][]string, len(reports))
+	keys := make([][]float64, len(reports))
 	for i, v := range reports {
 		rows[i] = v.Fields(enableTPN)
+		keys[i] = RankKeys(v)
 	}
-	if ranks := rankFields(reports[0]); len(ranks) > 0 {
-		for col, header := range reports[0].Headers() {
-			if header == ranks[0].header {
+	headers := reports[0].Headers()
+	ranks := rankFields(reports[0])
+	for k, rank := range ranks {
+		for col, header := range headers {
+			if header == rank.header {
 				values := make([]float64, len(reports))
-				for i, v := range reports {
-					values[i] = RankKeys(v)[0]
+				for i := range reports {
+					values[i] = keys[i][k]
 				}
 				withPercent(rows, col, values)
 				break
@@ -217,13 +219,27 @@ func Markdown(reports []Report, enableTPN bool, order string, filter func(string
 		}
 	}
 
-	table := perf.NewTable()
-	table.SetTitle(Headers(reports[0], filter))
-	for _, row := range rows {
-		table.AddRow(filtFieldsByHeaders(row, filter))
+	// A copy, since the headers are shared by every table of this type.
+	title := append([]string(nil), Headers(reports[0], filter)...)
+	for _, rank := range ranks {
+		for col := range title {
+			if title[col] == rank.header {
+				title[col] += RankMarker(rank.rank)
+				break
+			}
+		}
 	}
+	for i, row := range rows {
+		rows[i] = filtFieldsByHeaders(row, filter)
+	}
+	return markdownTable(title, rows)
+}
 
-	return table.Markdown()
+// RankMarker is what a rank column's title carries after its name, in either
+// order: "↓1" on the key the rows are ranked by, highest first, "↓2" on the
+// one that breaks a tie on it, and so on.
+func RankMarker(rank int) string {
+	return "↓" + strconv.Itoa(rank)
 }
 
 // ConsoleSection is how a report table reads in the console: a rule, its
