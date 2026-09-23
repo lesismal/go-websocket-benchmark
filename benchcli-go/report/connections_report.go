@@ -6,11 +6,13 @@ var (
 	ConnectionsReportMarkdownHeaders = []string{}
 )
 
+// ConnectionsReport is ranked by TPS (rank:"1"), the rate the server accepted
+// and completed handshakes at, which is what this benchmark measures.
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
 	BenchClient string `json:"BenchClient" md:"Client" fmt:"client"`
 	TaskPool    string `json:"TaskPool" md:"Pool"`
-	TPS         int64  `json:"TPS" md:"TPS"`
+	TPS         int64  `json:"TPS" md:"TPS" rank:"1"`
 	Min         int64  `json:"Min" md:"Min" fmt:"duration" tpn:"opt"`
 	Avg         int64  `json:"Avg" md:"Avg" fmt:"duration" tpn:"opt"`
 	Max         int64  `json:"Max" md:"Max" fmt:"duration" tpn:"opt"`
@@ -55,10 +57,4 @@ func (r *ConnectionsReport) PprofMEM() []byte {
 
 func (r *ConnectionsReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
-}
-
-// SortKey ranks a connections run by the rate the server accepted and
-// completed handshakes at, which is what this benchmark measures.
-func (r *ConnectionsReport) SortKey() float64 {
-	return float64(r.TPS)
 }

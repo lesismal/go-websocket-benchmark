@@ -297,12 +297,15 @@ class ClientTests(unittest.TestCase):
         directory = self.cwd / 'output/report'
         directory.mkdir(parents=True)
 
-        def write(scores):
+        # BenchRate ranks by RecvTimes, then EchoEER; RecvBytes runs the other
+        # way here, so a table ranked by it would come out reversed.
+        def write(scores, eer=None):
             for framework, score in scores.items():
                 for kind in ['Connections', 'BenchEcho', 'BenchRate']:
                     (directory / f'{framework}-{kind}.json').write_text(json.dumps(
                         {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
-                         'TPS': score, 'RecvBytes': score}))
+                         'TPS': score, 'RecvTimes': score, 'RecvBytes': 100 - score,
+                         'EchoEER': (eer or {}).get(framework, 0)}))
 
         # Column 1 is Framework: the report's columns are its struct's fields in
         # benchcli-go/report, and Framework is the first of them.
@@ -322,6 +325,22 @@ class ClientTests(unittest.TestCase):
         # merely sorted - including a benchmark that did not run at all.
         write({'fasthttp': 0, 'gorilla': 0})
         self.assertEqual(order('-sort=result'), [['fasthttp', 'gorilla']] * 3)
+
+        # BenchRate breaks a tie on packets by EER; the other two keep the
+        # framework order.
+        write({'fasthttp': 7, 'gorilla': 7}, eer={'fasthttp': 1, 'gorilla': 2})
+        self.assertEqual(order('-sort=result'),
+                         [['fasthttp', 'gorilla'], ['fasthttp', 'gorilla'], ['gorilla', 'fasthttp']])
+
+        # The ranked column carries each row's share of the best, right-aligned
+        # and in either order, as benchcli-go writes it.
+        write({'fasthttp': 10, 'gorilla': 40})
+        for arg in ['-sort=result', '-sort=framework']:
+            self.run_client('-r=true', arg)
+            for kind in ['Connections', 'BenchEcho', 'BenchRate']:
+                md = (directory / f'{kind}.md').read_text()
+                self.assertIn(' 40 100% ', md)
+                self.assertIn(' 10  25% ', md)
 
     def test_invalid_arguments_and_empty_echo(self):
         for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops', '-sort=oops']:

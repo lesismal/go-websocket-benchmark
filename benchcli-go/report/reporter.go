@@ -6,7 +6,10 @@ import (
 	"go-websocket-benchmark/config"
 	"math"
 	"os"
+	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/lesismal/perf"
 )
@@ -19,19 +22,17 @@ type Report interface {
 	String(bool) string
 	PprofCPU() []byte
 	PprofMEM() []byte
-
-	// SortKey is the result SortResult ranks the row by, biggest first.
-	// Each benchmark has its own: see the implementations.
-	SortKey() float64
 }
 
 // The orders a report table can be written in, as -sort takes them.
 const (
 	// SortResult puts the best result first: the TPS for Connections and
-	// BenchEcho, and the bytes the clients read back off the server for
-	// BenchRate, which is the rate benchmark's answer the way TPS is the
-	// other two's. Rows that tie keep the framework order between them, so
-	// a run is reproducible rather than merely sorted.
+	// BenchEcho, and for BenchRate the packets the clients read back off the
+	// server, then EER, which is the rate benchmark's answer the way TPS is
+	// the other two's. The fields tagged rank:"1", rank:"2" and so on are
+	// what it compares, in that order. Rows that tie on all of them keep the
+	// framework order between them, so a run is reproducible rather than
+	// merely sorted.
 	SortResult = "result"
 
 	// SortFramework is the order config.FrameworkList lists the frameworks
@@ -63,6 +64,88 @@ func ValidateSort(order string) error {
 	return fmt.Errorf("report: unknown sort order %q, want one of %v", order, SortOrders())
 }
 
+// rankField is one field a report is ranked by, and the column it is shown in.
+type rankField struct {
+	rank   int
+	index  int
+	header string
+}
+
+// rankFields lists the fields of r tagged rank:"N", in rank order.
+func rankFields(r Report) []rankField {
+	typ := reflect.Indirect(reflect.ValueOf(r)).Type()
+	var fields []rankField
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if rank, err := strconv.Atoi(field.Tag.Get("rank")); err == nil {
+			fields = append(fields, rankField{rank, i, field.Tag.Get("md")})
+		}
+	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].rank < fields[j].rank })
+	return fields
+}
+
+// RankKeys is what SortResult ranks r by, most significant first: the values
+// of its rank-tagged fields.
+func RankKeys(r Report) []float64 {
+	value := reflect.Indirect(reflect.ValueOf(r))
+	var keys []float64
+	for _, f := range rankFields(r) {
+		v := value.Field(f.index)
+		switch {
+		case v.CanInt():
+			keys = append(keys, float64(v.Int()))
+		case v.CanUint():
+			keys = append(keys, float64(v.Uint()))
+		case v.CanFloat():
+			keys = append(keys, v.Float())
+		}
+	}
+	return keys
+}
+
+// rankedBefore reports whether a ranks above b: bigger on the first key they
+// differ on.
+func rankedBefore(a, b []float64) bool {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if a[i] != b[i] {
+			return a[i] > b[i]
+		}
+	}
+	return false
+}
+
+// Percent is how a row's result reads against the best in its table: floored,
+// so that only the best shows 100%, and 0% for a table where nothing scored.
+func Percent(value, best float64) string {
+	if best <= 0 || value <= 0 {
+		return "0%"
+	}
+	return fmt.Sprintf("%d%%", int64(math.Floor(value*100/best)))
+}
+
+// withPercent appends each row's percentage of the best to its cell in column
+// col, whatever order the rows are in. The cells are padded to one width so
+// that the percentages line up on the right, which the table's centring then
+// leaves alone.
+func withPercent(rows [][]string, col int, values []float64) {
+	best := 0.0
+	for _, v := range values {
+		best = math.Max(best, v)
+	}
+	percents := make([]string, len(rows))
+	valueLen, percentLen := 0, 0
+	for i, row := range rows {
+		percents[i] = Percent(values[i], best)
+		valueLen = max(valueLen, len(row[col]))
+		percentLen = max(percentLen, len(percents[i]))
+	}
+	for i, row := range rows {
+		pad := 1 + valueLen - len(row[col]) + percentLen - len(percents[i])
+		row[col] += strings.Repeat(" ", pad) + percents[i]
+	}
+}
+
 // SortReports orders reports in place and returns them.
 //
 // ReadReports builds the slice in config.FrameworkList order, so SortFramework
@@ -74,7 +157,7 @@ func ValidateSort(order string) error {
 func SortReports(reports []Report, order string) []Report {
 	if order == SortResult {
 		sort.SliceStable(reports, func(i, j int) bool {
-			return reports[i].SortKey() > reports[j].SortKey()
+			return rankedBefore(RankKeys(reports[i]), RankKeys(reports[j]))
 		})
 	}
 	return reports
@@ -111,10 +194,29 @@ func Markdown(reports []Report, enableTPN bool, order string, filter func(string
 	}
 	reports = SortReports(reports, order)
 
+	// The first rank column carries each row's share of the best result, in
+	// either order.
+	rows := make([][]string, len(reports))
+	for i, v := range reports {
+		rows[i] = v.Fields(enableTPN)
+	}
+	if ranks := rankFields(reports[0]); len(ranks) > 0 {
+		for col, header := range reports[0].Headers() {
+			if header == ranks[0].header {
+				values := make([]float64, len(reports))
+				for i, v := range reports {
+					values[i] = RankKeys(v)[0]
+				}
+				withPercent(rows, col, values)
+				break
+			}
+		}
+	}
+
 	table := perf.NewTable()
 	table.SetTitle(Headers(reports[0], filter))
-	for _, v := range reports {
-		table.AddRow(Fields(v, enableTPN, filter))
+	for _, row := range rows {
+		table.AddRow(filtFieldsByHeaders(row, filter))
 	}
 
 	return table.Markdown()

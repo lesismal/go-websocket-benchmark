@@ -209,17 +209,53 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
     }
     return s;
 }
-// sortKey is the result a report is ranked by, biggest first: the number each
-// benchmark answers with. Mirrors the SortKey implementations in
-// benchcli-go/report - TPS for Connections and BenchEcho, and for BenchRate the
-// bytes the clients read back off the server, since the rate test writes at a
-// rate the clients set rather than to completion, so what came back under that
-// load is its answer the way TPS is the other two's. Neither ranks by EER,
+// rankKeys is what -sort=result ranks a report by, most significant first: the fields
+// tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
+// That is TPS for Connections and BenchEcho, and for BenchRate the packets the clients
+// read back off the server, then EER. Neither Connections nor BenchEcho ranks by EER,
 // which divides throughput by the CPU it cost and answers a different question.
-inline double sortKey(const std::string &kind,const json &r) {
-    const char *key=kind=="BenchRate"?"RecvBytes":"TPS";
+inline std::vector<json> rankFields(const std::string &kind) {
+    std::vector<json> fields;
+    for (const auto &field:metadata["schemas"][kind])
+        if (field["rank"].get<int>()>0) fields.push_back(field);
+    std::stable_sort(fields.begin(),fields.end(),[](const json &a,const json &b) {
+        return a["rank"].get<int>()<b["rank"].get<int>();
+    });
+    return fields;
+}
+inline double rankValue(const json &r,const json &field) {
+    std::string key=field["key"];
     if (!r.contains(key) || !r[key].is_number()) return 0;
     return r[key].get<double>();
+}
+inline bool rankedBefore(const std::vector<json> &ranks,const json &a,const json &b) {
+    for (const auto &field:ranks) {
+        double x=rankValue(a,field), y=rankValue(b,field);
+        if (x!=y) return x>y;
+    }
+    return false;
+}
+// percent mirrors report.Percent: floored, so only the best shows 100%.
+inline std::string percent(double value,double best) {
+    if (best<=0 || value<=0) return "0%";
+    return std::to_string((long long)std::floor(value*100/best))+"%";
+}
+// withPercent mirrors report.withPercent: each cell of column col gets its row's share of
+// the best after it, padded to one width so the percentages line up on the right.
+inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,const std::vector<double> &values) {
+    double best=0;
+    for (double v:values) best=std::max(best,v);
+    std::vector<std::string> percents;
+    size_t valueLen=0, percentLen=0;
+    for (size_t i=0;i<rows.size();++i) {
+        percents.push_back(percent(values[i],best));
+        valueLen=std::max(valueLen,rows[i][col].size());
+        percentLen=std::max(percentLen,percents[i].size());
+    }
+    for (size_t i=0;i<rows.size();++i) {
+        size_t pad=1+valueLen-rows[i][col].size()+percentLen-percents[i].size();
+        rows[i][col]+=std::string(pad,' ')+percents[i];
+    }
 }
 inline void generateReports(const Options &o) {
     for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
@@ -237,9 +273,10 @@ inline void generateReports(const Options &o) {
         // what leaves a tie - two frameworks that scored the same, or a whole
         // table from a benchmark that did not run and left every row at zero -
         // in framework order rather than wherever the sort landed on.
+        auto ranks=rankFields(kind);
         if (o.get("sort")==kSortResult)
-            std::stable_sort(rows.begin(),rows.end(),[kind](const json &a,const json &b) {
-                return sortKey(kind,a)>sortKey(kind,b);
+            std::stable_sort(rows.begin(),rows.end(),[&ranks](const json &a,const json &b) {
+                return rankedBefore(ranks,a,b);
             });
         std::string md;
         if (!rows.empty()) {
@@ -254,6 +291,15 @@ inline void generateReports(const Options &o) {
                 for (const auto &f:fields) row.push_back(formatField(r,f));
                 tableRows.push_back(std::move(row));
             }
+            // The first rank column carries each row's share of the best, in either order.
+            if (!ranks.empty())
+                for (size_t col=0;col<fields.size();++col)
+                    if (fields[col]["key"]==ranks[0]["key"]) {
+                        std::vector<double> values;
+                        for (const auto &r:rows) values.push_back(rankValue(r,ranks[0]));
+                        withPercent(tableRows,col,values);
+                        break;
+                    }
             md=markdownTable(titles,tableRows);
         }
         writeFile(filename(o,kind,".md"),md);
