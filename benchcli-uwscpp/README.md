@@ -64,7 +64,7 @@ Existing Go flags and defaults are accepted (`-flag=value`, `-flag value`, and
 | `-ps` | Where the server's CPU and MEM samples come from: `auto` (default) samples the server process here when it runs on this machine and asks it over `/ps` when it does not, `local` always samples here, `remote` always asks |
 | `-ec`, `-en`, `-el` | Echo concurrency, measured round trips, global messages/second limit |
 | `-ep`, `-epd` | Echo CPU/heap profiles and CPU profile duration in seconds |
-| `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, global messages/second limit |
+| `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rpl`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, messages per write (0 fits as many as `-rbs` holds), global messages/second limit |
 | `-rp`, `-rpd` | Rate CPU/heap profiles and CPU profile duration in seconds |
 | `-r`, `-preffix`, `-suffix` | Aggregate reports, filename prefix (original spelling), filename suffix |
 | `-sort` | Report row order: `result` (default) ranks the best result first - TPS for Connections, TPS then EER for BenchEcho and BenchRate (whose TPS is Packet Recv per second), with each row's percentage of the best shown in each of those columns - and `framework` keeps the `config.FrameworkList` order. Ties keep the framework order in both |
@@ -76,8 +76,10 @@ The client retains established connections between stages. Echo warms up with
 `min(successful connections * 5, 2000000)` round trips, then measures exactly
 `-en` attempts. Workers rotate through their connections, with at most `-ec`
 round trips outstanding in total. Rate divides all live connections across
-`-rc` sending groups. Batches fit `-rbs` and divide `-rr`; if a frame is larger
-than the byte budget, one frame is sent. Per-connection outstanding batches and
+`-rc` sending groups. Each write carries `-rpl` messages, or when that is 0 as
+many as fit `-rbs` - one if a frame is larger than the byte budget - at most
+`-rr` and `-rl`, lowered to divide `-rr`. benchcli-go picks it the same way,
+and the report records it as `Pipeline`, the Summary's `Rate Pipeline`. Per-connection outstanding batches and
 partial writes are bounded. Latencies and report durations are nanoseconds;
 SendBytes/RecvBytes count payload bytes, excluding WebSocket framing.
 

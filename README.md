@@ -223,11 +223,12 @@ on that are ranked by `EER`, the one that spent less CPU on it first;
 `Connections` samples no CPU, so it has no `EER` to break a tie with.
 
 The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
-benchmark's concurrency, `Echo Total`, `Rate Duration` and `Rate SendRate` - are
+benchmark's concurrency, `Echo Total`, `Rate Duration`, `Rate SendRate` and `Rate Pipeline` (messages per write, `-rpl`) - are
 not columns of the three tables: they are the Summary table printed in front of
-them and written to `Summary.md` next to them, left-aligned. `Pool` names only
-the pools that ran, e.g. `fib_adaptive (Go event-loop frameworks only)`: the
-frameworks that install none are left out. Any other parameter the frameworks
+them and written to `Summary.md` next to them, left-aligned, with a
+`Description` column saying what each one is. `Pool` names only the pools that
+ran, e.g. `fib_adaptive`: only the Go event-loop frameworks install one, as its
+description says, and the rest are left out. Any other parameter the frameworks
 disagree on lists each value with the frameworks that had it, e.g.
 `20000 (fib, fnet); 19998 (fasthttp)`. The JSON files still carry every
 field, and so does the block each benchmark prints to the console as it

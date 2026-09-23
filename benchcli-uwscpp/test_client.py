@@ -244,6 +244,22 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(r['Concurrency'], 1, r)
         # -rd=1: a second's packets are its TPS.
         self.assertEqual(r['TPS'], r['RecvTimes'], r)
+        # -rbs=1 holds no whole frame, so each write carries one.
+        self.assertEqual(r['Pipeline'], 1, r)
+
+    # -rpl sets the messages each write carries, lowered to divide -rr, and
+    # the report records what ran, which the Summary shows as Rate Pipeline.
+    def test_rate_pipeline(self):
+        # 0: -rbs holds 120 of these 128-byte frames, capped at -rr.
+        for pipeline, want in [('4', 4), ('7', 5), ('0', 20)]:
+            self.run_client('-rate=true', '-rd=1', '-rr=20', f'-rpl={pipeline}', '-rc=1')
+            r = self.report('BenchRate')
+            self.assertEqual(r['Pipeline'], want, r)
+            self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
+        self.run_client('-r=true')
+        summary = (self.cwd / 'output/report/Summary.md').read_text()
+        self.assertIn('| Rate Pipeline    | 20 ', summary)
+        self.run_client('-rpl=oops', success=False)
 
     # A rate report written before TPS was recorded gets it from Packet Recv
     # and Duration when the report is read again, and ranks by it.
@@ -405,13 +421,16 @@ class ClientTests(unittest.TestCase):
         result = self.run_client('-r=true')
         summary = (directory / 'Summary.md').read_text()
         lines = summary.splitlines()
-        self.assertEqual(lines[:3], ['| Parameter        | Value                                |',
-                                     '| ---              | ---                                  |',
-                                     '| Client           | uwscpp                               |'])
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:4]], ['Parameter', 'Value', 'Description'])
+        # Left-aligned: every cell a space, its text, then only spaces.
+        for line in lines:
+            for cell in line.strip('|').split('|'):
+                self.assertTrue(cell.startswith(' ') and not cell.startswith('  '), (cell, summary))
         rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in lines[2:]]
-        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', 'nbio (Go event-loop frameworks only)'],
+        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', 'nbio'],
                                 ['Conns', '100'], ['Payload', '64'], ['Dial Concurrency', '20'],
                                 ['Echo Concurrency', '50'], ['Echo Total', '1000']])
+        self.assertEqual(lines[3].split('|')[3].strip(), 'task pool, used by Go event-loop frameworks only')
         for kind in ['Connections', 'BenchEcho']:
             title = (directory / f'{kind}.md').read_text().splitlines()[0]
             for column in ['Client', 'Pool', 'Conns', 'Concurrency', 'Payload']:

@@ -37,7 +37,7 @@ struct Options {
         {"c","10000"}, {"dc","2000"}, {"dt","5s"}, {"dr","5"}, {"dri","100ms"},
         {"b","1024"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"},
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","true"}, {"epd","5"},
-        {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"},
+        {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"}, {"rpl","0"},
         {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"sort",kSortResult},
         {"preffix",""}, {"suffix",""},
         {"threads","0"}, {"io-timeout","30s"}
@@ -96,7 +96,7 @@ struct Options {
             values[key]=value;
         }
         for (auto &key:bools) boolean(key);
-        for (auto key:{"c","dc","dr","b","pi","ec","en","el","epd","rc","rd","rr","rbs","rl","rpd","threads"}) integer(key);
+        for (auto key:{"c","dc","dr","b","pi","ec","en","el","epd","rc","rd","rr","rbs","rpl","rl","rpd","threads"}) integer(key);
         if (number("m")<0) throw std::runtime_error("-m must be nonnegative");
         for (auto key:{"dt","dri","io-timeout"}) duration(key);
         if (!metadata["ports"].contains(get("f"))) throw std::runtime_error("unknown framework: " + get("f"));

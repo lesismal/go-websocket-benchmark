@@ -56,6 +56,7 @@ var (
 	rateDuration      = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
 	rateSendRate      = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
 	rateBatchSize     = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
+	ratePipeline      = flag.Int("rpl", 0, "benchrate: how many messages are merged into one write to 1 conn; 0 fits as many as -rbs bytes hold")
 	rateSendLimit     = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
 	ratePprof         = flag.Bool("rp", false, `benchrate: generate pprof report`)
 	ratePprofDuration = flag.Int("rpd", 5, `benchrate: pprof duration`)
@@ -178,6 +179,7 @@ func main() {
 		br.Duration = time.Second * time.Duration(*rateDuration)
 		br.SendRate = *rateSendRate
 		br.BatchSize = *rateBatchSize
+		br.Pipeline = *ratePipeline
 		br.Payload = *payload
 		br.SendLimit = *rateSendLimit
 		if *ratePprof {

@@ -42,8 +42,9 @@ for kind, filename in [('Connections', 'connections_report.go'),
     schemas[kind] = fields
 assert len(ports) == len(frameworks) and ports
 summary_go = (root / 'benchcli-go/report/summary.go').read_text()
-summary_order = re.findall(r'"([^"]+)"', re.search(r'var SummaryParameters = \[\]string\{(.*?)\}',
-                                                   summary_go, re.S).group(1))
+summary_block = re.search(r'var SummaryParameters = \[\]SummaryParameter\{\n(.*?)\n\}', summary_go, re.S).group(1)
+summary_order = [dict(name=name, description=description) for name, description in
+                 re.findall(r'\{"([^"]+)",\s*"([^"]*)"\}', summary_block)]
 if not summary_order:
     raise SystemExit('No SummaryParameters found in summary.go')
 metadata = dict(ports=ports, frameworks=frameworks, schemas=schemas, summaryOrder=summary_order)

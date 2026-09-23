@@ -270,19 +270,20 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		&BenchEchoReport{Framework: "fasthttp", BenchClient: "benchcli-uwscpp", TaskPool: "-", Connections: 20000, Concurrency: 10000, Total: 2000000, Payload: 1024},
 	}
 	rate := []Report{
-		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Payload: 1024},
+		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
 	}
 	summary := Summary(conns, echo, rate)
-	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive (Go event-loop frameworks only)", "Conns", "20000",
+	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
-		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200"}
+		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200", "Rate Pipeline", "10",
+		"messages merged into one write in BenchRate (-rpl)"}
 	if !rowOrder(summary, rows...) {
 		t.Errorf("Summary does not read %v:\n%s", rows, summary)
 	}
 
 	for _, table := range []string{Markdown(conns, false, SortResult, nil), Markdown(echo, false, SortResult, nil),
 		Markdown(rate, false, SortResult, nil)} {
-		for _, column := range []string{"Client", "Pool", "Conns", "Concurrency", "Payload", "Duration", "SendRate"} {
+		for _, column := range []string{"Client", "Pool", "Conns", "Concurrency", "Payload", "Duration", "SendRate", "Pipeline"} {
 			if strings.Contains(strings.SplitN(table, "\n", 2)[0], " "+column+" ") {
 				t.Errorf("table still has a %v column:\n%s", column, table)
 			}
@@ -295,12 +296,20 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		t.Errorf("BenchEcho table still has a Total column:\n%s", table)
 	}
 
-	// Left-aligned, in the console and in the markdown.
-	lines := strings.Split(summary, "\n")
-	if lines[0] != "| Parameter        | Value                                        |" ||
-		lines[1] != "| ---              | ---                                          |" ||
-		lines[2] != "| Client           | uwscpp                                       |" {
-		t.Errorf("Summary is not left-aligned:\n%s", summary)
+	// Three columns, left-aligned: every cell a space, its text, then only
+	// spaces.
+	lines := strings.Split(strings.TrimSuffix(summary, "\n"), "\n")
+	if !strings.HasPrefix(lines[0], "| Parameter        | Value        | Description ") ||
+		!strings.HasPrefix(lines[1], "| ---              | ---          | ---  ") ||
+		!strings.HasPrefix(lines[3], "| Pool             | fib_adaptive | task pool, used by Go event-loop frameworks only ") {
+		t.Errorf("Summary is not three left-aligned columns:\n%s", summary)
+	}
+	for _, line := range lines {
+		for _, cell := range strings.Split(strings.Trim(line, "|"), "|") {
+			if text := strings.TrimRight(cell, " "); !strings.HasPrefix(text, " ") || strings.HasPrefix(text, "  ") {
+				t.Errorf("cell %q of the Summary is not left-aligned:\n%s", cell, summary)
+			}
+		}
 	}
 
 	if Summary() != "" || Summary(nil, nil) != "" {
@@ -312,8 +321,11 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 // clients order the Summary table by, in step with the tags.
 func TestSummaryParametersListsEveryTag(t *testing.T) {
 	listed := map[string]bool{}
-	for _, name := range SummaryParameters {
-		listed[name] = true
+	for _, p := range SummaryParameters {
+		listed[p.Name] = true
+		if p.Description == "" {
+			t.Errorf("SummaryParameters gives %v no description", p.Name)
+		}
 	}
 	for _, r := range []interface{}{ConnectionsReport{}, BenchEchoReport{}, BenchRateReport{}} {
 		typ := reflect.TypeOf(r)
@@ -477,15 +489,16 @@ func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
 		pools []string
 		want  string
 	}{
-		{[]string{"fib_adaptive", "-", "fib_adaptive"}, "fib_adaptive (Go event-loop frameworks only)"},
-		{[]string{"-", "nbio", "nbio(pool)", "ants"}, "nbio, ants (Go event-loop frameworks only)"},
+		{[]string{"fib_adaptive", "-", "fib_adaptive"}, "fib_adaptive"},
+		{[]string{"-", "nbio", "nbio(pool)", "ants"}, "nbio, ants"},
 		{[]string{"-", "-"}, "-"},
 	} {
 		var reports []Report
 		for i, pool := range c.pools {
 			reports = append(reports, &ConnectionsReport{Framework: strconv.Itoa(i), TaskPool: pool})
 		}
-		if !strings.Contains(Summary(reports), "| Pool             | "+c.want+" ") {
+		if !strings.Contains(Summary(reports), "| Pool             | "+c.want+" ") ||
+			!strings.Contains(Summary(reports), " | task pool, used by Go event-loop frameworks only ") {
 			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary(reports))
 		}
 	}

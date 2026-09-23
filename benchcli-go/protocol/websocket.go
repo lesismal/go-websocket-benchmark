@@ -79,10 +79,31 @@ func EncodeClientMessage(messageType websocket.MessageType, data []byte) []byte 
 	return buf
 }
 
-func BatchBuffers(buf []byte, rate, maxLen int) ([]byte, int, int) {
-	batch := maxLen / len(buf)
-	for (batch > 1) && (rate%batch != 0) {
+// Pipeline is how many copies of a frame of frameLen bytes BenchRate merges
+// into one write to a connection sent rate frames a second: pipeline of them
+// when it is set, or else as many as maxLen bytes hold - one at least, even
+// for a frame bigger than that. It is no more than rate, nor than limit, the
+// messages a second the whole run may send when it is set, and it divides
+// rate, so that every write is the same size. benchcli-uwscpp picks it the
+// same way.
+func Pipeline(frameLen, rate, maxLen, pipeline, limit int) int {
+	batch := pipeline
+	if batch <= 0 {
+		batch = maxLen / frameLen
+	}
+	batch = max(1, min(batch, rate))
+	if limit > 0 {
+		batch = min(batch, limit)
+	}
+	for rate%batch != 0 {
 		batch--
 	}
+	return batch
+}
+
+// BatchBuffers is the write BenchRate sends each tick: Pipeline copies of buf,
+// and the ticks a second that make rate frames.
+func BatchBuffers(buf []byte, rate, maxLen, pipeline, limit int) ([]byte, int, int) {
+	batch := Pipeline(len(buf), rate, maxLen, pipeline, limit)
 	return bytes.Repeat(buf, batch), batch, rate / batch
 }

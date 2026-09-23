@@ -27,9 +27,12 @@ type BenchRate struct {
 	Concurrency int
 	SendRate    int
 	BatchSize   int
-	Payload     int
-	SendLimit   int
-	PsInterval  time.Duration
+	// Pipeline is how many messages one write carries; 0 fits as many as
+	// BatchSize bytes hold. See protocol.Pipeline.
+	Pipeline   int
+	Payload    int
+	SendLimit  int
+	PsInterval time.Duration
 
 	ServerPid int
 	PsCounter *perf.PSCounter
@@ -171,6 +174,7 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		Connections: len(br.ConnsMap),
 		Concurrency: br.Concurrency,
 		SendRate:    br.SendRate,
+		Pipeline:    br.batch,
 		Payload:     br.Payload,
 		SendTimes:   br.sendTimes,
 		SendBytes:   br.sendBytes,
@@ -230,7 +234,7 @@ func (br *BenchRate) init() {
 	br.wbuffer = make([]byte, br.Payload)
 	rand.Read(br.wbuffer)
 	message := protocol.EncodeClientMessage(websocket.BinaryMessage, br.wbuffer)
-	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, br.BatchSize)
+	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, br.BatchSize, br.Pipeline, br.SendLimit)
 	// br.batchBuffer, br.batch, br.tickRate = message, 1, br.SendRate
 	if br.tickRate <= 0 || len(br.batchBuffer) == 0 {
 		logging.Fatalf("BenchRate get wrong tickRate: %v, or batchBuffer: %v", br.tickRate, len(br.batchBuffer))

@@ -322,12 +322,18 @@ inline std::string poolSummary(const std::vector<SummaryValue> &values) {
     if (pools.empty()) return "-";
     std::string text;
     for (size_t i=0;i<pools.size();++i) text+=(i?", ":"")+pools[i];
-    return text+" (Go event-loop frameworks only)";
+    return text;
+}
+// summaryDescription mirrors report.summaryDescription: the Description column's words.
+inline std::string summaryDescription(const std::string &name) {
+    for (const auto &p:metadata["summaryOrder"])
+        if (p["name"]==name) return p["description"];
+    return "";
 }
 // summaryTable mirrors report.Summary: the run's parameters, the summary-tagged fields of every
 // row of every report, left-aligned. One value where the rows agree; otherwise each value
 // followed by the frameworks that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool,
-// which poolSummary writes.
+// which poolSummary writes - and a Description column from summaryDescription.
 inline std::string summaryTable(const Options &o) {
     using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
@@ -349,8 +355,8 @@ inline std::string summaryTable(const Options &o) {
         }
     if (names.empty()) return "";
     std::vector<std::string> ordered;
-    for (const auto &name:metadata["summaryOrder"])
-        if (values.count(name.get<std::string>())) ordered.push_back(name.get<std::string>());
+    for (const auto &p:metadata["summaryOrder"])
+        if (values.count(p["name"].get<std::string>())) ordered.push_back(p["name"].get<std::string>());
     for (const auto &name:names)
         if (std::find(ordered.begin(),ordered.end(),name)==ordered.end()) ordered.push_back(name);
     std::vector<std::vector<std::string>> rows;
@@ -365,9 +371,9 @@ inline std::string summaryTable(const Options &o) {
             for (size_t j=0;j<list[i].frameworks.size();++j) text+=(j?", ":"")+list[i].frameworks[j];
             text+=")";
         }
-        rows.push_back({name,text});
+        rows.push_back({name,text,summaryDescription(name)});
     }
-    return markdownTable({"Parameter","Value"},rows,true);
+    return markdownTable({"Parameter","Value","Description"},rows,true);
 }
 // consoleSection mirrors report.ConsoleSection: a rule, the table's name, and the table
 // between blank lines.

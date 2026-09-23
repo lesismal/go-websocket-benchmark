@@ -65,9 +65,12 @@ struct Shared {
             for (auto &v:data) v=char(random());
             payloads.push_back(std::move(data)); frames.push_back(frame(payloads.back()));
         }
+        // Messages per write, as protocol.Pipeline picks them: -rpl when set, or else as many
+        // as -rbs bytes hold; at least one, at most -rr and -rl, and a divisor of -rr.
         int rate=std::max(1,o.integer("rr"));
-        batch=std::max(1,std::min(rate,int(o.integer("rbs")/frames[0].size())));
-        if (o.integer("rl")) batch=std::min(batch,o.integer("rl"));
+        batch=o.integer("rpl")>0?o.integer("rpl"):int(o.integer("rbs")/frames[0].size());
+        batch=std::max(1,std::min(rate,batch));
+        if (o.integer("rl")>0) batch=std::min(batch,o.integer("rl"));
         while (rate%batch) --batch;
         for (int i=0;i<batch;++i) batchFrame+=frames[0];
     }

@@ -29,6 +29,7 @@ type BenchRateReport struct {
 	Connections int     `json:"Conns" md:"Conns" summary:"Conns"`
 	Concurrency int     `json:"Concurrency" md:"Concurrency" summary:"Rate Concurrency"`
 	SendRate    int     `json:"SendRate" md:"SendRate" summary:"Rate SendRate"`
+	Pipeline    int     `json:"Pipeline" md:"Pipeline" summary:"Rate Pipeline"`
 	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
