@@ -158,7 +158,7 @@ int benchmark(const Options &o) {
     saveReport(o,"BenchEcho",echo);
     if (o.boolean("rate")) {
         int rc=o.integer("rc");if(!rc)rc=50000;
-        runner.allocate(rc,true);
+        int rateConcurrency=runner.allocate(rc,true);
         runner.shared.limiter.reset(o.integer("rl"));
         int seconds=o.integer("rd");if(!seconds)seconds=10;
         runner.shared.rateStart=nowNs();runner.shared.rateEnd=runner.shared.rateStart+int64_t(seconds)*1'000'000'000;
@@ -169,6 +169,7 @@ int benchmark(const Options &o) {
         int64_t sent=0,received=0,bytes=0;
         for (auto &w:runner.workers) {sent+=w->rateStats.sent;received+=w->rateStats.received;bytes+=w->rateStats.recvBytes;}
         rate["Duration"]=int64_t(seconds)*1'000'000'000;rate["Conns"]=dial.success;
+        rate["Concurrency"]=rateConcurrency;
         rate["SendRate"]=std::max(1,o.integer("rr"));rate["Payload"]=runner.shared.payloads[0].size();
         rate["SendTimes"]=sent;rate["SendBytes"]=sent*int64_t(runner.shared.payloads[0].size());
         rate["RecvTimes"]=received;rate["RecvBytes"]=bytes;

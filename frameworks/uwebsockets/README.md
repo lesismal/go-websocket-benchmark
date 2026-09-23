@@ -55,7 +55,7 @@ means the loop callback. That is also what makes `default` the mode to compare a
 `greatws_event`, the one Go server that answers in its poller under it.
 
 The startup line says which way the flag was read, and the `/taskpool` route serves the same
-decision for the report's Pool column (`fib_adaptive(pool)`, `default(loop)`):
+decision for the report's Pool (`fib_adaptive(pool)`, `default(loop)`):
 
 ```
 uwebsockets taskpool: fib_adaptive -> pool (Go side: fib's taskpool, adaptive mode, off the

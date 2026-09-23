@@ -15,17 +15,18 @@ var (
 // are ranked by EER (rank:"2"), the one that spent less CPU on it first.
 type BenchRateReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
-	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client"`
-	TaskPool    string  `json:"TaskPool" md:"Pool"`
-	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration"`
+	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
+	TaskPool    string  `json:"TaskPool" md:"Pool" summary:"Pool"`
+	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration" summary:"Rate Duration"`
 	EchoEER     float64 `json:"EchoEER" md:"EER" rank:"2"`
 	SendTimes   int64   `json:"SendTimes" md:"Packet Sent"`
 	SendBytes   int64   `json:"SendBytes" md:"Bytes Sent" fmt:"mem"`
 	RecvTimes   int64   `json:"RecvTimes" md:"Packet Recv" rank:"1"`
 	RecvBytes   int64   `json:"RecvBytes" md:"Bytes Recv" fmt:"mem"`
-	Connections int     `json:"Conns" md:"Conns"`
-	SendRate    int     `json:"SendRate" md:"SendRate"`
-	Payload     int     `json:"Payload" md:"Payload"`
+	Connections int     `json:"Conns" md:"Conns" summary:"Conns"`
+	Concurrency int     `json:"Concurrency" md:"Concurrency" summary:"Rate Concurrency"`
+	SendRate    int     `json:"SendRate" md:"SendRate" summary:"Rate SendRate"`
+	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`

@@ -215,7 +215,7 @@ var installed atomic.Pointer[string]
 
 // Installed reports the pool this process is running, by the name -taskpool
 // takes, or "" in a server that installs none. See frameworks.HandleCommon,
-// which serves it, and the Pool column of the reports.
+// which serves it, and the reports' Pool.
 func Installed() string {
 	if name := installed.Load(); name != nil {
 		return *name

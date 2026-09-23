@@ -168,6 +168,7 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		Framework:   br.Framework,
 		Duration:    br.Duration.Nanoseconds(),
 		Connections: len(br.ConnsMap),
+		Concurrency: br.Concurrency,
 		SendRate:    br.SendRate,
 		Payload:     br.Payload,
 		SendTimes:   br.sendTimes,

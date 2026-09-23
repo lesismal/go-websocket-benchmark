@@ -241,6 +241,7 @@ class ClientTests(unittest.TestCase):
         r = self.report('BenchRate')
         self.assertTrue(120 <= r['RecvTimes'] <= r['SendTimes'] <= 160, r)
         self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
+        self.assertEqual(r['Concurrency'], 1, r)
 
     def test_retry(self):
         self.server.mode = 'retry'
@@ -341,6 +342,31 @@ class ClientTests(unittest.TestCase):
                 md = (directory / f'{kind}.md').read_text()
                 self.assertIn(' 40 100% ', md)
                 self.assertIn(' 10  25% ', md)
+
+    # The run's parameters leave the three tables for a Summary table in front of
+    # them, in its own file and in the console, as benchcli-go writes it.
+    def test_summary(self):
+        directory = self.cwd / 'output/report'
+        directory.mkdir(parents=True)
+        for framework, pool in [('fasthttp', '-'), ('gorilla', 'nbio')]:
+            common = {'Framework': framework, 'BenchClient': 'benchcli-uwscpp', 'TaskPool': pool}
+            (directory / f'{framework}-Connections.json').write_text(json.dumps(
+                {**common, 'TPS': 1, 'Concurrency': 20}))
+            (directory / f'{framework}-BenchEcho.json').write_text(json.dumps(
+                {**common, 'TPS': 1, 'Conns': 100, 'Concurrency': 50, 'Total': 1000, 'Payload': 64}))
+        result = self.run_client('-r=true')
+        summary = (directory / 'Summary.md').read_text()
+        rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in summary.splitlines()[2:]]
+        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', '- (fasthttp); nbio (gorilla)'],
+                                ['Conns', '100'], ['Payload', '64'], ['Dial Concurrency', '20'],
+                                ['Echo Concurrency', '50'], ['Echo Total', '1000']])
+        for kind in ['Connections', 'BenchEcho']:
+            title = (directory / f'{kind}.md').read_text().splitlines()[0]
+            for column in ['Client', 'Pool', 'Conns', 'Concurrency', 'Payload']:
+                self.assertNotIn(f' {column} ', title)
+        rule = '-' * 100
+        self.assertIn(f'{rule}\n[Summary]\n\n{summary}\n{rule}\n[Connections]\n\n', result.stdout)
+        self.assertIn(f'{rule}\n[BenchRate]\n\n(no results)\n\n{rule}\n', result.stdout)
 
     def test_invalid_arguments_and_empty_echo(self):
         for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops', '-sort=oops']:

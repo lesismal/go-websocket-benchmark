@@ -1,6 +1,7 @@
 package report
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -186,12 +187,15 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	}
 
 	table := Markdown([]Report{echo}, true, SortFramework, nil)
-	if !strings.Contains(table, " uwscpp ") || !strings.Contains(table, "TP95") {
+	if !strings.Contains(table, "TP95") {
 		t.Errorf("BenchEcho table lost a column it should keep:\n%s", table)
 	}
 	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER ") ||
-		!strings.Contains(table, "12.50") || !strings.Contains(table, " go ") {
+		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchRate table:\n%s", table)
+	}
+	if summary := Summary([]Report{echo}, []Report{rate}); !strings.Contains(summary, "uwscpp (gorilla); go (gorilla)") {
+		t.Errorf("Summary does not show the clients without their prefix:\n%s", summary)
 	}
 
 	for _, v := range []string{`"TP50"`, `"TP75"`, `"TP90"`, `"CPUMin"`, `"MEMMin"`, `"BenchClient":"benchcli-uwscpp"`} {
@@ -227,7 +231,7 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 			&BenchEchoReport{Framework: "fast", TPS: 3000},
 			&BenchEchoReport{Framework: "mid", TPS: 1500},
 		}, false, order, nil)
-		for _, cell := range []string{"| 3000 100% |", "| 1500  50% |", "| 10     0% |"} {
+		for _, cell := range []string{"| 3000 100% |", "| 1500  50% |", "|   10   0% |"} {
 			if !strings.Contains(table, cell) {
 				t.Errorf("-sort=%v: no %q in:\n%s", order, cell, table)
 			}
@@ -240,9 +244,72 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 	}, false, SortResult, nil)
 	// Packet Recv is wider than its cells, so the table centres them; the
 	// cells themselves are one width, which keeps the percentages aligned.
-	for _, cell := range []string{" 200 100% ", " 50   25% "} {
+	for _, cell := range []string{" 200 100% ", "  50  25% "} {
 		if !strings.Contains(table, cell) {
 			t.Errorf("BenchRate: no %q in:\n%s", cell, table)
+		}
+	}
+}
+
+// TestSummaryTakesTheParametersOutOfTheTables moves the run's parameters into
+// the Summary table: one value where every row agrees, each value with its
+// frameworks where they do not, and none of them left as a column.
+func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
+	Init(false)
+	conns := []Report{
+		&ConnectionsReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", TPS: 9, Concurrency: 2000},
+		&ConnectionsReport{Framework: "fasthttp", BenchClient: "benchcli-uwscpp", TaskPool: "-", TPS: 8, Concurrency: 2000},
+		&ConnectionsReport{Framework: "fnet", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", TPS: 7, Concurrency: 2000},
+	}
+	echo := []Report{
+		&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Connections: 20000, Concurrency: 10000, Total: 2000000, Payload: 1024},
+		&BenchEchoReport{Framework: "fasthttp", BenchClient: "benchcli-uwscpp", TaskPool: "-", Connections: 20000, Concurrency: 10000, Total: 2000000, Payload: 1024},
+	}
+	rate := []Report{
+		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Payload: 1024},
+	}
+	summary := Summary(conns, echo, rate)
+	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive (fib, fnet); - (fasthttp)", "Conns", "20000",
+		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
+		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200"}
+	if !rowOrder(summary, rows...) {
+		t.Errorf("Summary does not read %v:\n%s", rows, summary)
+	}
+
+	for _, table := range []string{Markdown(conns, false, SortResult, nil), Markdown(echo, false, SortResult, nil),
+		Markdown(rate, false, SortResult, nil)} {
+		for _, column := range []string{"Client", "Pool", "Conns", "Concurrency", "Payload", "Duration", "SendRate"} {
+			if strings.Contains(strings.SplitN(table, "\n", 2)[0], " "+column+" ") {
+				t.Errorf("table still has a %v column:\n%s", column, table)
+			}
+		}
+	}
+	// Connections keeps its Total, the connections dialed, next to the
+	// Success and Failed that count them; BenchEcho's is the -en it was
+	// asked for, and moves to the Summary.
+	if table := Markdown(echo, false, SortResult, nil); strings.Contains(table, " Total ") {
+		t.Errorf("BenchEcho table still has a Total column:\n%s", table)
+	}
+
+	if Summary() != "" || Summary(nil, nil) != "" {
+		t.Error("Summary of no reports is not empty")
+	}
+}
+
+// TestSummaryParametersListsEveryTag keeps SummaryParameters, which both
+// clients order the Summary table by, in step with the tags.
+func TestSummaryParametersListsEveryTag(t *testing.T) {
+	listed := map[string]bool{}
+	for _, name := range SummaryParameters {
+		listed[name] = true
+	}
+	for _, r := range []interface{}{ConnectionsReport{}, BenchEchoReport{}, BenchRateReport{}} {
+		typ := reflect.TypeOf(r)
+		for i := 0; i < typ.NumField(); i++ {
+			if name := typ.Field(i).Tag.Get("summary"); name != "" && !listed[name] {
+				t.Errorf("%v.%v is tagged summary:%q, which SummaryParameters does not list",
+					typ.Name(), typ.Field(i).Name, name)
+			}
 		}
 	}
 }

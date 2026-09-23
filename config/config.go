@@ -306,13 +306,13 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	return psCounter, nil
 }
 
-// TaskPoolNone is the Pool column of a report whose server installed no pool:
+// TaskPoolNone is the Pool of a report whose server installed no pool:
 // the frameworks that take no -taskpool flag at all, and any server whose
 // /taskpool route did not answer.
 const TaskPoolNone = "-"
 
 // GetFrameworkTaskPool reports the pool the framework's server is running, by
-// the name -taskpool takes, for the Pool column of the reports. Both clients
+// the name -taskpool takes, for the reports' Pool. Both clients
 // read it once, when they build the report, so that a report says which
 // scheduling produced it rather than which one the run asked for - the two
 // differ for a server whose own scheduling is one of the pools.

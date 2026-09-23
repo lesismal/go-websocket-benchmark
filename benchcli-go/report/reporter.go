@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 	"math"
 	"os"
 	"reflect"
@@ -125,9 +126,12 @@ func Percent(value, best float64) string {
 }
 
 // withPercent appends each row's percentage of the best to its cell in column
-// col, whatever order the rows are in. The cells are padded to one width so
-// that the percentages line up on the right, which the table's centring then
-// leaves alone.
+// col, whatever order the rows are in. The value and the percentage are each
+// right-aligned, so every cell has one width, which the table's centring then
+// leaves alone:
+//
+//	1000000 100%
+//	 123456  12%
 func withPercent(rows [][]string, col int, values []float64) {
 	best := 0.0
 	for _, v := range values {
@@ -141,8 +145,8 @@ func withPercent(rows [][]string, col int, values []float64) {
 		percentLen = max(percentLen, len(percents[i]))
 	}
 	for i, row := range rows {
-		pad := 1 + valueLen - len(row[col]) + percentLen - len(percents[i])
-		row[col] += strings.Repeat(" ", pad) + percents[i]
+		row[col] = strings.Repeat(" ", valueLen-len(row[col])) + row[col] + " " +
+			strings.Repeat(" ", percentLen-len(percents[i])) + percents[i]
 	}
 }
 
@@ -222,6 +226,15 @@ func Markdown(reports []Report, enableTPN bool, order string, filter func(string
 	return table.Markdown()
 }
 
+// ConsoleSection is how a report table reads in the console: a rule, its
+// name, and the table between blank lines, or a note that there is none.
+func ConsoleSection(name, table string) string {
+	if table == "" {
+		table = "(no results)\n"
+	}
+	return logging.LongLine + "[" + name + "]\n\n" + table + "\n"
+}
+
 func Filename(base, preffix, suffix string) string {
 	return "./output/report/" + preffix + base + suffix
 }
@@ -296,6 +309,20 @@ func ReadBenchEchoReports(preffix, suffix string) []Report {
 		return &BenchEchoReport{Framework: framework}
 	}
 	return ReadReports(preffix, suffix, create)
+}
+
+func ReadBenchRateReports(preffix, suffix string) []Report {
+	create := func(framework string) Report {
+		return &BenchRateReport{Framework: framework}
+	}
+	return ReadReports(preffix, suffix, create)
+}
+
+// GenerateSummary is the Summary table of the run the three reports' files
+// are from.
+func GenerateSummary(preffix, suffix string) string {
+	return Summary(ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
+		ReadBenchRateReports(preffix, suffix))
 }
 
 func ReadReports(preffix, suffix string, create func(framework string) Report) []Report {

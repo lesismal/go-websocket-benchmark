@@ -20,44 +20,33 @@ import (
 // A field tagged md:"-" is left out of the tables and the console, and kept in
 // the JSON: that is how TP50, TP75, TP90, CPU Min and MEM Min are still
 // recorded without widening every table printed.
+//
+// A field tagged summary:"<name>" is one of the run's parameters - the client,
+// the pool, the connections, the payload, each benchmark's concurrency and so
+// on - and is shown once, under that name, in the Summary table in front of
+// the three rather than as a column of every row; see Summary. The console
+// block each benchmark prints as it finishes still carries it.
 func Init(enableTPN bool) {
-	appendTPNHeadder := func(headers []string, field reflect.StructField) []string {
-		header := field.Tag.Get("md")
-		if header != "-" {
-			if enableTPN {
-				headers = append(headers, header)
-				return headers
-			}
-			isTPN := field.Tag.Get("tpn") != ""
-			if !isTPN {
-				headers = append(headers, header)
+	headers := func(typ reflect.Type) []string {
+		var headers []string
+		for i := 0; i < typ.NumField(); i++ {
+			if field := typ.Field(i); tableColumn(field, enableTPN) {
+				headers = append(headers, field.Tag.Get("md"))
 			}
 		}
 		return headers
 	}
-	// Built from nothing each time, so that a second Init does not append a
-	// second copy of every header.
-	ConnectionsReportMarkdownHeaders = nil
-	BenchEchoReportMarkdownHeaders = nil
-	BenchRateReportMarkdownHeaders = nil
+	ConnectionsReportMarkdownHeaders = headers(reflect.TypeOf(ConnectionsReport{}))
+	BenchEchoReportMarkdownHeaders = headers(reflect.TypeOf(BenchEchoReport{}))
+	BenchRateReportMarkdownHeaders = headers(reflect.TypeOf(BenchRateReport{}))
+}
 
-	typ := reflect.TypeOf(ConnectionsReport{})
-	for i := 0; i < typ.NumField(); i++ {
-		ConnectionsReportMarkdownHeaders = appendTPNHeadder(ConnectionsReportMarkdownHeaders, typ.Field(i))
+// tableColumn is whether field is a column of its report's table.
+func tableColumn(field reflect.StructField, enableTPN bool) bool {
+	if field.Tag.Get("md") == "-" || field.Tag.Get("summary") != "" {
+		return false
 	}
-
-	typ = reflect.TypeOf(BenchEchoReport{})
-	for i := 0; i < typ.NumField(); i++ {
-		BenchEchoReportMarkdownHeaders = appendTPNHeadder(BenchEchoReportMarkdownHeaders, typ.Field(i))
-	}
-
-	typ = reflect.TypeOf(BenchRateReport{})
-	for i := 0; i < typ.NumField(); i++ {
-		header := typ.Field(i).Tag.Get("md")
-		if header != "-" {
-			BenchRateReportMarkdownHeaders = append(BenchRateReportMarkdownHeaders, header)
-		}
-	}
+	return enableTPN || field.Tag.Get("tpn") == ""
 }
 
 // clientName is how the Client column shows the client that measured a row:
@@ -67,50 +56,39 @@ func clientName(name string) string {
 	return strings.TrimPrefix(name, "benchcli-")
 }
 
+// cellString is how a table shows the value of field.
+func cellString(field reflect.StructField, fieldValue reflect.Value) string {
+	switch field.Tag.Get("fmt") {
+	case "client":
+		return clientName(fieldValue.String())
+	case "mem":
+		if fieldValue.CanInt() {
+			return perf.I2MemString(uint64(fieldValue.Int()))
+		} else if fieldValue.CanUint() {
+			return perf.I2MemString(uint64(fieldValue.Uint()))
+		}
+		return ""
+	case "duration":
+		return perf.I2TimeString(fieldValue.Int())
+	}
+	switch field.Type.Name() {
+	case "string":
+		return fieldValue.String()
+	case "float32", "float64":
+		return fmt.Sprintf("%.2f", fieldValue.Float())
+	default:
+		return fmt.Sprintf("%v", fieldValue)
+	}
+}
+
+// ObjFieldValues is the row obj adds to its table, one cell per header.
 func ObjFieldValues(obj interface{}, enableTPN bool) []string {
 	values := []string{}
-	typ := reflect.TypeOf(obj)
-	value := reflect.ValueOf(obj)
-	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct {
-		typ = typ.Elem()
-		value = value.Elem()
-	}
+	value := reflect.Indirect(reflect.ValueOf(obj))
+	typ := value.Type()
 	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if field.Tag.Get("md") == "-" {
-			continue
-		}
-		fieldValue := value.FieldByName(field.Name)
-
-		isTPN := field.Tag.Get("tpn") != ""
-		if !enableTPN && isTPN {
-			continue
-		}
-
-		switch field.Tag.Get("fmt") {
-		case "client":
-			values = append(values, clientName(fieldValue.String()))
-		case "mem":
-			if fieldValue.CanInt() {
-				values = append(values, perf.I2MemString(uint64(fieldValue.Int())))
-			} else if fieldValue.CanUint() {
-				values = append(values, perf.I2MemString(uint64(fieldValue.Uint())))
-			} else {
-				values = append(values, "")
-			}
-		case "duration":
-			values = append(values, perf.I2TimeString(fieldValue.Int()))
-		case "-":
-		default:
-			typName := field.Type.Name()
-			switch typName {
-			case "string":
-				values = append(values, fieldValue.String())
-			case "float32", "float64":
-				values = append(values, fmt.Sprintf("%.2f", fieldValue.Float()))
-			default:
-				values = append(values, fmt.Sprintf("%v", fieldValue))
-			}
+		if field := typ.Field(i); tableColumn(field, enableTPN) {
+			values = append(values, cellString(field, value.Field(i)))
 		}
 	}
 	return values
