@@ -235,10 +235,11 @@ func Markdown(reports []Report, enableTPN bool, order string, filter func(string
 }
 
 // RankMarker is what a rank column's title carries after its name, in either
-// order: "↓1" on the key the rows are ranked by, highest first, "↓2" on the
+// order, after a space: "[↓1]" on the key the rows are ranked by, highest
+// first, "[↓2]" on the
 // one that breaks a tie on it, and so on.
 func RankMarker(rank int) string {
-	return "↓" + strconv.Itoa(rank)
+	return " [↓" + strconv.Itoa(rank) + "]"
 }
 
 // ConsoleSection is how a report table reads in the console: a rule, its

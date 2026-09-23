@@ -194,7 +194,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	if !strings.Contains(table, "TP95") {
 		t.Errorf("BenchEcho table lost a column it should keep:\n%s", table)
 	}
-	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER↓2 ") ||
+	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER [↓2] ") ||
 		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchRate table:\n%s", table)
 	}
@@ -396,7 +396,7 @@ func TestMarkdownTableIsPerfsForASCII(t *testing.T) {
 	}
 }
 
-// TestRankMarkersKeepTheColumnsInLine puts ↓1 and ↓2 on the rank columns'
+// TestRankMarkersKeepTheColumnsInLine puts [↓1] and [↓2] on the rank columns'
 // titles in either order, and every line of the table at one width, which
 // counting the markers' bytes would not.
 func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
@@ -406,9 +406,9 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 			reports []Report
 			markers []string
 		}{
-			{[]Report{&ConnectionsReport{Framework: "a", TPS: 5}, &ConnectionsReport{Framework: "b", TPS: 50}}, []string{" TPS↓1 "}},
-			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, EER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, EER: 1}}, []string{" TPS↓1 ", " EER↓2 "}},
-			{[]Report{&BenchRateReport{Framework: "a", TPS: 5, RecvTimes: 50, EchoEER: 2}}, []string{" TPS↓1 ", " EER↓2 "}},
+			{[]Report{&ConnectionsReport{Framework: "a", TPS: 5}, &ConnectionsReport{Framework: "b", TPS: 50}}, []string{" TPS [↓1] "}},
+			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, EER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, EER: 1}}, []string{" TPS [↓1] ", " EER [↓2] "}},
+			{[]Report{&BenchRateReport{Framework: "a", TPS: 5, RecvTimes: 50, EchoEER: 2}}, []string{" TPS [↓1] ", " EER [↓2] "}},
 		} {
 			table := Markdown(c.reports, false, order, nil)
 			title := strings.SplitN(table, "\n", 2)[0]

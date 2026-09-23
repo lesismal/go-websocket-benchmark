@@ -145,7 +145,7 @@ done
 #
 # In either order every ranked column - TPS, and EER - shows
 # each row's share of the best in that column after it, the best being 100%,
-# and carries ↓1 or ↓2 after its title for which key it is.
+# and carries [↓1] or [↓2] after its title for which key it is.
 # Rows that tie keep the framework order between them, so two frameworks that
 # scored the same - or a whole table from a benchmark that did not run, which
 # leaves every row at zero - come out the same way on every run.

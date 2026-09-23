@@ -158,7 +158,7 @@ inline void saveReport(const Options &o,const std::string &kind,const json &r) {
 }
 // padCell mirrors github.com/lesismal/perf Table.padding so the console/markdown
 // output lines up the same way benchcli-go's report tables do.
-// textWidth is a cell's width in characters rather than bytes: the ↓1 and ↓2 on the rank
+// textWidth is a cell's width in characters rather than bytes: the [↓1] and [↓2] on the rank
 // columns' titles are three bytes each for one character, and counting the bytes would put
 // their columns out of line. The same as report.markdownTable in benchcli-go.
 inline size_t textWidth(const std::string &s) {
@@ -396,10 +396,11 @@ inline void generateReports(const Options &o) {
             for (const auto &field:metadata["schemas"][kind])
                 if (tableColumn(field,o)) fields.push_back(field);
             std::vector<std::string> titles;
-            // Rank columns carry ↓1, ↓2, ... after their names, as report.RankMarker has it.
+            // Rank columns carry " [↓1]", " [↓2]", ... after their names, as report.RankMarker
+            // has it.
             for (const auto &f:fields) {
                 std::string title=f["title"];
-                if (f["rank"].get<int>()>0) title+="↓"+std::to_string(f["rank"].get<int>());
+                if (f["rank"].get<int>()>0) title+=" [↓"+std::to_string(f["rank"].get<int>())+"]";
                 titles.push_back(title);
             }
             std::vector<std::vector<std::string>> tableRows;

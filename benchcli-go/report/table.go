@@ -8,7 +8,7 @@ import (
 // markdownTable is github.com/lesismal/perf Table.Markdown, measuring a cell
 // by its characters rather than its bytes. perf's padding counts bytes, which
 // comes to the same thing for ASCII, but puts a column out of line the moment
-// a cell carries anything wider: the ↓1 and ↓2 on the rank columns' titles
+// a cell carries anything wider: the [↓1] and [↓2] on the rank columns' titles
 // are three bytes each for one character. An ASCII table comes out the same
 // byte for byte, and benchcli-uwscpp's markdownTable is the same code.
 func markdownTable(title []string, rows [][]string) string {
