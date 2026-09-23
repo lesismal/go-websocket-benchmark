@@ -1,14 +1,20 @@
-# Runs script/docker_benchmark.sh on a GitHub-hosted x86_64 runner.
+# Runs script/docker_benchmark.sh on an x86_64 runner.
 #
-# Started by hand from the Actions tab: a benchmark is far too heavy - and far
-# too sensitive to what else the machine is doing - to run on every push, and
-# the standard runner is a shared 4-CPU VM, so read what comes out of here as a
-# smoke test of the whole pipeline rather than as a measurement of the
-# frameworks against each other. The inputs below are the same knobs
-# script/config.sh documents.
+# Runs the full matrix on every push to main, and can also be started by hand
+# from the Actions tab with the inputs below - the same knobs script/config.sh
+# documents. A push has no inputs, so every one of them falls back to the
+# default given in the job's env block.
+#
+# The benchmark gets 8 CPUs, which the standard GitHub-hosted runner (a shared
+# 4-CPU VM) does not have. Point the repository variable DOCKER_BENCH_RUNNER
+# (Settings > Secrets and variables > Actions > Variables) at the label of a
+# runner with at least 8 CPUs - a larger GitHub-hosted runner or a self-hosted
+# one. Until it is set, the job runs on ubuntu-24.04 and stops at the CPU check.
 name: Docker benchmark
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       mode:
@@ -30,9 +36,9 @@ on:
         type: string
         default: ""
       cpus:
-        description: "DOCKER_BENCH_CPUS, an integer (empty = about 75% of what Docker exposes)"
+        description: "DOCKER_BENCH_CPUS, an integer; the runner needs at least this many"
         type: string
-        default: ""
+        default: "8"
       memory:
         description: "DOCKER_BENCH_MEMORY, e.g. 12g (empty = 80% of what Docker exposes)"
         type: string
@@ -47,7 +53,9 @@ on:
         default: false
 
 # One benchmark at a time: two of them on the same runner pool measure each
-# other rather than the frameworks.
+# other rather than the frameworks. A run already going is left to finish; of
+# the ones waiting behind it, GitHub keeps only the newest, so a burst of
+# pushes queues one run for the latest commit rather than one per commit.
 concurrency:
   group: docker-benchmark
   cancel-in-progress: false
@@ -55,8 +63,13 @@ concurrency:
 jobs:
   benchmark:
     # x86_64. ubuntu-latest may move to arm64 runners; this label does not.
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.DOCKER_BENCH_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 360
+
+    # The inputs with a push's defaults filled in; a dispatch passes its own.
+    env:
+      BENCH_MODE: ${{ inputs.mode || 'full' }}
+      BENCH_CPUS: ${{ inputs.cpus || '8' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +82,19 @@ jobs:
             echo "this workflow measures x86_64; got $arch" >&2
             exit 1
           fi
-          nproc
+          # Checked here rather than left to docker_benchmark.sh, which would
+          # only find out after building the image.
+          cpus=$(nproc)
+          echo "runner CPUs: $cpus, benchmark wants: $BENCH_CPUS"
+          if ! [[ "$BENCH_CPUS" =~ ^[0-9]+$ ]]; then
+            echo "cpus must be an integer; got $BENCH_CPUS" >&2
+            exit 1
+          fi
+          if [ "$cpus" -lt "$BENCH_CPUS" ]; then
+            echo "the benchmark wants $BENCH_CPUS CPUs, but this runner has $cpus;" \
+              "set the repository variable DOCKER_BENCH_RUNNER to a runner with at least $BENCH_CPUS" >&2
+            exit 1
+          fi
           free -h
           df -h /
           docker version
@@ -78,14 +103,14 @@ jobs:
         env:
           # Read through env rather than interpolated into the script body, so
           # an input cannot become shell of its own.
-          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MODE: ${{ env.BENCH_MODE }}
           INPUT_FRAMEWORKS: ${{ inputs.frameworks }}
-          INPUT_CLIENT: ${{ inputs.client }}
+          INPUT_CLIENT: ${{ inputs.client || 'benchcli-uwscpp' }}
           INPUT_TASKPOOL: ${{ inputs.taskpool }}
-          INPUT_CPUS: ${{ inputs.cpus }}
+          INPUT_CPUS: ${{ env.BENCH_CPUS }}
           INPUT_MEMORY: ${{ inputs.memory }}
           INPUT_BENCHMARK_ARGS: ${{ inputs.benchmark_args }}
-          INPUT_REBUILD: ${{ inputs.rebuild }}
+          INPUT_REBUILD: ${{ inputs.rebuild || false }}
           # A fixed directory instead of the script's timestamped one, so the
           # upload and summary steps below know where the run landed.
           DOCKER_BENCH_OUTPUT: ${{ github.workspace }}/output/docker/ci
@@ -146,7 +171,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: docker-benchmark-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: docker-benchmark-${{ env.BENCH_MODE }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: output/docker/ci
           if-no-files-found: warn
           retention-days: 30
