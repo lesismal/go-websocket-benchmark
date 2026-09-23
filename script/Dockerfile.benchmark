@@ -1,7 +1,27 @@
 ARG GO_IMAGE=golang:1.27-bookworm
 FROM ${GO_IMAGE}
 
-RUN apt-get update \
+# Where the build downloads from; empty means the upstream default. Set by
+# script/docker_benchmark.sh from its DOCKER_BENCH_* variables, which
+# script/docker_benchmark_cn.sh points at mirrors reachable from mainland China.
+# Build arguments only: none of them is left in the image's environment, and
+# the benchmark itself runs with --network none.
+#   APT_MIRROR     replaces http://deb.debian.org, e.g. https://mirrors.aliyun.com
+#   GO_PROXY       GOPROXY for go mod download, e.g. https://goproxy.cn,direct
+#   GITHUB_MIRROR  prefix that https://github.com/ is rewritten to for the
+#                  clones below, submodules included
+ARG APT_MIRROR=
+ARG GO_PROXY=
+ARG GITHUB_MIRROR=
+
+RUN if [ -n "$APT_MIRROR" ]; then \
+        for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+            if [ -f "$f" ]; then \
+                sed -i "s|http://deb.debian.org|$APT_MIRROR|g; s|http://security.debian.org|$APT_MIRROR|g" "$f"; \
+            fi; \
+        done; \
+    fi \
+    && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
@@ -17,11 +37,19 @@ RUN apt-get update \
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN if [ -n "$GO_PROXY" ]; then export GOPROXY="$GO_PROXY"; fi \
+    && go mod download
 
 # Cache pinned native dependencies in the image. The benchmark build script
 # consumes these paths without requiring network access at container runtime.
-RUN mkdir -p /workspace/benchcli-uwscpp/.deps \
+# The mirror is set through git's environment rather than git config, so it
+# reaches the submodule fetches without being written into the image.
+RUN if [ -n "$GITHUB_MIRROR" ]; then \
+        export GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="url.$GITHUB_MIRROR.insteadOf" \
+            GIT_CONFIG_VALUE_0=https://github.com/; \
+    fi \
+    && mkdir -p /workspace/benchcli-uwscpp/.deps \
     && git clone --depth 1 --branch v20.74.0 \
         https://github.com/uNetworking/uWebSockets.git \
         /workspace/benchcli-uwscpp/.deps/uWebSockets \

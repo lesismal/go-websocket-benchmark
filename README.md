@@ -40,6 +40,17 @@ Use `BENCH_CLIENT=benchcli-go` to select the Go client. Run
 the image and downloads the pinned Go and C++ dependencies; later runs use the
 Docker build cache.
 
+From mainland China, run `script/docker_benchmark_cn.sh` instead: it takes the
+same options and flags, and builds the image from mirrors (DaoCloud for Docker
+Hub, Aliyun for apt, goproxy.cn for Go modules, ghfast.top for GitHub). Each one
+is a `DOCKER_BENCH_*` variable listed in `--help`; set one to an empty value to
+go direct. Only the build downloads anything, so the results are comparable
+with `script/docker_benchmark.sh`'s.
+
+```sh
+bash script/docker_benchmark_cn.sh --smoke
+```
+
 ## Goroutine pool
 
 The frameworks here schedule their callbacks in different ways, and some of the
