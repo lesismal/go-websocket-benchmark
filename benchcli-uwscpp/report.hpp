@@ -188,8 +188,7 @@ inline std::string padLeft(const std::string &s,size_t maxLen,bool,size_t) {
     return " "+s+std::string(maxLen-textWidth(s)-1,' ');
 }
 // markdownTable mirrors report.markdownTableAligned: with left set, every cell is padded on
-// the right and the separators are ":---", so the table is left-aligned in the console and
-// wherever the markdown is rendered.
+// the right, so the table is left-aligned in the console; the separators stay "---".
 inline std::string markdownTable(std::vector<std::string> title,std::vector<std::vector<std::string>> rows,
                                  bool left=false) {
     auto pad=left?padLeft:padCell;
@@ -198,7 +197,7 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
     for (auto &v:title) maxLen.push_back(textWidth(v));
 
     std::vector<std::vector<std::string>> allRows;
-    allRows.push_back(std::vector<std::string>(columnNum,left?":---":"---"));
+    allRows.push_back(std::vector<std::string>(columnNum,"---"));
     for (auto &r:rows) allRows.push_back(std::move(r));
 
     for (auto &v:allRows) {

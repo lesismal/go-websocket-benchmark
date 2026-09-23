@@ -397,7 +397,7 @@ class ClientTests(unittest.TestCase):
         summary = (directory / 'Summary.md').read_text()
         lines = summary.splitlines()
         self.assertEqual(lines[:3], ['| Parameter        | Value                                |',
-                                     '| :---             | :---                                 |',
+                                     '| ---              | ---                                  |',
                                      '| Client           | uwscpp                               |'])
         rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in lines[2:]]
         self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', 'nbio (Go event-loop frameworks only)'],

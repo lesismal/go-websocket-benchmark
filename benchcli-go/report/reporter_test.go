@@ -296,7 +296,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 	// Left-aligned, in the console and in the markdown.
 	lines := strings.Split(summary, "\n")
 	if lines[0] != "| Parameter        | Value                                        |" ||
-		lines[1] != "| :---             | :---                                         |" ||
+		lines[1] != "| ---              | ---                                          |" ||
 		lines[2] != "| Client           | uwscpp                                       |" {
 		t.Errorf("Summary is not left-aligned:\n%s", summary)
 	}
