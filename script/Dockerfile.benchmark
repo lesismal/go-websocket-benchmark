@@ -43,7 +43,7 @@ RUN if [ -n "$APT_MIRROR" ]; then \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# The Rust toolchain benchcli-rust and frameworks/sockudo_ws build with, pinned in
+# The Rust toolchain benchcli-rust and frameworks/tokio_tungstenite build with, pinned in
 # script/docker_rust.sh. Ahead of everything that changes more often than it.
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -64,12 +64,12 @@ RUN if [ -n "$GO_PROXY" ]; then export GOPROXY="$GO_PROXY"; fi \
 COPY script/docker_fetch_deps.sh /tmp/docker_fetch_deps.sh
 RUN bash /tmp/docker_fetch_deps.sh /workspace && rm /tmp/docker_fetch_deps.sh
 
-# The crates benchcli-rust's and sockudo_ws's Cargo.lock files pin, likewise,
+# The crates benchcli-rust's and tokio_tungstenite's Cargo.lock files pin, likewise,
 # into CARGO_HOME, where the offline builds below find them.
 COPY benchcli-rust/Cargo.toml benchcli-rust/Cargo.lock /tmp/benchcli-rust/
-COPY frameworks/sockudo_ws/Cargo.toml frameworks/sockudo_ws/Cargo.lock /tmp/sockudo_ws/
-RUN bash /tmp/docker_rust.sh fetch /tmp/benchcli-rust /tmp/sockudo_ws \
-    && rm -rf /tmp/docker_rust.sh /tmp/benchcli-rust /tmp/sockudo_ws
+COPY frameworks/tokio_tungstenite/Cargo.toml frameworks/tokio_tungstenite/Cargo.lock /tmp/tokio_tungstenite/
+RUN bash /tmp/docker_rust.sh fetch /tmp/benchcli-rust /tmp/tokio_tungstenite \
+    && rm -rf /tmp/docker_rust.sh /tmp/benchcli-rust /tmp/tokio_tungstenite
 
 COPY . .
 

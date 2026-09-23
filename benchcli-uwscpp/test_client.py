@@ -284,7 +284,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(self.report('Connections')['Lang'], 'go')
         self.assertEqual(self.report('BenchEcho')['Lang'], 'go')
         directory = self.cwd / 'output/report'
-        for framework in ['sockudo_ws', 'uwebsockets']:
+        for framework in ['tokio_tungstenite', 'uwebsockets']:
             (directory / f'{framework}-BenchEcho.json').write_text(json.dumps(
                 {'Framework': framework, 'BenchClient': 'benchcli-uwscpp', 'TPS': 1}))
         self.run_client('-r=true', '-sort=framework')
@@ -292,7 +292,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:3]], ['Framework', 'Lang'])
         langs = {cells[1]: cells[2] for cells in
                  ([cell.strip() for cell in line.split('|')] for line in lines[2:])}
-        self.assertEqual(langs, {'gorilla': 'go', 'sockudo_ws': 'rust', 'uwebsockets': 'c++'})
+        self.assertEqual(langs, {'gorilla': 'go', 'tokio_tungstenite': 'rust', 'uwebsockets': 'c++'})
 
     def test_retry(self):
         self.server.mode = 'retry'

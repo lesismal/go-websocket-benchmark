@@ -1,16 +1,17 @@
 // benchcli-rust: the benchmark client in Rust, and the one script/config.sh runs by default.
 //
 // It takes benchcli-go's flags, loads a server the way benchcli-uwscpp does - a fixed set of
-// event-loop threads (mio), each owning its share of the connections - and writes the same JSON
+// event-loop threads, each owning its share of the connections, here a single-threaded Tokio
+// runtime apiece with a tokio-tungstenite stream per connection - and writes the same JSON
 // reports and markdown tables as both, from the same schemas: build.rs generates them from
 // config/config.go and benchcli-go/report. See README.md.
 mod engine;
 mod http;
 mod metadata;
 mod options;
-mod protocol;
 mod ps;
 mod report;
+mod upgrade;
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};

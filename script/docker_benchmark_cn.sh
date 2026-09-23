@@ -22,7 +22,7 @@ export DOCKER_BENCH_GOPROXY=${DOCKER_BENCH_GOPROXY-https://goproxy.cn}
 # https://<proxy>/https://github.com/ form if these stop working.
 export DOCKER_BENCH_GITHUB_MIRROR=${DOCKER_BENCH_GITHUB_MIRROR-https://ghfast.top/https://github.com/ https://gh-proxy.com/https://github.com/}
 # rsproxy.cn for the Rust toolchain and the crates benchcli-rust and
-# frameworks/sockudo_ws build with. rustup-init is checked against a pinned
+# frameworks/tokio_tungstenite build with. rustup-init is checked against a pinned
 # SHA-256 and every crate against Cargo.lock, and a failure falls back to the
 # upstream (script/docker_rust.sh).
 export DOCKER_BENCH_RUSTUP_MIRROR=${DOCKER_BENCH_RUSTUP_MIRROR-https://rsproxy.cn}

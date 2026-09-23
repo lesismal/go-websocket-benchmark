@@ -1,18 +1,20 @@
 # benchcli-rust
 
-The benchmark client in Rust, and the one `script/config.sh` runs by default. It takes
-`benchcli-go`'s flags, loads a server the way `benchcli-uwscpp` does, and writes the same JSON
-reports and markdown tables as both, so a run from any of the three reads and diffs against a
-run from the others.
+The benchmark client in Rust, on [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite)
+0.30.0, and the one `script/config.sh` runs by default. It takes `benchcli-go`'s flags, loads a
+server the way `benchcli-uwscpp` does, and writes the same JSON reports and markdown tables as
+both, so a run from any of the three reads and diffs against a run from the others.
 
 ## How it loads a server
 
 A fixed set of worker threads - one per CPU the process may run on (the affinity mask
 `script/env.sh` pins the client to), capped by the concurrency flags, or `-threads` - each runs
-its own [mio](https://github.com/tokio-rs/mio) event loop over its share of the connections, and
-nothing else touches them. It is the arrangement `benchcli-uwscpp` has with one uSockets loop per
-thread, and every stage follows that client's `engine.hpp`, so that the two native clients put
-the same load on a server:
+a single-threaded Tokio runtime over its share of the connections, and nothing else touches
+them. It is the arrangement `benchcli-uwscpp` has with one uSockets loop per thread. Every
+connection is a task on its worker's runtime holding a tokio-tungstenite `WebSocketStream`;
+which of them sends what, and when, is decided in one place per worker that hands each task
+what to send and hears back what arrived. Every stage follows `benchcli-uwscpp`'s `engine.hpp`,
+so that the two native clients put the same load on a server:
 
 - **Connections**: at most `-dc` connections dialing at once, each attempt given `-dt` for its
   TCP connect and upgrade together, `-dr` attempts `-dri` apart, spread over the framework's
@@ -21,20 +23,30 @@ the same load on a server:
   at most `-ec` outstanding at once, rotating through the idle connections. A response that takes
   longer than `-io-timeout` closes its connection and counts as failed.
 - **BenchRate**: the live connections divided into `-rc` groups, each sent a batch of `Pipeline`
-  frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold - with a
-  connection skipped while a write to it is pending or five batches are unanswered.
+  frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold, fed to
+  tungstenite and flushed as one write - with a connection skipped while its last batch is still
+  being written or five batches are unanswered.
 
 `-el` and `-rl` are one token bucket shared by every worker, in messages per second.
 
-The WebSocket client side - the upgrade, masked frames out, a parser for the server's frames in -
-is implemented here (`src/protocol.rs`), as `benchcli-go` implements its own, rather than taken
-from a server library: at a million connections the difference between a parser that keeps
-nothing per connection but a partial frame, reading from the event loop's shared buffer, and one
-that gives every connection a read buffer, is the difference between fitting and not. It holds
-the server to what `benchcli-uwscpp`'s uWS parser does: a frame longer than the payload being
-echoed (or 125 bytes, whichever is more) closes the connection, as do a masked frame, a reserved
-bit, an oversized or fragmented control frame and a stray continuation; fragmented messages are
-reassembled, with pings answered between their fragments.
+The WebSocket side is tungstenite's: the framing, the masking, the reassembly of fragmented
+messages and the answers to pings, and the upgrade's key and accept value (`generate_key`,
+`derive_accept_key`). The connection is handed to it with `WebSocketStream::from_partially_read`
+once the upgrade is answered. The one thing done here (`src/upgrade.rs`) is checking that answer:
+tungstenite's client handshake takes the `Connection` header for a single value and fails a
+server that answers `Connection: keep-alive, Upgrade`, which RFC 6455 allows, and a benchmark
+client that counts a conforming server's connections as failed is measuring itself. The check is
+`benchcli-uwscpp`'s.
+
+tungstenite's configuration holds the server to what `benchcli-uwscpp`'s uWS parser does: a
+message or frame longer than the payload being echoed (or 125 bytes, whichever is more) closes
+the connection. Its read buffer is 4KiB, tungstenite's own suggestion where there are many
+connections, rather than its 128KiB default: the buffer is reserved for every connection, and
+the 1M-connection script runs this client. That is still 4GiB at a million connections before
+anything else a connection holds, where `benchcli-uwscpp` keeps nothing per connection but a
+partial frame - and 4GiB is `-m`'s default, which on Linux is this client's address-space
+ceiling. So `script/1m_conns_benchmark.sh` needs `-m=0` (or a larger `-m`) and the memory to
+back it, or `BENCH_CLIENT=benchcli-uwscpp`.
 
 ## Build
 
@@ -57,7 +69,7 @@ header with - to generate the framework list, port ranges, languages and report 
 `config/config.go` and `benchcli-go/report/*.go`, so a framework or a report field added on the Go
 side reaches this client on its next build. The crates are pinned by `Cargo.lock`, and `--locked`
 fails a build rather than move off them; `script/Dockerfile.benchmark` fetches them while
-building the image and builds with `CARGO_NET_OFFLINE=true`, as for `frameworks/sockudo_ws`.
+building the image and builds with `CARGO_NET_OFFLINE=true`, as for `frameworks/tokio_tungstenite`.
 Objects go to `target/`, which Git and the Docker build context ignore.
 
 ## Flags and reports
@@ -78,8 +90,7 @@ bash benchcli-rust/build.sh
 python3 benchcli-uwscpp/test_client.py benchcli-rust/target/release/benchcli-rust
 ```
 
-The unit tests cover the frame parser (every length form split byte by byte, fragments around a
-ping, each violation), the upgrade answer, the duration flags, the HTTP responses the control
+The unit tests cover the upgrade answer, the duration flags, the HTTP responses the control
 requests read, and the tables against what `benchcli-go` writes for the same cells.
 `benchcli-uwscpp/test_client.py` is the end-to-end suite both native clients run: it takes the
 binary to test, stands up a WebSocket fixture on the gorilla ports (127.0.0.1:12001-12050, so no

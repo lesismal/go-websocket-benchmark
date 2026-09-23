@@ -17,9 +17,11 @@ same JSON reports and tables, which the report step of any of them reads. The
 two native ones load a server the same way - a fixed set of event-loop threads,
 each owning its share of the connections - and pass the same end-to-end suite.
 
-- `benchcli-rust` needs cargo (Rust 1.85+) and Python 3; its first build
-  downloads the crates its `Cargo.lock` pins. See
-  [its README](benchcli-rust/README.md).
+- `benchcli-rust` is built on
+  [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite). It needs
+  cargo (Rust 1.85+) and Python 3; its first build downloads the crates its
+  `Cargo.lock` pins. See [its README](benchcli-rust/README.md), which also says
+  what the 1M-connection script needs to run it.
 - `benchcli-uwscpp` needs a C++17 compiler, Git, Python 3 and libcurl
   development headers; its first build fetches pinned uWebSockets/uSockets and
   JSON dependencies. See [its README](benchcli-uwscpp/README.md).
@@ -69,11 +71,12 @@ server node needs besides Go:
 - `uwebsockets` - [uWebSockets](https://github.com/uNetworking/uWebSockets),
   C++. A C++20 compiler and zlib headers; its first build fetches the pinned
   uWebSockets/uSockets sources. See [its README](frameworks/uwebsockets/README.md).
-- `sockudo_ws` - [sockudo-ws](https://github.com/sockudo/sockudo-ws), Rust, on
+- `tokio_tungstenite` -
+  [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite), Rust, on
   Tokio. Cargo 1.85 or newer; its first build downloads the crates its
   `Cargo.lock` pins. It answers on the task that read the frame - Tokio's
   counterpart of a Go server's `inline` - and takes no `-taskpool` flag, so its
-  `Pool` is `-`. See [its README](frameworks/sockudo_ws/README.md).
+  `Pool` is `-`. See [its README](frameworks/tokio_tungstenite/README.md).
 
 The Docker image installs both toolchains - the Rust one also builds the default
 client, `benchcli-rust` - and fetches every pinned source at build time, so the
@@ -252,8 +255,8 @@ on that are ranked by `EER`, the one that spent less CPU on it first;
 
 Every table's first two columns are `Framework` and `Lang`, the language that
 framework's server is written in - `go`, `c++` (`uwebsockets`) or `rust`
-(`sockudo_ws`) - so that a row of another language stands out in a table
-otherwise of Go servers. It comes from `config.Langs`, which both clients read,
+(`tokio_tungstenite`) - so that a row of another language stands out in a table
+otherwise of Go servers. It comes from `config.Langs`, which every client reads,
 and a report written before the column existed gets it from there when it is
 read again.
 
@@ -330,7 +333,7 @@ What each role does differently:
 - `server` builds only the servers - a server node needs no client toolchain -
   starts them and stops there. `client` builds only the client, so it needs
   none of the servers' toolchains, in particular not the C++ and Rust ones
-  `uwebsockets` and `sockudo_ws` want.
+  `uwebsockets` and `tokio_tungstenite` want.
 - A node running one half gives it the whole machine instead of half, since
   there is nothing to divide it with. `BENCH_SERVER_CPU_LIST` and
   `BENCH_CLIENT_CPU_LIST` still pin it where a node shares its CPUs.

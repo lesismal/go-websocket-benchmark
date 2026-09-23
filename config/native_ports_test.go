@@ -19,8 +19,8 @@ func TestNativeServersListenOnTheirPorts(t *testing.T) {
 		last      *regexp.Regexp
 	}{
 		{
-			framework: SockudoWs,
-			source:    "../frameworks/sockudo_ws/src/main.rs",
+			framework: TokioTungstenite,
+			source:    "../frameworks/tokio_tungstenite/src/main.rs",
 			first:     regexp.MustCompile(`const PORT_START: u16 = (\d+);`),
 			last:      regexp.MustCompile(`const PORT_END: u16 = (\d+);`),
 		},

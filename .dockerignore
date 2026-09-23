@@ -6,6 +6,6 @@ bin
 benchcli-uwscpp/.build
 benchcli-uwscpp/.deps
 benchcli-rust/target
-frameworks/sockudo_ws/target
+frameworks/tokio_tungstenite/target
 **/__pycache__
 **/*.pyc

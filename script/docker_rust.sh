@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The Rust half of script/Dockerfile.benchmark, for benchcli-rust and frameworks/sockudo_ws:
+# The Rust half of script/Dockerfile.benchmark, for benchcli-rust and frameworks/tokio_tungstenite:
 #
 #   docker_rust.sh install           installs the pinned toolchain into RUSTUP_HOME/CARGO_HOME
 #   docker_rust.sh fetch <dir>...    downloads every crate each <dir>/Cargo.lock pins into
