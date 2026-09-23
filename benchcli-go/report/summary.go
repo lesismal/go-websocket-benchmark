@@ -8,21 +8,29 @@ import (
 	"go-websocket-benchmark/config"
 )
 
+// SummaryParameter is one row of the Summary table: a name report fields are
+// tagged summary:"<name>" with, and what its Description column says.
+type SummaryParameter struct {
+	Name        string
+	Description string
+}
+
 // SummaryParameters is the order the Summary table lists the run's parameters
-// in: the names the report fields are tagged summary:"<name>" with. A tagged
-// name missing from here still gets a row, after these; benchcli-uwscpp reads
-// this list for the same order.
-var SummaryParameters = []string{
-	"Client",
-	"Pool",
-	"Conns",
-	"Payload",
-	"Dial Concurrency",
-	"Echo Concurrency",
-	"Echo Total",
-	"Rate Concurrency",
-	"Rate Duration",
-	"Rate SendRate",
+// in, and their descriptions. A tagged name missing from here still gets a
+// row, after these, with no description; benchcli-uwscpp reads this list for
+// the same order and the same words.
+var SummaryParameters = []SummaryParameter{
+	{"Client", "benchmark client: go or uwscpp"},
+	{"Pool", "task pool, used by Go event-loop frameworks only"},
+	{"Conns", "connections each benchmark runs over"},
+	{"Payload", "message size in bytes"},
+	{"Dial Concurrency", "connections dialed at once (-dc)"},
+	{"Echo Concurrency", "echo requests in flight at once (-ec)"},
+	{"Echo Total", "echo round trips per framework (-en)"},
+	{"Rate Concurrency", "connections sending at once in BenchRate (-rc)"},
+	{"Rate Duration", "how long BenchRate sends for (-rd)"},
+	{"Rate SendRate", "messages sent to each connection per second (-rr)"},
+	{"Rate Pipeline", "messages merged into one write in BenchRate (-rpl)"},
 }
 
 // summaryValue is one value a parameter took, and the frameworks it took it
@@ -39,8 +47,9 @@ type summaryValue struct {
 //
 //	20000 (fib, fnet); 19998 (fasthttp)
 //
-// except Pool, which says only which pools ran; see poolSummary. The table is
-// left-aligned, so that a long value reads from its start.
+// except Pool, which says only which pools ran; see poolSummary. A third
+// column describes each parameter. The table is left-aligned, so that a long
+// value reads from its start.
 func Summary(tables ...[]Report) string {
 	values := map[string][]summaryValue{}
 	var names []string
@@ -72,9 +81,9 @@ func Summary(tables ...[]Report) string {
 		if name == "Pool" {
 			text = poolSummary(values[name])
 		}
-		rows = append(rows, []string{name, text})
+		rows = append(rows, []string{name, text, summaryDescription(name)})
 	}
-	return markdownTableAligned([]string{"Parameter", "Value"}, rows, true)
+	return markdownTableAligned([]string{"Parameter", "Value", "Description"}, rows, true)
 }
 
 func addSummaryValue(values []summaryValue, value, framework string) []summaryValue {
@@ -105,11 +114,11 @@ func summaryString(values []summaryValue) string {
 
 // poolSummary is the Pool row: the pools the servers installed, without the
 // frameworks, which would make the row as long as the run. Only the Go
-// event-loop frameworks install one - the rest report "-" and are left out -
-// and uwebsockets' "(pool)" or "(loop)", which side of its loop the echo ran
-// on, is dropped as well:
+// event-loop frameworks install one - the rest report "-" and are left out,
+// which the row's description says - and uwebsockets' "(pool)" or "(loop)",
+// which side of its loop the echo ran on, is dropped as well:
 //
-//	fib_adaptive (Go event-loop frameworks only)
+//	fib_adaptive
 func poolSummary(values []summaryValue) string {
 	var pools []string
 	for _, v := range values {
@@ -125,7 +134,17 @@ func poolSummary(values []summaryValue) string {
 	if len(pools) == 0 {
 		return config.TaskPoolNone
 	}
-	return strings.Join(pools, ", ") + " (Go event-loop frameworks only)"
+	return strings.Join(pools, ", ")
+}
+
+// summaryDescription is what the Description column says about name.
+func summaryDescription(name string) string {
+	for _, p := range SummaryParameters {
+		if p.Name == name {
+			return p.Description
+		}
+	}
+	return ""
 }
 
 // summaryOrder puts names in SummaryParameters order, and any it does not
@@ -136,10 +155,10 @@ func summaryOrder(names []string) []string {
 		found[name] = true
 	}
 	ordered := make([]string, 0, len(names))
-	for _, name := range SummaryParameters {
-		if found[name] {
-			ordered = append(ordered, name)
-			delete(found, name)
+	for _, p := range SummaryParameters {
+		if found[p.Name] {
+			ordered = append(ordered, p.Name)
+			delete(found, p.Name)
 		}
 	}
 	for _, name := range names {

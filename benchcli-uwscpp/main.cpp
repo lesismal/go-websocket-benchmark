@@ -170,6 +170,7 @@ int benchmark(const Options &o) {
         for (auto &w:runner.workers) {sent+=w->rateStats.sent;received+=w->rateStats.received;bytes+=w->rateStats.recvBytes;}
         rate["Duration"]=int64_t(seconds)*1'000'000'000;rate["Conns"]=dial.success;
         rate["Concurrency"]=rateConcurrency;
+        rate["Pipeline"]=runner.shared.batch;
         rate["SendRate"]=std::max(1,o.integer("rr"));rate["Payload"]=runner.shared.payloads[0].size();
         rate["SendTimes"]=sent;rate["SendBytes"]=sent*int64_t(runner.shared.payloads[0].size());
         rate["RecvTimes"]=received;rate["RecvBytes"]=bytes;
