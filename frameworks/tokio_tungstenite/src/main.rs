@@ -15,11 +15,11 @@
 //
 // # Echo
 //
-// WebSocketStream is a futures Stream + Sink, and Sink::start_send only frames a message into
-// tungstenite's write buffer; poll_flush writes it out. So the echo loop feeds every message that
-// is already readable - those parsed out of the same read, without waiting on the socket - and
-// flushes once for the batch, which is one write where sending each message would have been one
-// apiece. uWS corks the sends a message callback makes the same way.
+// WebSocketStream is a futures Stream + Sink, and Sink::start_send only frames a message, which
+// gathers in the socket wrapper (stream.rs); poll_flush writes it out. So the echo loop feeds
+// every message that is already readable - those parsed out of the same read, without waiting on
+// the socket - and flushes once for the batch, which is one write where sending each message
+// would have been one apiece. uWS corks the sends a message callback makes the same way.
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Mutex;
@@ -32,6 +32,9 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+
+mod stream;
+use stream::Stream;
 
 // Must match config.Ports[config.TokioTungstenite] in config/config.go; config/native_ports_test.go
 // holds the two to it.
@@ -51,8 +54,8 @@ struct Flags {
 // Takes -name=value and a bare -name for true, as Go's flag package does for the flags the
 // scripts pass. script/servers.sh hands every server the same set - -nodelay, -reuseport, -b, -m
 // - and only the first two mean anything here, so the rest are reported and ignored rather than
-// fatal: the Go servers each define the ones they read, and this one keeps tungstenite's own
-// buffer sizes rather than -b's; see ws_config.
+// fatal: the Go servers each define the ones they read, and this one sizes its buffers in
+// ws_config rather than by -b.
 fn parse_flags() -> Flags {
     let mut flags = Flags {
         nodelay: true,
@@ -239,11 +242,16 @@ async fn handle_connection(mut stream: TcpStream) {
         }
         seen = n;
     };
+    // Dropped here rather than at the end of the function: it would otherwise be part of the
+    // task's state for as long as the connection lasts, 8KiB of zeroes a connection.
+    drop(buf);
 
     if head.upgrade {
         // The handshake - the method, Connection, the key and its answer, the version - is
         // tungstenite's.
-        if let Ok(ws) = tokio_tungstenite::accept_async_with_config(stream, Some(ws_config())).await
+        if let Ok(ws) =
+            tokio_tungstenite::accept_async_with_config(Stream::new(stream), Some(ws_config()))
+                .await
         {
             echo(ws).await;
         }
@@ -287,21 +295,23 @@ fn control(method: &str, path: &str, body: &[u8]) -> (&'static str, &'static str
     }
 }
 
-// tungstenite's defaults, but for the payload limits: 64MiB for a message and a frame, as the
-// uwebsockets server sets uWS's maxPayloadLength (tungstenite's own frame limit is 16MiB). The
-// buffers stay as the library ships them - a 128KiB read buffer a connection, reserved up front
-// and zero-filled on every read, and writes gathered up to 128KiB before they go out - since that
-// is what an application on it gets; see README.md for what the read buffer does to the memory
-// column. tungstenite sends no
+// tungstenite's defaults, but for the payload limits - 64MiB for a message and a frame, as the
+// uwebsockets server sets uWS's maxPayloadLength (tungstenite's own frame limit is 16MiB) - and
+// the read buffer: 4KiB, the size tungstenite's documentation suggests where there are many
+// connections, rather than 128KiB reserved and zero-filled for every one - and the write buffer,
+// 0, so that each frame goes straight to the socket under it, which gathers a batch's frames in
+// a pooled buffer until the echo loop's flush; see stream.rs for both. tungstenite sends no
 // pings and has no idle timeout of its own, so a connection opened in the Connections phase stays
 // up however long it sits idle, as the uwebsockets server has uWS keep it.
 fn ws_config() -> WebSocketConfig {
     WebSocketConfig::default()
+        .read_buffer_size(4096)
+        .write_buffer_size(0)
         .max_message_size(Some(64 << 20))
         .max_frame_size(Some(64 << 20))
 }
 
-async fn echo(mut ws: WebSocketStream<TcpStream>) {
+async fn echo(mut ws: WebSocketStream<Stream>) {
     while let Some(first) = ws.next().await {
         let Ok(mut msg) = first else { return };
         loop {
