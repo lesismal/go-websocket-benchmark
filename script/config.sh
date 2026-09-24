@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Benchmark client: benchcli-rust (default, Rust), benchcli-uwscpp (C++, on
-# uWebSockets) or benchcli-go. All three take the same flags and write the same
+# Benchmark client: benchcli-uwscpp (default, C++, on uWebSockets), benchcli-rust
+# (Rust) or benchcli-go. All three take the same flags and write the same
 # reports; see each one's README.
 # Override for one run with: BENCH_CLIENT=benchcli-go bash script/benchmark.sh
-BENCH_CLIENT=${BENCH_CLIENT:-benchcli-rust}
+BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}
 case "$BENCH_CLIENT" in
     benchcli-go|benchcli-rust|benchcli-uwscpp) ;;
     *) echo "Unsupported BENCH_CLIENT: $BENCH_CLIENT" >&2; return 1 ;;

@@ -21,11 +21,11 @@ sudo apt-get install build-essential git python3 libcurl4-openssl-dev
 # Build just the C++ client (first build downloads pinned dependencies).
 bash benchcli-uwscpp/build.sh
 
-# Run the full benchmark with this client; script/config.sh defaults to benchcli-rust.
-BENCH_CLIENT=benchcli-uwscpp bash script/benchmark.sh
+# Built automatically as part of the full benchmark, which runs it by default.
+bash script/benchmark.sh
 ```
 
-Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-rust}` in `script/config.sh` to change the
+Edit `BENCH_CLIENT=${BENCH_CLIENT:-benchcli-uwscpp}` in `script/config.sh` to change the
 persistent default. Every client's build produces `output/bin/bench.client`; rerun the build
 when switching clients. The runner and report scripts use that binary.
 
@@ -113,7 +113,8 @@ parameters (`summary:"<name>"` fields) in front of the three.
   unavailable resource statistics remain zero. Zero CPU avoids invalid JSON NaN/Inf.
 - Profile jobs start two seconds after warmup/Rate starts. The client waits for
   them before proceeding to the next benchmark or exiting, so short runs can take
-  longer when profiling is enabled. Use `-ep=false -rp=false` for short smoke tests.
+  longer when profiling is enabled. Both are off by default; `-ep=true` or `-rp=true` turns one
+  on, for Go servers only, since no other server has the pprof routes.
 - Like the Go client, Rate reports the receive count at the end of its duration;
   late responses are not included and there is no drain phase.
 

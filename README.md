@@ -4,11 +4,11 @@
 ## Benchmark client
 
 `script/config.sh` selects the client with `BENCH_CLIENT`, defaulting to
-`benchcli-rust`. The other two are `benchcli-uwscpp` (C++, on uWebSockets) and
+`benchcli-uwscpp` (C++, on uWebSockets). The other two are `benchcli-rust` and
 `benchcli-go`:
 
 ```sh
-BENCH_CLIENT=benchcli-uwscpp bash script/benchmark.sh
+BENCH_CLIENT=benchcli-rust bash script/benchmark.sh
 BENCH_CLIENT=benchcli-go bash script/benchmark.sh
 ```
 
@@ -37,7 +37,7 @@ resource plan to `output/docker/<timestamp>`.
 # Short Gorilla validation
 bash script/docker_benchmark.sh --smoke
 
-# Full benchmark using the default client, benchcli-rust
+# Full benchmark using the default client, benchcli-uwscpp
 bash script/docker_benchmark.sh
 
 # Focused run with explicit resource limits
@@ -78,8 +78,8 @@ server node needs besides Go:
   counterpart of a Go server's `inline` - and takes no `-taskpool` flag, so its
   `Pool` is `-`. See [its README](frameworks/tokio_tungstenite/README.md).
 
-The Docker image installs both toolchains - the Rust one also builds the default
-client, `benchcli-rust` - and fetches every pinned source at build time, so the
+The Docker image installs both toolchains - the Rust one also builds
+`benchcli-rust` - and fetches every pinned source at build time, so the
 benchmark in the container still runs with `--network none`.
 
 ## Goroutine pool

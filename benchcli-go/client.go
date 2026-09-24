@@ -47,7 +47,7 @@ var (
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
 	echoTimes         = flag.Int("en", 2000000, `benchecho: benchmark times`)
 	echoTPSLimit      = flag.Int("el", 0, `benchecho: TPS limitation per second`)
-	echoPprof         = flag.Bool("ep", true, `benchecho: generate pprof report`)
+	echoPprof         = flag.Bool("ep", false, `benchecho: generate pprof report`)
 	echoPprofDuration = flag.Int("epd", 5, `benchecho: pprof duration`)
 
 	// BenchRate

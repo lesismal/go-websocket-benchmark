@@ -26,15 +26,15 @@ def selected(extra_env=None):
 
 
 class ScriptTests(unittest.TestCase):
-    def test_rust_is_default(self):
+    def test_cpp_is_default(self):
         result = selected()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "benchcli-rust")
-
-    def test_cpp_can_be_selected(self):
-        result = selected({"BENCH_CLIENT": "benchcli-uwscpp"})
-        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "benchcli-uwscpp")
+
+    def test_rust_can_be_selected(self):
+        result = selected({"BENCH_CLIENT": "benchcli-rust"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "benchcli-rust")
 
     def test_go_can_be_selected(self):
         result = selected({"BENCH_CLIENT": "benchcli-go"})
