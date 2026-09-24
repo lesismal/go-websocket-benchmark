@@ -139,6 +139,7 @@ print_env() {
     echo "uwebsockets threads: workers ${BENCH_UWS_WORKERS_PER_CPU}/cpu, loops ${BENCH_UWS_LOOPS_PER_CPU}/cpu (0 = the server's own sizing)"
     echo $line
     echo "report sort: ${BENCH_REPORT_SORT} (result = best first, framework = config.FrameworkList order)"
+    echo "project: ${BENCH_PROJECT:-(none)}"
     echo $line
     echo "go env:"
     echo

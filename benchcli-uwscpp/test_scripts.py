@@ -50,13 +50,13 @@ class ScriptTests(unittest.TestCase):
         result = subprocess.run(
             ["bash", "-c", ". ./script/config.sh && printf '%s' \"${frameworks[*]}\""],
             cwd=ROOT,
-            env={**os.environ, "BENCH_FRAMEWORKS": "gorilla,nbio_nonblocking"},
+            env={**os.environ, "BENCH_FRAMEWORKS": "fib,quickws"},
             text=True,
             capture_output=True,
             timeout=10,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "gorilla nbio_nonblocking")
+        self.assertEqual(result.stdout, "fib quickws")
 
     def test_unknown_framework_fails(self):
         result = subprocess.run(

@@ -66,6 +66,7 @@ var (
 	preffix    = flag.String("preffix", "", `report file preffix, e.g. "1m_connections_"`)
 	suffix     = flag.String("suffix", "", `report file suffix, e.g. "_20060102150405"`)
 	reportSort = flag.String("sort", report.DefaultSort, `report row order: "result" ranks the best result first, "framework" keeps the framework order`)
+	project    = flag.String("project", report.DefaultProject, `what the run benchmarks, the Summary's Project row; empty leaves the row out`)
 )
 
 func main() {
@@ -127,7 +128,9 @@ func main() {
 	if err != nil {
 		logging.Printf("SetupPS(%v) failed: %v", *framework, err)
 	}
-	if pprofAddr != "" {
+	// Only a Go server has the pprof routes; see config.FrameworkServesPprof.
+	servesPprof := pprofAddr != "" && config.FrameworkServesPprof(*framework)
+	if servesPprof {
 		cpuProfileUrl := pprofAddr + "/debug/pprof/profile"
 		cpuProfileUrlEcho = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *echoPprofDuration)
 		cpuProfileUrlRate = cpuProfileUrl + fmt.Sprintf("?seconds=%v", *ratePprofDuration)
@@ -145,7 +148,7 @@ func main() {
 	be.Total = *echoTimes
 	be.Limit = *echoTPSLimit
 	be.EnalbeTPN = *enableTPN
-	if *echoPprof {
+	if *echoPprof && servesPprof {
 		be.OnWarmup(func() {
 			time.AfterFunc(time.Second*2, func() {
 				cpu, err := httpGet(cpuProfileUrlEcho)
@@ -182,7 +185,7 @@ func main() {
 		br.Pipeline = *ratePipeline
 		br.Payload = *payload
 		br.SendLimit = *rateSendLimit
-		if *ratePprof {
+		if *ratePprof && servesPprof {
 			br.OnBenchmark(func() {
 				time.AfterFunc(time.Second*2, func() {
 					cpu, err := httpGet(cpuProfileUrlRate)
@@ -226,7 +229,7 @@ func saveReport(r report.Report) {
 // benchcli-uwscpp's generateReports prints the same thing.
 func generateReports() {
 	sections := []struct{ name, data string }{
-		{"Summary", report.GenerateSummary(*preffix, *suffix)},
+		{"Summary", report.GenerateSummary(*project, *preffix, *suffix)},
 		{"Connections", report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 		{"BenchEcho", report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 		{"BenchRate", report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},

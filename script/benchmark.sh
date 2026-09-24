@@ -48,7 +48,11 @@ fi
 
 sleep 3
 
-. ./script/clients.sh -rate=true "$@" || { return 1 2>/dev/null || exit 1; }
+# A framework whose client failed must not cost the others their report: the
+# report step reads whatever JSON the run did write, so it runs either way, and
+# the failure is returned after it.
+clients_failed=0
+. ./script/clients.sh -rate=true "$@" || clients_failed=1
 
 # echo $line
 
@@ -60,3 +64,8 @@ sleep 3
 . ./script/report.sh "$@"
 
 echo $line
+
+if [ "$clients_failed" -ne 0 ]; then
+    echo "some benchmark clients failed; the report above covers the reports they wrote" >&2
+    return 1 2>/dev/null || exit 1
+fi

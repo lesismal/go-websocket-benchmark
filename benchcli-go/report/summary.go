@@ -20,6 +20,7 @@ type SummaryParameter struct {
 // row, after these, with no description; benchcli-uwscpp and benchcli-rust
 // read this list for the same order and the same words.
 var SummaryParameters = []SummaryParameter{
+	{"Project", "what this run benchmarks (-project)"},
 	{"Client", "benchmark client: rust, uwscpp or go"},
 	{"Pool", "task pool, used by Go event-loop frameworks only"},
 	{"Conns", "connections each benchmark runs over"},
@@ -32,6 +33,10 @@ var SummaryParameters = []SummaryParameter{
 	{"Rate SendRate", "messages sent to each connection per second (-rr)"},
 	{"Rate Pipeline", "messages merged into one write in BenchRate (-rpl)"},
 }
+
+// DefaultProject is the Summary's Project row when the report step is given
+// no -project. benchcli-uwscpp and benchcli-rust default to the same name.
+const DefaultProject = "GO-WEBSOCKET-BENCHMARK"
 
 // summaryValue is one value a parameter took, and the frameworks it took it
 // for, in the order they were read.
@@ -50,7 +55,12 @@ type summaryValue struct {
 // except Pool, which says only which pools ran; see poolSummary. A third
 // column describes each parameter. The table is left-aligned, so that a long
 // value reads from its start.
-func Summary(tables ...[]Report) string {
+//
+// project heads the table as its Project row, naming what the run
+// benchmarks; it is no field of a report, so it comes from the report step's
+// -project rather than from the rows. An empty project leaves the row out, and
+// a run with no reports still has no Summary at all.
+func Summary(project string, tables ...[]Report) string {
 	values := map[string][]summaryValue{}
 	var names []string
 	for _, reports := range tables {
@@ -76,6 +86,9 @@ func Summary(tables ...[]Report) string {
 	}
 
 	var rows [][]string
+	if project != "" {
+		rows = append(rows, []string{"Project", project, summaryDescription("Project")})
+	}
 	for _, name := range summaryOrder(names) {
 		text := summaryString(values[name])
 		if name == "Pool" {

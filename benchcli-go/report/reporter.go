@@ -351,9 +351,9 @@ func ReadBenchRateReports(preffix, suffix string) []Report {
 }
 
 // GenerateSummary is the Summary table of the run the three reports' files
-// are from.
-func GenerateSummary(preffix, suffix string) string {
-	return Summary(ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
+// are from, headed by project; see Summary.
+func GenerateSummary(project, preffix, suffix string) string {
+	return Summary(project, ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
 		ReadBenchRateReports(preffix, suffix))
 }
 

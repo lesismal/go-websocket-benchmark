@@ -44,7 +44,8 @@ class Fixture:
         asyncio.set_event_loop(self.loop)
         async def start():
             self.servers = []
-            for port in range(12001, 12051):
+            # gorilla's ports, and uwebsockets' for a framework with no pprof routes.
+            for port in [*range(12001, 12051), *range(31001, 31051)]:
                 self.servers.append(await asyncio.start_server(self.handle, '127.0.0.1', port))
         try:
             self.loop.run_until_complete(start())
@@ -329,6 +330,16 @@ class ClientTests(unittest.TestCase):
             self.assertIn('gorilla', md)
             self.assertNotIn('TP99', md)
 
+    # Only a Go server has /debug/pprof, so a profile is not asked of any other one - not even
+    # with -ep and -rp on - and there is no pprof hint to print for it either.
+    def test_no_profile_for_a_server_without_pprof(self):
+        result = self.run_client('-f=uwebsockets', '-ep=true', '-epd=1', '-rate=true', '-rd=1', '-rp=true', '-rpd=1')
+        self.assertEqual([path for _, path, _ in self.server.requests if 'pprof' in path], [])
+        directory = self.cwd / 'output/report'
+        self.assertTrue((directory / 'uwebsockets-BenchEcho.json').exists())
+        self.assertEqual(list(directory.glob('*.pprof.*')), [])
+        self.assertNotIn('pprof', result.stdout + result.stderr)
+
     # A single-node run samples the server process itself. With no such process
     # here - which is also what a server on the other node of a two-node run
     # looks like - the client has to say so and go back to asking the server.
@@ -445,10 +456,11 @@ class ClientTests(unittest.TestCase):
             for cell in line.strip('|').split('|'):
                 self.assertTrue(cell.startswith(' ') and not cell.startswith('  '), (cell, summary))
         rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in lines[2:]]
-        self.assertEqual(rows, [['Client', 'uwscpp'], ['Pool', 'nbio'],
+        self.assertEqual(rows, [['Project', 'GO-WEBSOCKET-BENCHMARK'], ['Client', 'uwscpp'], ['Pool', 'nbio'],
                                 ['Conns', '100'], ['Payload', '64'], ['Dial Concurrency', '20'],
                                 ['Echo Concurrency', '50'], ['Echo Total', '1000']])
-        self.assertEqual(lines[3].split('|')[3].strip(), 'task pool, used by Go event-loop frameworks only')
+        self.assertEqual(lines[2].split('|')[3].strip(), 'what this run benchmarks (-project)')
+        self.assertEqual(lines[4].split('|')[3].strip(), 'task pool, used by Go event-loop frameworks only')
         for kind in ['Connections', 'BenchEcho']:
             title = (directory / f'{kind}.md').read_text().splitlines()[0]
             for column in ['Client', 'Pool', 'Conns', 'Concurrency', 'Payload']:
@@ -456,6 +468,12 @@ class ClientTests(unittest.TestCase):
         rule = '-' * 100
         self.assertIn(f'{rule}\n[Summary]\n\n{summary}\n{rule}\n[Connections]\n\n', result.stdout)
         self.assertIn(f'{rule}\n[BenchRate]\n\n(no results)\n\n{rule}\n', result.stdout)
+        # -project names the row, spaces and all, and an empty one leaves it out.
+        self.run_client('-r=true', '-project=uwebsockets threads, 3 CPUs')
+        first = (directory / 'Summary.md').read_text().splitlines()[2]
+        self.assertEqual([cell.strip() for cell in first.split('|')[1:3]], ['Project', 'uwebsockets threads, 3 CPUs'])
+        self.run_client('-r=true', '-project=')
+        self.assertNotIn('Project', (directory / 'Summary.md').read_text())
 
     def test_invalid_arguments_and_empty_echo(self):
         for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops', '-sort=oops']:

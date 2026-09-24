@@ -42,6 +42,12 @@ pub fn lang(framework: &str) -> &'static str {
     metadata()["langs"][framework].as_str().unwrap_or("-")
 }
 
+// Only the Go servers have the /debug/pprof routes, as config.FrameworkServesPprof has it, so
+// the profile is skipped for every other one rather than asked for and logged as a 404.
+pub fn serves_pprof(framework: &str) -> bool {
+    lang(framework) == "go"
+}
+
 pub fn schema(kind: &str) -> &'static [Value] {
     metadata()["schemas"][kind].as_array().unwrap()
 }

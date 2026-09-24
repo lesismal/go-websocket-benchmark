@@ -651,43 +651,52 @@ const PoolMode *resolvePoolMode(int argc, char **argv) {
 // listening on every port through uSockets' SO_REUSEPORT. Without a pool that is one loop per
 // core, which is what this server has always run.
 //
-// With a pool it cannot stay one loop per core. The workers are OS threads on top of the
-// loops, so that arrangement runs twice as many threads as there are CPUs and pays context
-// switches for work the loops were already contending for. The Go servers do not have the
-// problem: their pool's goroutines multiplex onto the same GOMAXPROCS threads their pollers
-// run on, so a pool there does not widen the process. So the default here keeps loops +
-// workers at the CPU count, and gives the loops the larger share.
+// With a pool the workers are OS threads on top of the loops. The Go servers do not have that
+// question: their pool's goroutines multiplex onto the same GOMAXPROCS threads their pollers
+// run on, so a pool there does not widen the process. Here it does, and the question is
+// whether the pool's threads should come out of the loops' CPUs or sit on top of them.
 //
-// Measured on 5 CPUs (server and client pinned to disjoint sets, as script/env.sh pins them),
-// echoing a 1KiB payload over 2000 connections, TPS averaged over three runs:
+// On top. Measured in Docker with the server and client pinned to disjoint CPU sets, as
+// script/env.sh pins them, benchcli-uwscpp echoing a 1KiB payload over 50000 connections at
+// 10000 concurrency, TPS averaged over two to four runs:
 //
-//     loops=4 workers=1   858k   <- kCoresPerWorker, and the best of these
-//     loops=5 workers=1   797k      one thread more than there are CPUs
-//     loops=4 workers=2   776k
-//     loops=3 workers=1   670k
-//     loops=3 workers=2   513k
+//     server CPUs  loops+workers  BenchEcho  BenchRate
+//     2            1+1            266k       1.12M      the old default, loops = cpus - workers
+//     2            2+1            323k       1.43M      <- this default
+//     2            2+2            263k       1.33M
+//     3            2+1            357k       2.17M      the old default
+//     3            3+1            467k       2.83M      <- this default
+//     3            4+1            464k       2.63M
+//     3            3+2            360k       2.60M
+//     5            4+1            582k       3.12M      the old default
+//     5            5+1            585k       3.15M      <- this default
+//     5            6+1            570k       3.03M
+//     5            4+2            526k       2.97M
+//     5            5+2            518k       3.10M
 //
-// Two things in that: a loop is worth more than a worker, since the loop side does the poll,
-// the read, the frame parse and the write while a worker only copies a payload and defers it
-// back; and threads beyond the CPU count cost more than they add. Hence one worker per
-// kCoresPerWorker cores and the rest loops.
+// A loop taken away for the pool costs a 1/cpus share of the poll, read, parse and write
+// capacity, which is 30% of the throughput at 3 CPUs, while the one extra thread a worker adds
+// cost nothing measurable at any size tried: a worker only copies a payload and defers it back,
+// and it parks between batches. A second worker was slower at every size tried, and at 5 CPUs
+// one worker already echoes within 1% of -taskpool=inline's BenchEcho, so the pool grows only
+// by one worker per kCoresPerWorker CPUs, for larger machines where one would not keep up.
 //
 // Both counts are overridable, either as a count of threads (-loops, -tpmax) or as a
 // multiplier of the CPUs the process may run on (-loopspercpu, -tpmaxpercpu), the form that
-// carries from one machine to another and the one script/config.sh configures. The sizing
-// above is what the benchmark measured best on the one host it was measured on, so a machine
-// of a different size is worth re-measuring: raise or lower the multiplier and watch the
-// server's CPU% and TPS columns move together.
+// carries from one machine to another and the one script/config.sh configures. Each flag sets
+// its own side only; the other keeps the sizing above. Nothing larger than 5 server CPUs was
+// measured, so a bigger machine is worth re-measuring: raise or lower the multiplier and watch
+// the server's CPU% and TPS columns move together.
 struct ThreadPlan {
     unsigned loops;
     unsigned workers;  // 0 when the echo runs in the loop
 };
 
-// One worker per this many cores, when nothing on the command line says otherwise. Fewer
-// workers measured better at every loop count tried, but a pool of one thread for every loop
-// in the process would be a poor default for any callback heavier than an echo, so a quarter
-// of the CPUs is where this stops. The multiplier that says the same thing is
-// -tpmaxpercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
+// One worker per this many cores, when nothing on the command line says otherwise, and at
+// least one. Below 8 CPUs that is a single worker, which is what the table above measured best;
+// a pool of one thread for every loop would be a poor default for any callback heavier than an
+// echo, so a quarter of the CPUs is where it scales to. The multiplier that says the same thing
+// is -tpmaxpercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
 // to nearest); script/config.sh has it as BENCH_UWS_WORKERS_PER_CPU.
 constexpr unsigned kCoresPerWorker = 4;
 
@@ -719,23 +728,11 @@ ThreadPlan planThreads(int argc, char **argv, const PoolMode &mode, unsigned cor
         if (plan.loops == 0) plan.loops = 1;
         return plan;
     }
-    // With only one of the two set, the other takes the rest of the cores, so that a run which
-    // sizes one of them by hand does not end up oversubscribed by accident. Setting both is
-    // how to ask for a thread count the cores do not add up to, which is a thing to measure.
-    if (loopCount > 0 && workerCount > 0) {
-        plan.loops = loopCount;
-        plan.workers = workerCount;
-    } else if (loopCount > 0) {
-        plan.loops = loopCount;
-        plan.workers = cores > plan.loops ? cores - plan.loops : 1;
-    } else if (workerCount > 0) {
-        plan.workers = workerCount;
-        plan.loops = cores > plan.workers ? cores - plan.workers : 1;
-    } else {
-        plan.workers = cores / kCoresPerWorker;
-        if (plan.workers == 0) plan.workers = 1;
-        plan.loops = cores > plan.workers ? cores - plan.workers : 1;
-    }
+    // Each side is sized on its own: a loop for every core, and the workers on top of them.
+    // Setting one does not shrink the other, since what was measured to cost throughput was a
+    // loop given up for the pool, not the pool's extra thread.
+    plan.loops = loopCount > 0 ? loopCount : cores;
+    plan.workers = workerCount > 0 ? workerCount : cores / kCoresPerWorker;
     if (plan.loops == 0) plan.loops = 1;
     if (plan.workers == 0) plan.workers = 1;
     return plan;

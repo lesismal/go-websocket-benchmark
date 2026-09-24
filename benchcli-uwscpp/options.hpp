@@ -39,7 +39,7 @@ struct Options {
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","true"}, {"epd","5"},
         {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"}, {"rpl","0"},
         {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"sort",kSortResult},
-        {"preffix",""}, {"suffix",""},
+        {"preffix",""}, {"suffix",""}, {"project","GO-WEBSOCKET-BENCHMARK"},
         {"threads","0"}, {"io-timeout","30s"}
     };
     const std::vector<std::string> bools = {"nodelay","check","tpn","ep","rate","rp","r"};

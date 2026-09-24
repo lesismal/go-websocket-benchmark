@@ -329,7 +329,8 @@ fn summary_description(name: &str) -> String {
 
 // report.Summary: the run's parameters, the summary-tagged fields of every row of every report,
 // left-aligned. One value where the rows agree; otherwise each value followed by the frameworks
-// that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool - and a Description column.
+// that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool - and a Description column,
+// all headed by -project's Project row unless it is empty.
 fn summary_table(o: &Options) -> Result<String, String> {
     let mut values: std::collections::HashMap<String, Vec<(String, Vec<String>)>> =
         Default::default();
@@ -375,9 +376,12 @@ fn summary_table(o: &Options) -> Result<String, String> {
             ordered.push(name);
         }
     }
-    let rows = ordered
-        .iter()
-        .map(|name| {
+    let project = o.get("project");
+    let project_row = (!project.is_empty())
+        .then(|| vec!["Project".to_string(), project.to_string(), summary_description("Project")]);
+    let rows = project_row
+        .into_iter()
+        .chain(ordered.iter().map(|name| {
             let list = &values[name];
             let text = if name == "Pool" {
                 pool_summary(list)
@@ -390,7 +394,7 @@ fn summary_table(o: &Options) -> Result<String, String> {
                     .join("; ")
             };
             vec![name.clone(), text, summary_description(name)]
-        })
+        }))
         .collect();
     let title = ["Parameter", "Value", "Description"].map(String::from);
     Ok(markdown_table(&title, rows, true))
@@ -471,7 +475,7 @@ pub fn generate_reports(o: &Options) -> Result<(), String> {
 // Fetches the server's CPU and heap profiles two seconds into a benchmark, on a thread of its
 // own; the caller joins it before writing the report.
 pub fn profile(o: &Options, kind: &str, enabled: bool, seconds: i32) -> Option<JoinHandle<()>> {
-    if !enabled {
+    if !enabled || !crate::metadata::serves_pprof(o.get("f")) {
         return None;
     }
     let base = control_url(o);

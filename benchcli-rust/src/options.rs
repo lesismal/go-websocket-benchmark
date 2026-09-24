@@ -48,6 +48,7 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("r", "false"),
     ("sort", SORT_RESULT),
     ("preffix", ""),
+    ("project", "GO-WEBSOCKET-BENCHMARK"),
     ("suffix", ""),
     ("threads", "0"),
     ("io-timeout", "30s"),

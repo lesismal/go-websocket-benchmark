@@ -25,7 +25,7 @@ those CPUs (`script/config.sh`'s `BENCH_UWS_LOOPS_PER_CPU`), which is the form t
 same arrangement on machines of different sizes. The startup line prints both numbers:
 
 ```
-uwebsockets benchmark config: loops=4 workers=1 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
+uwebsockets benchmark config: loops=5 workers=1 threads=6 cpus=5 hardware_concurrency=10 ports=31001-31050
 ```
 
 ## Task pool
@@ -77,42 +77,52 @@ one variable:
 BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
-The pool's workers are OS threads on top of the loop threads, so the two are sized together:
-by default one worker per four CPUs and the loops take the rest, and fixing either side alone -
-`-loops`/`-loopspercpu` or `-tpmax`/`-tpmaxpercpu` - leaves the other the remaining CPUs, so a
-run cannot end up oversubscribed by accident. Setting both sides is how to ask for more threads
-than there are CPUs on purpose. The Go pools can be hundreds of goroutines because those
-multiplex onto the `GOMAXPROCS` threads their pollers already run on; OS threads do not, and a
-pool that widened the process is what cost this server most of its throughput.
+The pool's workers are OS threads on top of the loop threads. The Go pools can be hundreds of
+goroutines because those multiplex onto the `GOMAXPROCS` threads their pollers already run on;
+OS threads do not, so the pool's size here is a question of whether its threads come out of the
+loops' CPUs or sit on top of them. By default they sit on top: a loop for every CPU, and one
+worker per four CPUs (at least one) besides. `-loops`/`-loopspercpu` and `-tpmax`/`-tpmaxpercpu`
+each set their own side only.
 
-Measured in a container with 5 CPUs for the server and 5 for the client, pinned to disjoint
-sets the way `script/env.sh` pins them, echoing a 1KiB payload over 2000 connections; TPS
-averaged over three runs:
+Measured in Docker, server and client pinned to disjoint CPU sets the way `script/env.sh` pins
+them, `benchcli-uwscpp` echoing a 1KiB payload over 50000 connections at 10000 concurrency; TPS
+averaged over two to four runs:
 
-| server threads | BenchEcho TPS | |
-| --- | --- | --- |
-| `-taskpool=inline`, loops=5 | 1,525k | no pool, for reference |
-| `-taskpool=inline`, loops=4 | 1,375k | |
-| loops=4 workers=1 | 858k | the default at 5 CPUs |
-| loops=5 workers=1 | 797k | one thread more than there are CPUs |
-| loops=4 workers=2 | 776k | |
-| loops=3 workers=1 | 670k | |
-| loops=3 workers=2 | 513k | |
-| loops=10 workers=10 | 532k | what `hardware_concurrency()` sized on this host |
+| server CPUs | loops+workers | BenchEcho TPS | BenchRate TPS | |
+| --- | --- | --- | --- | --- |
+| 2 | 1+1 | 266k | 1.12M | the old default, `loops = cpus - workers` |
+| 2 | 2+1 | 323k | 1.43M | the default |
+| 2 | 2+2 | 263k | 1.33M | |
+| 3 | 2+1 | 357k | 2.17M | the old default |
+| 3 | 3+1 | 467k | 2.83M | the default |
+| 3 | 4+1 | 464k | 2.63M | |
+| 3 | 3+2 | 360k | 2.60M | |
+| 5 | 4+1 | 582k | 3.12M | the old default |
+| 5 | 5+1 | 585k | 3.15M | the default |
+| 5 | 6+1 | 570k | 3.03M | |
+| 5 | 4+2 | 526k | 2.97M | |
+| 5 | 5+2 | 518k | 3.10M | |
+| 5 | `-taskpool=inline`, 5 loops | 591k | 4.14M | no pool, for reference |
 
 A loop is worth more than a worker - the loop side does the poll, the read, the frame parse and
-the write, while a worker only copies a payload and defers it back - and threads beyond the CPU
-count cost more than they add. Fixing the sizing is worth about 61% here (532k to 858k).
+the write, while a worker only copies a payload and defers it back, and parks between batches.
+So a loop given up to the pool costs a 1/cpus share of the throughput, 30% of it at 3 CPUs,
+while the one thread a worker adds on top cost nothing measurable at any size tried. A second
+worker was slower at every size. The default at 3 CPUs is the one `script/docker_benchmark.sh`
+gives the server on a 10-CPU Docker Desktop, where it moves BenchEcho from 357k to 467k.
 
-That is one host, with 5 CPUs for the server; the default is the best of what was measured on
-it, not a number that has been checked on a larger machine. On a machine of a different size
-the two multipliers are what to sweep, and the pair of columns to read them against is the
-server's CPU% and the TPS: the pool's threads park between batches, so a run that leaves CPU
-idle is not necessarily a run that would go faster with more of them - every measurement here
-that added workers went slower.
+An earlier measurement, at 2000 connections with 5 server CPUs, had 4+1 ahead of 5+1 by 7%
+(858k against 797k); at 50000 connections the two are within 1%. Sizing by
+`hardware_concurrency()` instead of the affinity mask, which built 10+10 threads on that host,
+measured 532k there.
+
+Nothing larger than 5 server CPUs was measured, so on a bigger machine the two multipliers are
+what to sweep, and the pair of columns to read them against is the server's CPU% and the TPS:
+the pool's threads park between batches, so a run that leaves CPU idle is not necessarily a
+run that would go faster with more of them.
 
 What remains is the handoff itself: at the same thread count the pool echoes at about 60% of
-the in-loop rate (858k against 1,375k at four loops), because every batch pays a payload copy,
+the in-loop rate in that 2000-connection measurement (858k against 1,375k at four loops), because every batch pays a payload copy,
 a cross-thread queue and a `Loop::defer` for work that is otherwise a `memcpy`. That is the
 price of answering off the reactor, which is what the Go frameworks are being measured doing;
 `-taskpool=inline` (or `default`) is the mode that does not pay it.

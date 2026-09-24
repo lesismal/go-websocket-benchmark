@@ -204,7 +204,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchRate table:\n%s", table)
 	}
-	if summary := Summary([]Report{echo}, []Report{rate}); !strings.Contains(summary, "uwscpp (gorilla); go (gorilla)") {
+	if summary := Summary("", []Report{echo}, []Report{rate}); !strings.Contains(summary, "uwscpp (gorilla); go (gorilla)") {
 		t.Errorf("Summary does not show the clients without their prefix:\n%s", summary)
 	}
 
@@ -259,6 +259,28 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 	}
 }
 
+// TestSummaryProjectRow heads the Summary with what the run benchmarks, from
+// the report step's -project rather than from any report, and leaves the row
+// out when there is no name to give it.
+func TestSummaryProjectRow(t *testing.T) {
+	Init(false)
+	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", Payload: 1024}}
+	summary := Summary(DefaultProject, echo)
+	lines := strings.Split(summary, "\n")
+	if want := "| Project          | GO-WEBSOCKET-BENCHMARK | what this run benchmarks (-project) "; len(lines) < 3 || !strings.HasPrefix(lines[2], want) {
+		t.Errorf("Summary's first row is not %q:\n%s", want, summary)
+	}
+	if !rowOrder(summary, "Project", "Client", "Payload") {
+		t.Errorf("Project does not come first:\n%s", summary)
+	}
+	if summary := Summary("nbio-only", echo); !strings.Contains(summary, "| Project          | nbio-only ") {
+		t.Errorf("-project does not name the row:\n%s", summary)
+	}
+	if summary := Summary("", echo); strings.Contains(summary, "Project") {
+		t.Errorf("an empty project still has a row:\n%s", summary)
+	}
+}
+
 // TestSummaryTakesTheParametersOutOfTheTables moves the run's parameters into
 // the Summary table: one value where every row agrees, each value with its
 // frameworks where they do not, and none of them left as a column.
@@ -276,7 +298,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 	rate := []Report{
 		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
 	}
-	summary := Summary(conns, echo, rate)
+	summary := Summary("", conns, echo, rate)
 	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
 		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200", "Rate Pipeline", "10",
@@ -316,7 +338,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		}
 	}
 
-	if Summary() != "" || Summary(nil, nil) != "" {
+	if Summary(DefaultProject) != "" || Summary(DefaultProject, nil, nil) != "" {
 		t.Error("Summary of no reports is not empty")
 	}
 }
@@ -501,9 +523,9 @@ func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
 		for i, pool := range c.pools {
 			reports = append(reports, &ConnectionsReport{Framework: strconv.Itoa(i), TaskPool: pool})
 		}
-		if !strings.Contains(Summary(reports), "| Pool             | "+c.want+" ") ||
-			!strings.Contains(Summary(reports), " | task pool, used by Go event-loop frameworks only ") {
-			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary(reports))
+		if !strings.Contains(Summary("", reports), "| Pool             | "+c.want+" ") ||
+			!strings.Contains(Summary("", reports), " | task pool, used by Go event-loop frameworks only ") {
+			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary("", reports))
 		}
 	}
 }

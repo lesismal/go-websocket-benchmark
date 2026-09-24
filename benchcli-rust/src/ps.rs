@@ -19,6 +19,15 @@ use serde_json::{Map, Value, json};
 use crate::http::{CONTROL_ATTEMPTS, control_url, http_retry};
 use crate::options::{Options, PS_MODE_AUTO, PS_MODE_LOCAL};
 
+// The hint after the Server PID line, for the servers that have somewhere to point it.
+fn pprof_hint(o: &Options) -> String {
+    if crate::metadata::serves_pprof(o.get("f")) {
+        format!("\npprof: {}/debug/pprof/profile", control_url(o))
+    } else {
+        String::new()
+    }
+}
+
 // The name every framework's server binary is built under: script/build.sh writes
 // ./output/bin/<framework>.server, and script/killone.sh stops it by the same name.
 fn server_process_name(framework: &str) -> String {
@@ -342,8 +351,8 @@ pub fn setup_ps(o: &Options) -> PsSetup {
             Ok((pid, sampler)) => {
                 ps.local = Some(sampler);
                 println!(
-                    "Server PID: {pid} (sampled here, so it is not asked to sample itself)\npprof: {}/debug/pprof/profile",
-                    control_url(o)
+                    "Server PID: {pid} (sampled here, so it is not asked to sample itself){}",
+                    pprof_hint(o)
                 );
                 return ps;
             }
@@ -364,10 +373,7 @@ pub fn setup_ps(o: &Options) -> PsSetup {
         Ok(reply) => {
             let reply = String::from_utf8_lossy(&reply).to_string();
             ps.server_sampling = true;
-            println!(
-                "Server PID: {reply}\npprof: {}/debug/pprof/profile",
-                control_url(o)
-            );
+            println!("Server PID: {reply}{}", pprof_hint(o));
             pid = reply.trim().parse().unwrap_or(-1);
         }
         Err(e) => eprintln!("server initialization: {e}"),

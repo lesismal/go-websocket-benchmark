@@ -99,19 +99,17 @@ BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 #   BENCH_UWS_LOOPS_PER_CPU    the uWS event loops, one thread each, which do
 #                              the poll, the read, the frame parse and the write
 #
-# 0 (the default for both) leaves the server its own sizing: one worker per four
-# CPUs and the loops take the rest, so loops + workers = cpus. That is also what
-# happens when only one of the two is set - the other takes the CPUs left over,
-# so raising the pool lowers the loops rather than oversubscribing the machine.
-# Setting both asks for exactly that many of each, which is how to run more
-# threads than there are CPUs on purpose.
+# 0 (the default for both) leaves the server its own sizing: one loop per CPU,
+# and one worker per four CPUs (at least one) on top of them, so the pool adds
+# threads rather than taking CPUs from the loops. Setting one of the two changes
+# that side only.
 #
 # Worth knowing before raising the pool: the workers here are OS threads on top
 # of the loop threads, not goroutines multiplexed onto the pollers' own threads
-# the way every Go pool in this benchmark is, and on the host the default was
-# measured on more workers came out slower at every loop count tried (the table
-# is in frameworks/uwebsockets/README.md). Both directions are worth a run on a
-# machine of a different size.
+# the way every Go pool in this benchmark is, and at 2, 3 and 5 server CPUs a
+# second worker came out slower every time, as did giving a loop up for the
+# pool (the table is in frameworks/uwebsockets/README.md). Both directions are
+# worth a run on a machine of a different size.
 #
 # Override for one run with:
 #   BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
@@ -161,6 +159,14 @@ case "$BENCH_REPORT_SORT" in
     *) echo "Unsupported BENCH_REPORT_SORT: $BENCH_REPORT_SORT (want result or framework)" >&2; return 1 ;;
 esac
 
+# What the run benchmarks: the Project row that heads the Summary table, so a
+# report read on its own still says what it measured. Set it to name a run of
+# something narrower, e.g. BENCH_PROJECT="uwebsockets threads, 3 CPUs".
+# ${VAR-default} rather than ${VAR:-default}, so that an empty value is kept and
+# leaves the row out. The report step alone takes it as a client flag:
+#   bash script/report.sh -project="GO-WEBSOCKET-BENCHMARK nightly"
+BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
+
 # The servers that take the -taskpool flags, in framework-name order like every
 # other framework list here. The rest have no pool to swap and would exit on a
 # flag they do not define.
@@ -195,28 +201,28 @@ SleepTime=5
 # taskpool_frameworks above, so that a framework is in the same place in every
 # list and a new one has one obvious place to go.
 frameworks=(
-    "fasthttp"
+    # "fasthttp"
     "fib"
-    "fnet"
-    "gobwas"
-    "gorilla"
-    "greatws"
-    "greatws_event"
-    "gws"
-    "gws_std"
-    "hertz"
-    "hertz_std"
-    "nbio_blocking"
-    "nbio_mixed"
-    "nbio_nonblocking"
-    "nbio_std"
-    "nettyws"
-    "nhooyr"
+    # "fnet"
+    # "gobwas"
+    # "gorilla"
+    # "greatws"
+    # "greatws_event"
+    # "gws"
+    # "gws_std"
+    # "hertz"
+    # "hertz_std"
+    # "nbio_blocking"
+    # "nbio_mixed"
+    # "nbio_nonblocking"
+    # "nbio_std"
+    # "nettyws"
+    # "nhooyr"
     "quickws"
     "tokio_tungstenite"
     "uwebsockets"
     "uws_events"
-    "uws_std"
+    # "uws_std"
 )
 
 # Optional comma-separated subset, used by the Docker smoke test and useful for

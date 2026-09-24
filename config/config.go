@@ -122,6 +122,16 @@ func FrameworkLang(framework string) string {
 	return "-"
 }
 
+// FrameworkServesPprof reports whether framework's server has the
+// /debug/pprof routes a client can fetch a profile from. Only the Go servers
+// do - they get them from net/http/pprof, through frameworks.HandleCommon -
+// so the clients skip the profile for every other one rather than ask for it
+// and log a 404. benchcli-uwscpp and benchcli-rust decide it the same way,
+// from the same Langs table.
+func FrameworkServesPprof(framework string) bool {
+	return FrameworkLang(framework) == LangGo
+}
+
 // FrameworkList is every framework, in framework-name order. It is also the
 // row order of a -sort=framework report, which is what puts a framework on the
 // same row in every table and across runs, whatever it scored.
