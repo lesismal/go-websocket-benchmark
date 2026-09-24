@@ -262,6 +262,21 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 // TestSummaryProjectRow heads the Summary with what the run benchmarks, from
 // the report step's -project rather than from any report, and leaves the row
 // out when there is no name to give it.
+// TestSummaryPprofRows says whether the run sampled the Go servers' pprof, one
+// row per benchmark, and leaves the rows out for reports that do not say.
+func TestSummaryPprofRows(t *testing.T) {
+	Init(false)
+	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", EchoPprof: "on"}}
+	rate := []Report{&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", RatePprof: "off"}}
+	summary := Summary("", echo, rate)
+	if !rowOrder(summary, "Rate Pipeline", "Echo Pprof", "on", "(-ep)", "Rate Pprof", "off", "(-rp)") {
+		t.Errorf("Summary has no pprof rows:\n%s", summary)
+	}
+	if summary := Summary("", []Report{&BenchEchoReport{Framework: "fib"}}); strings.Contains(summary, "Pprof") {
+		t.Errorf("a report without the field still has a row:\n%s", summary)
+	}
+}
+
 func TestSummaryProjectRow(t *testing.T) {
 	Init(false)
 	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", Payload: 1024}}

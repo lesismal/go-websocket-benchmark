@@ -796,6 +796,17 @@ int main(int argc, char **argv) {
                  std::thread::hardware_concurrency(), kPortStart, kPortEnd);
 
     installTaskPool(argc, argv, *mode, plan);
+    // The two counts on a line of their own, the one script/servers.sh copies to the benchmark
+    // console: the lines above carry them among everything else.
+    if (g_pool) {
+        std::fprintf(stderr, "uwebsockets threads: event loops=%u, task pool workers=%u, cpus=%u\n",
+                     plan.loops, g_pool->workers(), cores);
+    } else {
+        std::fprintf(stderr,
+                     "uwebsockets threads: event loops=%u, task pool workers=0 (-taskpool=%s answers "
+                     "on the event loops), cpus=%u\n",
+                     plan.loops, mode->name, cores);
+    }
 
     std::vector<std::thread> workers;
     workers.reserve(plan.loops);

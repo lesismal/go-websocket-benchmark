@@ -32,6 +32,16 @@ var SummaryParameters = []SummaryParameter{
 	{"Rate Duration", "how long BenchRate sends for (-rd)"},
 	{"Rate SendRate", "messages sent to each connection per second (-rr)"},
 	{"Rate Pipeline", "messages merged into one write in BenchRate (-rpl)"},
+	{"Echo Pprof", "client sampled Go servers' pprof in BenchEcho (-ep); others never are"},
+	{"Rate Pprof", "client sampled Go servers' pprof in BenchRate (-rp); others never are"},
+}
+
+// PprofSetting is a report's EchoPprof or RatePprof: whether -ep or -rp was on.
+func PprofSetting(enabled bool) string {
+	if enabled {
+		return "on"
+	}
+	return "off"
 }
 
 // DefaultProject is the Summary's Project row when the report step is given
@@ -90,6 +100,11 @@ func Summary(project string, tables ...[]Report) string {
 		rows = append(rows, []string{"Project", project, summaryDescription("Project")})
 	}
 	for _, name := range summaryOrder(names) {
+		// A parameter no report carries - one added after the reports being
+		// read were written - has no row rather than an empty one.
+		if v := values[name]; len(v) == 1 && v[0].value == "" {
+			continue
+		}
 		text := summaryString(values[name])
 		if name == "Pool" {
 			text = poolSummary(values[name])

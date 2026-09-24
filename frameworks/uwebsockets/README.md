@@ -22,10 +22,12 @@ one, `hardware_concurrency()` otherwise - because `script/env.sh` pins the serve
 the host's CPUs with `taskset`, and `hardware_concurrency()` counts every online CPU regardless
 of the mask. `-loops` overrides it with a thread count, `-loopspercpu` with a multiplier of
 those CPUs (`script/config.sh`'s `BENCH_UWS_LOOPS_PER_CPU`), which is the form that means the
-same arrangement on machines of different sizes. The startup line prints both numbers:
+same arrangement on machines of different sizes. The startup lines print both numbers, and
+`script/servers.sh` copies the last of them to the benchmark console:
 
 ```
 uwebsockets benchmark config: loops=5 workers=1 threads=6 cpus=5 hardware_concurrency=10 ports=31001-31050
+uwebsockets threads: event loops=5, task pool workers=1, cpus=5
 ```
 
 ## Task pool
