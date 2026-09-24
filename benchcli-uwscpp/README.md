@@ -64,6 +64,7 @@ Existing Go flags and defaults are accepted (`-flag=value`, `-flag value`, and
 | `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rpl`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, messages per write (0 fits as many as `-rbs` holds), global messages/second limit |
 | `-rp`, `-rpd` | Rate CPU/heap profiles and CPU profile duration in seconds |
 | `-r`, `-preffix`, `-suffix` | Aggregate reports, filename prefix (original spelling), filename suffix |
+| `-project` | The Summary's Project row, naming what the run benchmarks; `GO-WEBSOCKET-BENCHMARK` by default, empty leaves the row out. `script/report.sh` passes `script/config.sh`'s `BENCH_PROJECT` |
 | `-sort` | Report row order: `result` (default) ranks the best result first - TPS for Connections, TPS then EER for BenchEcho and BenchRate (whose TPS is Packet Recv per second), with each row's percentage of the best shown in each of those columns - and `framework` keeps the `config.FrameworkList` order. Ties keep the framework order in both |
 | `-m` | Native memory budget in bytes; 0 disables it |
 | `-threads` | C++ event-loop thread count; 0 uses available CPUs, capped by concurrency |

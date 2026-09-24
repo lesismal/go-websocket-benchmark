@@ -88,6 +88,13 @@ inline std::string frameworkTaskPool(const Options &o) {
 inline std::string frameworkLang(const std::string &framework) {
     return metadata["langs"].value(framework,std::string("-"));
 }
+// Only the Go servers have the /debug/pprof routes, as config.FrameworkServesPprof has it, so
+// the profile is skipped for every other one rather than asked for and logged as a 404.
+inline bool servesPprof(const std::string &framework) { return frameworkLang(framework)=="go"; }
+// The hint after the Server PID line, for the servers that have somewhere to point it.
+inline std::string pprofHint(const Options &o) {
+    return servesPprof(o.get("f")) ? "\npprof: "+controlURL(o)+"/debug/pprof/profile" : "";
+}
 inline json emptyReport(const std::string &kind,const Options &o) {
     json r=json::object();
     for (const auto &field:metadata["schemas"][kind]) {
@@ -343,7 +350,8 @@ inline std::string summaryDescription(const std::string &name) {
 // summaryTable mirrors report.Summary: the run's parameters, the summary-tagged fields of every
 // row of every report, left-aligned. One value where the rows agree; otherwise each value
 // followed by the frameworks that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool,
-// which poolSummary writes - and a Description column from summaryDescription.
+// which poolSummary writes - and a Description column from summaryDescription, all headed by
+// -project's Project row unless it is empty.
 inline std::string summaryTable(const Options &o) {
     using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
@@ -370,6 +378,7 @@ inline std::string summaryTable(const Options &o) {
     for (const auto &name:names)
         if (std::find(ordered.begin(),ordered.end(),name)==ordered.end()) ordered.push_back(name);
     std::vector<std::vector<std::string>> rows;
+    if (!o.get("project").empty()) rows.push_back({"Project",o.get("project"),summaryDescription("Project")});
     for (const auto &name:ordered) {
         const auto &list=values[name];
         std::string text;
@@ -468,7 +477,7 @@ inline PSSetup setupPS(const Options &o) {
             ps.local=std::make_unique<LocalPSSampler>(pid,interval);
             ps.pid=pid;
             std::cout<<"Server PID: "<<pid<<" (sampled here, so it is not asked to sample itself)"
-                     <<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
+                     <<pprofHint(o)<<std::endl;
             return ps;
         } catch (const std::exception &e) {
             std::cerr<<"cannot sample the server from this machine, asking it over HTTP instead: "
@@ -481,7 +490,7 @@ inline PSSetup setupPS(const Options &o) {
         // sampling, so every CPU and MEM column of the run would read 0.
         auto reply=httpRetry(controlURL(o)+"/init",&body);
         ps.serverSampling=true;
-        std::cout<<"Server PID: "<<reply<<"\npprof: "<<controlURL(o)<<"/debug/pprof/profile"<<std::endl;
+        std::cout<<"Server PID: "<<reply<<pprofHint(o)<<std::endl;
         try { ps.pid=std::stoi(reply); } catch (const std::exception &) { ps.pid=-1; }
     } catch (const std::exception &e) {std::cerr<<"server initialization: "<<e.what()<<'\n';}
     // The pid the server just gave us is from its own namespace, so it names this
@@ -545,7 +554,7 @@ inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) 
     }
 }
 inline std::future<void> profile(const Options &o,const std::string &kind,bool enabled,int seconds) {
-    if (!enabled) return {};
+    if (!enabled || !servesPprof(o.get("f"))) return {};
     return std::async(std::launch::async,[o,kind,seconds] {
         std::this_thread::sleep_for(std::chrono::seconds(2));
         try {

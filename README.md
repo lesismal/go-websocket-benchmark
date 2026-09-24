@@ -142,11 +142,12 @@ what it reads out of the flag is where a server answers from. `default` and
 `inline` install no pool, which for uWS means the loop callback; every other
 mode hands the callback to a goroutine off the event loop, and its thread pool
 stands in for that. It logs which way it read the flag, and exits on a name
-that names no mode, as the Go servers do. `-tpmin` is ignored, and `-tpmax`
-is sized together with the event loops rather than on its own: its workers are
-OS threads on top of the loop threads, not goroutines sharing the pollers'
-`GOMAXPROCS` threads, so by default one CPU in four goes to a worker and the
-rest run loops. The CPU count it divides is the one `sched_getaffinity`
+that names no mode, as the Go servers do. `-tpmin` is ignored. Its workers
+are OS threads on top of the loop threads, not goroutines sharing the pollers'
+`GOMAXPROCS` threads, so by default every CPU keeps its own event loop and the
+pool adds one worker per four CPUs (at least one) on top: a loop given up to
+the pool measured as a 1/cpus share of the throughput lost, while the extra
+thread cost nothing measurable. The CPU count it divides is the one `sched_getaffinity`
 reports, since `script/env.sh` pins the server with `taskset` and
 `hardware_concurrency()` does not read the mask - sizing by that was costing
 this server about 61% of its throughput with the pool on.
@@ -156,17 +157,18 @@ which is the form that carries from one machine to the next:
 `BENCH_UWS_WORKERS_PER_CPU` for the pool and `BENCH_UWS_LOOPS_PER_CPU` for the
 loops (`-tpmaxpercpu` and `-loopspercpu` on the server; `-tpmax` and `-loops`
 still take absolute counts). 0, the default for both, keeps the sizing above,
-and setting one of them leaves the other the CPUs it did not take.
+and each one sets its own side only.
 
 ```sh
-# Half the CPUs to the pool, the rest to the loops
+# Half as many workers as CPUs, on top of a loop per CPU
 BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
-The default is the best of what was measured on one 5-CPU host, so it is worth
-re-measuring on a bigger machine - though every measurement there that added
-workers came out slower, since a worker only copies a payload and defers it
-back while a loop does the poll, the read, the parse and the write. See
+The default is the best of what was measured with 2, 3 and 5 server CPUs, so
+it is worth re-measuring on a bigger machine - though every measurement there
+that added a second worker came out slower, since a worker only copies a
+payload and defers it back while a loop does the poll, the read, the parse and
+the write. See
 [its README](frameworks/uwebsockets/README.md) for the numbers.
 
 Every report records the pool its server installed, shown as the `Pool` row of

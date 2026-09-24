@@ -47,6 +47,8 @@ if ! bench_runs_clients; then
     return 0 2>/dev/null || exit 0
 fi
 
+# As in script/benchmark.sh: a failed client still leaves the others a report.
+clients_failed=0
 for f in ${frameworks[@]}; do
     echo "run ${f} server on cpu ${server_cpu_list:-unbound}"
     # nohup $limit_cpu_server "./output/bin/${f}.server" -b=$b >"./output/log/${f}${suffix}.log" 2>&1 &
@@ -56,7 +58,7 @@ for f in ${frameworks[@]}; do
                 # echo $line
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
-                . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || { return 1 2>/dev/null || exit 1; }
+                . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || clients_failed=1
                 sleep $SleepTime
             done
         done
@@ -81,3 +83,8 @@ for c in ${Connections[@]}; do
     done
 done
 # echo $line
+
+if [ "$clients_failed" -ne 0 ]; then
+    echo "some benchmark clients failed; the report above covers the reports they wrote" >&2
+    return 1 2>/dev/null || exit 1
+fi

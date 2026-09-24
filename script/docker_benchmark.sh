@@ -23,6 +23,8 @@ Environment overrides:
   BENCH_FRAMEWORKS         Comma-separated framework subset
   BENCH_TASKPOOL           Pool the servers run their callbacks on, and
   BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script/config.sh)
+  BENCH_PROJECT            The Summary's Project row (default:
+                           GO-WEBSOCKET-BENCHMARK; empty leaves it out)
   BENCH_REPORT_SORT        Report row order: result (default, best first) or
                            framework (see script/config.sh)
   BENCH_UWS_WORKERS_PER_CPU uwebsockets' pool threads per CPU, and
@@ -230,6 +232,8 @@ run_args=(
     --env "BENCH_TASKPOOL_QUEUE=$BENCH_TASKPOOL_QUEUE"
     # Likewise the report row order, which the run writes its tables in.
     --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
+    # And the Summary's Project row.
+    --env "BENCH_PROJECT=$BENCH_PROJECT"
     # And the uwebsockets thread multipliers, which size themselves against the
     # container's CPUs rather than the host's.
     --env "BENCH_UWS_WORKERS_PER_CPU=$BENCH_UWS_WORKERS_PER_CPU"

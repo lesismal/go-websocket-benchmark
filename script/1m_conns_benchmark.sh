@@ -57,7 +57,9 @@ fi
 
 sleep 3
 
-. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 || { return 1 2>/dev/null || exit 1; }
+# As in script/benchmark.sh: a failed client still leaves the others a report.
+clients_failed=0
+. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 || clients_failed=1
 
 # echo $line
 
@@ -69,3 +71,8 @@ sleep 3
 . ./script/report.sh "$@"
 
 echo $line
+
+if [ "$clients_failed" -ne 0 ]; then
+    echo "some benchmark clients failed; the report above covers the reports they wrote" >&2
+    return 1 2>/dev/null || exit 1
+fi

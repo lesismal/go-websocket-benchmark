@@ -18,9 +18,17 @@ report_sort_flag=""
 if [ -n "${BENCH_REPORT_SORT:-}" ]; then
     report_sort_flag="-sort=${BENCH_REPORT_SORT}"
 fi
+# The Summary's Project row, from script/config.sh's BENCH_PROJECT, and in the
+# same place for the same reason: a -project on the command line still wins.
+# An array, since a project name may have spaces in it; set but empty passes
+# -project= through, which leaves the row out.
+report_project_flag=()
+if [ -n "${BENCH_PROJECT+set}" ]; then
+    report_project_flag=("-project=${BENCH_PROJECT}")
+fi
 
 echo "generate report ..."
 echo
-./output/bin/bench.client -r=true ${report_sort_flag} "$@"
+./output/bin/bench.client -r=true ${report_sort_flag} "${report_project_flag[@]}" "$@"
 echo
 echo "generate report done"
