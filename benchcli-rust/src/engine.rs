@@ -1,9 +1,21 @@
 // The load generator: a fixed set of worker threads, each running a single-threaded Tokio runtime
 // over its share of the connections, which only that thread touches - the arrangement
 // benchcli-uwscpp has with one uSockets loop per thread. Every connection is a task on its
-// worker's runtime holding a tokio-tungstenite WebSocketStream, so the framing, the masking, the
-// reassembly of fragments and the answers to pings are all tungstenite's; see upgrade.rs for the
-// one part of the upgrade that is not.
+// worker's runtime holding a tokio-tungstenite WebSocketStream, so the parsing of what the
+// server sends, the reassembly of fragments and the answers to pings are all tungstenite's; see
+// upgrade.rs for the one part of the upgrade that is not.
+//
+// What the client sends is not framed per message: every payload is encoded once, masked, at
+// startup, and a Rate batch is those frames back to back, as benchcli-uwscpp builds its own. An
+// echo or a batch is then one write of bytes that never change, queued on the socket under the
+// WebSocketStream once tungstenite has flushed anything of its own (a pong), and drained there
+// while the connection goes on reading; see stream.rs. Framing each message through tungstenite
+// instead - a header, a fresh random mask, a copy and the masking of the copy, for over two
+// million frames a second in BenchRate - and awaiting each write whole kept this client's four
+// cores saturated while benchcli-uwscpp's used three, left a connection whose socket was full
+// unread until it drained, and so had it read a third less than benchcli-uwscpp did against the
+// same fib server, which held what the client was slow to read: about 1GB at 50000
+// connections, where it holds 100MB now.
 //
 // What a stage asks of the connections - which of them sends, when, and how many round trips are
 // outstanding - is decided in one place per worker, a State the worker's tasks share (Rc and
@@ -23,7 +35,7 @@
 //            outstanding at once, rotating through the idle connections; a response that takes
 //            longer than -io-timeout closes its connection and counts as failed
 //   Rate     the live connections divided into -rc groups, each group's connections sent one
-//            batch of Pipeline frames - fed to tungstenite and flushed as one write - every
+//            batch of Pipeline frames - Shared::batch_frame, written as one - every
 //            Pipeline/-rr seconds, a connection skipped while its last batch is still being
 //            written or five batches are unanswered
 //
@@ -35,6 +47,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
+use std::task::Poll;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
@@ -51,6 +64,7 @@ use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
 
 use crate::metadata::ports;
 use crate::options::Options;
+use crate::stream::Stream;
 use crate::upgrade;
 
 pub const DIAL: i32 = 1;
@@ -148,9 +162,15 @@ pub struct Shared {
     pub stage: AtomicI32,
     pub fatal: AtomicBool,
     pub limiter: TokenBucket,
-    // The same 1024-message payload pool benchcli-go uses. Bytes, so that a message is a
-    // reference count rather than a copy until tungstenite masks it into its write buffer.
+    // The same 1024-message payload pool benchcli-go uses, which echoes are checked against;
+    // static, like the frames, since it lives as long as the process.
     pub payloads: Vec<Bytes>,
+    // Each payload as the masked binary frame an echo writes, and the Rate batch: `batch` copies
+    // of the first frame, written as one. Static and never shared by reference count: a Bytes
+    // made from a Vec is one, and every worker cloning the same count once a frame bounced its
+    // cache line between the client's cores, 10% of their CPU in atomic adds.
+    pub frames: Vec<&'static [u8]>,
+    pub batch_frame: &'static [u8],
     // Messages per write in Rate: the report's Pipeline.
     pub batch: i32,
     pub rate_start: AtomicI64,
@@ -172,8 +192,12 @@ impl Shared {
             .map(|_| {
                 let mut data = vec![0u8; size];
                 rng.fill(&mut data);
-                Bytes::from(data)
+                Bytes::from_static(Box::leak(data.into_boxed_slice()))
             })
+            .collect::<Vec<_>>();
+        let frames: Vec<&'static [u8]> = payloads
+            .iter()
+            .map(|p| &*Box::leak(masked_frame(p, &mut rng).into_boxed_slice()))
             .collect();
         // Messages per write, as protocol.Pipeline picks them: -rpl when set, or else as many as
         // -rbs bytes of frames hold; at least one, at most -rr and -rl, and a divisor of -rr.
@@ -199,11 +223,14 @@ impl Shared {
         while rate % batch != 0 {
             batch -= 1;
         }
+        let batch_frame = Box::leak(frames[0].repeat(batch as usize).into_boxed_slice());
         Ok(Shared {
             stage: AtomicI32::new(DIAL),
             fatal: AtomicBool::new(false),
             limiter: TokenBucket::new(),
             payloads,
+            frames,
+            batch_frame,
             batch,
             rate_start: AtomicI64::new(0),
             rate_end: AtomicI64::new(0),
@@ -232,8 +259,8 @@ const NIL: usize = usize::MAX;
 enum Cmd {
     // One echo request, of this payload.
     Echo(usize),
-    // One Rate batch: this many copies of the first payload, flushed as one write.
-    Batch(i32),
+    // One Rate batch: Shared::batch_frame, as one write.
+    Batch,
 }
 
 // A connection as the State sees it; the WebSocketStream itself is its task's.
@@ -325,7 +352,8 @@ impl Worker {
         // any control frame may be - as benchcli-uwscpp's parser holds it to. The read buffer is
         // tungstenite's recommendation for many connections rather than its default: it is
         // reserved for every connection up front, and at its default 128KiB a million of them
-        // would want 128GB.
+        // would want 128GB. It is also the most tungstenite reads at a time, which is why the
+        // socket under it reads through a per-thread buffer instead; see stream.rs.
         let max_payload = shared.payloads[0].len().max(125);
         let config = WebSocketConfig::default()
             .read_buffer_size(4096)
@@ -476,7 +504,7 @@ async fn connect(
     dialing: &Dialing,
     ip: IpAddr,
     port: u16,
-) -> Result<WebSocketStream<TcpStream>, String> {
+) -> Result<WebSocketStream<Stream>, String> {
     let mut stream = TcpStream::connect(SocketAddr::new(ip, port))
         .await
         .map_err(|e| e.to_string())?;
@@ -510,57 +538,114 @@ async fn connect(
     }
     // Frames the server wrote straight after its answer arrive in the same read.
     let leftover = answer.split_off(end);
-    Ok(
-        WebSocketStream::from_partially_read(stream, leftover, Role::Client, Some(dialing.config))
-            .await,
+    Ok(WebSocketStream::from_partially_read(
+        Stream::new(stream),
+        leftover,
+        Role::Client,
+        Some(dialing.config),
     )
+    .await)
 }
 
 // A connection's task: sends what the State tells it to, and tells the State what arrived,
-// until either side is done with it.
+// until either side is done with it. Everything happens in one poll, so that a write the socket
+// cannot take yet drains in the background - see stream.rs - while the connection goes on
+// reading; a new command is taken only once the last one is written, which is the one-at-a-time
+// order the State hands them out in.
 async fn connection(
     state: Rc<RefCell<State>>,
     i: usize,
     generation: u64,
-    mut ws: WebSocketStream<TcpStream>,
+    mut ws: WebSocketStream<Stream>,
     mut rx: mpsc::UnboundedReceiver<Cmd>,
 ) {
+    enum Event {
+        Command(Cmd),
+        Written,
+        Received(Message),
+        Closed,
+    }
     let shared = state.borrow().shared.clone();
+    // Frames waiting for tungstenite's own buffered bytes, if any, to go first.
+    let mut next: Option<&'static [u8]> = None;
+    // A Rate batch is being written, so the State hears when it is done.
+    let mut batch = false;
     loop {
-        tokio::select! {
-            cmd = rx.recv() => match cmd {
-                Some(Cmd::Echo(payload)) => {
-                    if ws.send(Message::Binary(shared.payloads[payload].clone())).await.is_err() {
-                        break;
+        let event = std::future::poll_fn(|cx| {
+            if let Some(frames) = next {
+                match ws.poll_flush_unpin(cx) {
+                    Poll::Ready(Ok(())) => {
+                        ws.get_mut().queue(frames);
+                        next = None;
                     }
+                    Poll::Ready(Err(_)) => return Poll::Ready(Event::Closed),
+                    Poll::Pending => {}
                 }
-                Some(Cmd::Batch(n)) => {
-                    let mut ok = true;
-                    for _ in 0..n {
-                        if ws.feed(Message::Binary(shared.payloads[0].clone())).await.is_err() {
-                            ok = false;
-                            break;
-                        }
-                    }
-                    ok = ok && ws.flush().await.is_ok();
+            }
+            if ws.get_ref().draining() {
+                match ws.get_mut().poll_drain(cx) {
+                    Poll::Ready(Ok(())) => return Poll::Ready(Event::Written),
+                    Poll::Ready(Err(_)) => return Poll::Ready(Event::Closed),
+                    Poll::Pending => {}
+                }
+            }
+            match ws.poll_next_unpin(cx) {
+                Poll::Ready(Some(Ok(msg))) => return Poll::Ready(Event::Received(msg)),
+                Poll::Ready(_) => return Poll::Ready(Event::Closed),
+                Poll::Pending => {}
+            }
+            if next.is_none() && !ws.get_ref().draining() {
+                match rx.poll_recv(cx) {
+                    Poll::Ready(Some(cmd)) => return Poll::Ready(Event::Command(cmd)),
+                    Poll::Ready(None) => return Poll::Ready(Event::Closed),
+                    Poll::Pending => {}
+                }
+            }
+            Poll::Pending
+        })
+        .await;
+        match event {
+            Event::Command(Cmd::Echo(payload)) => next = Some(shared.frames[payload]),
+            Event::Command(Cmd::Batch) => {
+                next = Some(shared.batch_frame);
+                batch = true;
+            }
+            Event::Written => {
+                if std::mem::take(&mut batch) {
                     state.borrow_mut().written(i, generation);
-                    if !ok {
-                        break;
-                    }
                 }
-                None => break,
-            },
-            msg = ws.next() => match msg {
-                Some(Ok(msg)) => {
-                    if !state.borrow_mut().receive(i, generation, msg) {
-                        break;
-                    }
+            }
+            Event::Received(msg) => {
+                if !state.borrow_mut().receive(i, generation, msg) {
+                    break;
                 }
-                _ => break,
-            },
+            }
+            Event::Closed => break,
         }
     }
     state.borrow_mut().lost(i, generation);
+}
+
+// A client's binary frame: FIN, a length in the form RFC 6455 gives it, and the payload masked
+// with a key of its own - chosen once, since the frame is written as it is for the whole run.
+fn masked_frame(payload: &[u8], rng: &mut Rng) -> Vec<u8> {
+    let mut frame = Vec::with_capacity(payload.len() + 14);
+    frame.push(0x82);
+    match payload.len() {
+        n if n < 126 => frame.push(0x80 | n as u8),
+        n if n < 65536 => {
+            frame.push(0x80 | 126);
+            frame.extend_from_slice(&(n as u16).to_be_bytes());
+        }
+        n => {
+            frame.push(0x80 | 127);
+            frame.extend_from_slice(&(n as u64).to_be_bytes());
+        }
+    }
+    let mask = (rng.next() as u32).to_be_bytes();
+    frame.extend_from_slice(&mask);
+    frame.extend(payload.iter().enumerate().map(|(i, b)| b ^ mask[i % 4]));
+    frame
 }
 
 impl State {
@@ -568,7 +653,7 @@ impl State {
         self.ctl.done.load(Ordering::Acquire) == self.stage
     }
 
-    fn open(&mut self, state: &Rc<RefCell<State>>, i: usize, ws: WebSocketStream<TcpStream>) {
+    fn open(&mut self, state: &Rc<RefCell<State>>, i: usize, ws: WebSocketStream<Stream>) {
         if self.stopping {
             return;
         }
@@ -851,7 +936,7 @@ impl State {
                         continue;
                     }
                     self.slots[i].writing = true;
-                    if self.send(i, Cmd::Batch(batch)) {
+                    if self.send(i, Cmd::Batch) {
                         self.slots[i].sent += batch as i64;
                         self.rate_stats.sent += batch as i64;
                     }
@@ -866,5 +951,35 @@ impl State {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The three length forms, each unmasking back to its payload.
+    #[test]
+    fn masked_frames() {
+        let mut rng = Rng::new();
+        for (len, header) in [(125usize, 2usize), (126, 4), (65535, 4), (65536, 10)] {
+            let payload: Vec<u8> = (0..len).map(|i| i as u8).collect();
+            let frame = masked_frame(&payload, &mut rng);
+            assert_eq!(frame[0], 0x82);
+            assert_eq!(frame[1] & 0x80, 0x80, "unmasked");
+            let n = match frame[1] & 0x7f {
+                126 => u16::from_be_bytes([frame[2], frame[3]]) as usize,
+                127 => u64::from_be_bytes(frame[2..10].try_into().unwrap()) as usize,
+                n => n as usize,
+            };
+            assert_eq!((n, frame.len()), (len, header + 4 + len));
+            let mask = &frame[header..header + 4];
+            let unmasked: Vec<u8> = frame[header + 4..]
+                .iter()
+                .enumerate()
+                .map(|(i, b)| b ^ mask[i % 4])
+                .collect();
+            assert_eq!(unmasked, payload);
+        }
     }
 }

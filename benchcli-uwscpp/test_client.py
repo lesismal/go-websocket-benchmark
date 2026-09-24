@@ -340,6 +340,16 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(list(directory.glob('*.pprof.*')), [])
         self.assertNotIn('pprof', result.stdout + result.stderr)
 
+    # The Pool comes from /taskpool only for a framework that takes a pool: gorilla takes none,
+    # so it is not asked and reads "-", while uwebsockets is asked and reads what it answered.
+    def test_taskpool_asked_only_of_pooled_frameworks(self):
+        for framework, pool, asked in [('gorilla', '-', False), ('uwebsockets', 'profile-fixture', True)]:
+            self.server.requests.clear()
+            self.run_client(f'-f={framework}')
+            self.assertEqual(any(path == '/taskpool' for _, path, _ in self.server.requests), asked, framework)
+            report = json.loads((self.cwd / 'output/report' / f'{framework}-BenchEcho.json').read_text())
+            self.assertEqual(report['TaskPool'], pool, framework)
+
     # A single-node run samples the server process itself. With no such process
     # here - which is also what a server on the other node of a two-node run
     # looks like - the client has to say so and go back to asking the server.

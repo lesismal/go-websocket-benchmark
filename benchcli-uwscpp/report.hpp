@@ -71,10 +71,12 @@ inline std::string controlURL(const Options &o) {
     return "http://"+host+":"+std::to_string(port);
 }
 // The pool the server installed, for the report's Pool column. "-" covers a server that
-// installs none: the frameworks that take no -taskpool flag, and any whose /taskpool route
-// does not answer. Mirrors config.GetFrameworkTaskPool.
+// installs none: the frameworks that take no -taskpool flag, which are not asked, and any whose
+// /taskpool route does not answer. Mirrors config.GetFrameworkTaskPool.
 inline std::string frameworkTaskPool(const Options &o) {
     const std::string none="-";
+    const auto &pooled=metadata["taskpoolFrameworks"];
+    if (std::find(pooled.begin(),pooled.end(),o.get("f"))==pooled.end()) return none;
     try {
         std::string name=httpRetry(controlURL(o)+"/taskpool");
         auto first=name.find_first_not_of(" \t\r\n");

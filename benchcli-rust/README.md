@@ -23,16 +23,44 @@ so that the two native clients put the same load on a server:
   at most `-ec` outstanding at once, rotating through the idle connections. A response that takes
   longer than `-io-timeout` closes its connection and counts as failed.
 - **BenchRate**: the live connections divided into `-rc` groups, each sent a batch of `Pipeline`
-  frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold, fed to
-  tungstenite and flushed as one write - with a connection skipped while its last batch is still
-  being written or five batches are unanswered.
+  frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold, written
+  as one - with a connection skipped while its last batch is still being written or five batches
+  are unanswered.
 
 `-el` and `-rl` are one token bucket shared by every worker, in messages per second.
 
-The WebSocket side is tungstenite's: the framing, the masking, the reassembly of fragmented
-messages and the answers to pings, and the upgrade's key and accept value (`generate_key`,
-`derive_accept_key`). The connection is handed to it with `WebSocketStream::from_partially_read`
-once the upgrade is answered. The one thing done here (`src/upgrade.rs`) is checking that answer:
+Reading the server is tungstenite's: the parsing, the reassembly of fragmented messages and the
+answers to pings, and the upgrade's key and accept value (`generate_key`, `derive_accept_key`).
+The connection is handed to it with `WebSocketStream::from_partially_read` once the upgrade is
+answered.
+
+What the client sends is not framed per message. As `benchcli-uwscpp` does, every payload is
+encoded once at startup as a masked binary frame, and a Rate batch is those frames back to back;
+an echo or a batch is one write of bytes that never change. The socket under the
+`WebSocketStream` (`src/stream.rs`) does two more things `benchcli-uwscpp` gets from uSockets and
+uWS:
+
+- It reads through one 512KiB buffer per worker thread, so one `recv` takes all a socket has,
+  and hands tungstenite its 4KiB at a time from memory. Handed the socket directly, tungstenite
+  reads 4KiB a call.
+- A write the socket cannot take whole drains in the background while the connection goes on
+  reading, the way uWS keeps the unsent tail of a write. Anything tungstenite writes itself, a
+  pong or a close, goes out after those frames, never inside one.
+
+Before these, framing every message through tungstenite and awaiting each write whole kept the
+client's four cores saturated while `benchcli-uwscpp` used three. A connection whose socket was
+full was not read until it drained, so the server's echoes piled up in the server. Against fib
+at 50000 connections, 3 server CPUs and 4 client CPUs in Docker, averaged over three runs:
+
+| | BenchEcho TPS | BenchRate TPS | fib MEM Max in BenchRate | client CPU | client RSS |
+| --- | --- | --- | --- | --- | --- |
+| before | 426k | 2.15M | 1.06G | 396% | 1.75GB |
+| now | 440k | 3.15M | 93M | 353% | 1.02GB |
+| `benchcli-uwscpp` | 446k | 3.07M | 134M | 313% | 566MB |
+
+The old client's memory also lost a run against `tokio_tungstenite`, whose server holds about
+8.8G at 50000 connections: in a 12.48GB container the kernel killed the client or the server in
+BenchRate. The client now finishes it at about 800MB. The one thing done here (`src/upgrade.rs`) is checking that answer:
 tungstenite's client handshake takes the `Connection` header for a single value and fails a
 server that answers `Connection: keep-alive, Upgrade`, which RFC 6455 allows, and a benchmark
 client that counts a conforming server's connections as failed is measuring itself. The check is

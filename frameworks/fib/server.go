@@ -99,6 +99,11 @@ func startServer(addrs []string) *fib.Engine {
 	serverConfig := fib.DefaultConfig()
 	serverConfig.Network = "tcp4"
 	serverConfig.Addrs = addrs
+	// Set rather than left to DefaultConfig, which has the same values today:
+	// these are the bounds the constants above document, and a run should not
+	// lose them to a change of fib's defaults.
+	serverConfig.WriteBufferHighWatermark = connectionPendingHighWatermark
+	serverConfig.MaxPendingBytes = processPendingBudget
 
 	// fib's own pool is ModeAdaptive, which is also what -taskpool
 	// defaults to, so the default run measures the same arrangement

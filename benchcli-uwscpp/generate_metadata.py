@@ -21,6 +21,11 @@ langs = {names[name]: names[lang] for name, lang in re.findall(r'^\s*(\w+):\s*(\
 missing = [f for f in frameworks if f not in langs]
 if missing:
     raise SystemExit(f'No language in config.Langs for: {", ".join(missing)}')
+# The frameworks with a /taskpool to ask: config.TaskPoolFrameworks.
+taskpool_block = re.search(r'var TaskPoolFrameworks = \[\]string\{(.*?)\}', config, re.S).group(1)
+taskpool_frameworks = [names[name] for name in re.findall(r'(\w+)\s*,', taskpool_block)]
+if not taskpool_frameworks or set(taskpool_frameworks) - set(frameworks):
+    raise SystemExit(f'config.TaskPoolFrameworks names no framework, or an unknown one: {taskpool_frameworks}')
 schemas = {}
 for kind, filename in [('Connections', 'connections_report.go'),
                        ('BenchEcho', 'benchecho_report.go'),
@@ -56,7 +61,8 @@ summary_order = [dict(name=name, description=description) for name, description 
                  re.findall(r'\{"([^"]+)",\s*"([^"]*)"\}', summary_block)]
 if not summary_order:
     raise SystemExit('No SummaryParameters found in summary.go')
-metadata = dict(ports=ports, frameworks=frameworks, langs=langs, schemas=schemas, summaryOrder=summary_order)
+metadata = dict(ports=ports, frameworks=frameworks, langs=langs, taskpoolFrameworks=taskpool_frameworks,
+                schemas=schemas, summaryOrder=summary_order)
 path = pathlib.Path(sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
 if path.suffix == '.json':
