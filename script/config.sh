@@ -179,6 +179,10 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # of the two it did, e.g. "nbio(pool)" or "default(loop)". It exits on a value
 # that names no mode, as the Go servers do. See
 # frameworks/uwebsockets/README.md.
+#
+# The benchmark clients ask /taskpool for the report's Pool of exactly these,
+# from config.TaskPoolFrameworks in config/config.go, which is the same list;
+# benchcli-uwscpp/test_scripts.py holds the two to each other.
 taskpool_frameworks=(
     "fib"
     "fnet"

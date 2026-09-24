@@ -4,6 +4,7 @@
 //   ports         framework -> [first, last]
 //   frameworks    config.FrameworkList, in order
 //   langs         framework -> its server's language, the Lang column
+//   taskpoolFrameworks  config.TaskPoolFrameworks, the ones with a /taskpool to ask
 //   schemas       report kind -> its fields in declaration order, each with key (the JSON
 //                 name), title (the md tag), fmt, optional (tpn), hidden (md:"-"), rank,
 //                 summary, string and floating
@@ -40,6 +41,16 @@ pub fn frameworks() -> impl Iterator<Item = &'static str> {
 // The language a framework's server is written in, as config.FrameworkLang has it.
 pub fn lang(framework: &str) -> &'static str {
     metadata()["langs"][framework].as_str().unwrap_or("-")
+}
+
+// Whether framework's server takes a pool and serves /taskpool, as config.FrameworkHasTaskPool
+// has it.
+pub fn has_task_pool(framework: &str) -> bool {
+    metadata()["taskpoolFrameworks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f == framework)
 }
 
 // Only the Go servers have the /debug/pprof routes, as config.FrameworkServesPprof has it, so

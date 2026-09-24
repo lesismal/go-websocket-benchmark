@@ -11,6 +11,7 @@ mod metadata;
 mod options;
 mod ps;
 mod report;
+mod stream;
 mod upgrade;
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};

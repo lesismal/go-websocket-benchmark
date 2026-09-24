@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -365,6 +366,32 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 	return psCounter, nil
 }
 
+// TaskPoolFrameworks are the frameworks whose servers take the -taskpool
+// flags and serve /taskpool with the pool they installed, in framework-name
+// order. script/config.sh's taskpool_frameworks is the same list, which
+// benchcli-uwscpp/test_scripts.py checks, and benchcli-uwscpp and benchcli-rust
+// read this one through benchcli-uwscpp/generate_metadata.py.
+var TaskPoolFrameworks = []string{
+	Fib,
+	Fnet,
+	Greatws,
+	GreatwsEvent,
+	NbioModMixed,
+	NbioModNonblocking,
+	Uwebsockets,
+	UwsEvents,
+	UwsStdio,
+}
+
+// FrameworkHasTaskPool reports whether framework's server takes a pool, and so
+// whether there is a /taskpool to ask. Every other server's Pool is
+// TaskPoolNone without a request: nothing it could answer would change that,
+// and a request to a server that has already gone - killed for memory, say -
+// only adds a connection refused to the log of whatever did kill it.
+func FrameworkHasTaskPool(framework string) bool {
+	return slices.Contains(TaskPoolFrameworks, framework)
+}
+
 // TaskPoolNone is the Pool of a report whose server installed no pool:
 // the frameworks that take no -taskpool flag at all, and any server whose
 // /taskpool route did not answer.
@@ -376,6 +403,9 @@ const TaskPoolNone = "-"
 // scheduling produced it rather than which one the run asked for - the two
 // differ for a server whose own scheduling is one of the pools.
 func GetFrameworkTaskPool(framework, ip string) string {
+	if !FrameworkHasTaskPool(framework) {
+		return TaskPoolNone
+	}
 	controlAddr, err := FrameworkControlAddr(framework, ip)
 	if err != nil {
 		return TaskPoolNone

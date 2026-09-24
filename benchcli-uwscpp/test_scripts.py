@@ -110,6 +110,10 @@ class ScriptTests(unittest.TestCase):
                              ("1m_conns_benchmark.sh frameworks", million)]:
             self.assertEqual(listed, sorted(listed), name)
             self.assertTrue(listed and set(listed) <= set(go), (name, listed))
+        # The pool list is not a subset to comment out of but the clients' own: they ask
+        # /taskpool of exactly config.TaskPoolFrameworks.
+        pooled = re.search(r"var TaskPoolFrameworks = \[\]string\{(.*?)\}", config, re.S).group(1)
+        self.assertEqual(taskpool, [names[name] for name in re.findall(r"(\w+)\s*,", pooled)])
 
     def test_build_dispatch_contains_every_client(self):
         source = (ROOT / "script/build.sh").read_text()

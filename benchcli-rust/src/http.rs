@@ -209,9 +209,12 @@ pub fn control_url(o: &Options) -> String {
 }
 
 // The pool the server installed, for the report's Pool: "-" for a server that installs none,
-// the frameworks that take no -taskpool flag and any whose /taskpool route does not answer.
-// Mirrors config.GetFrameworkTaskPool.
+// the frameworks that take no -taskpool flag, which are not asked, and any whose /taskpool route
+// does not answer. Mirrors config.GetFrameworkTaskPool.
 pub fn framework_task_pool(o: &Options) -> String {
+    if !crate::metadata::has_task_pool(o.get("f")) {
+        return "-".into();
+    }
     match http_retry(&format!("{}/taskpool", control_url(o)), None, 2) {
         Ok(body) => {
             let name = String::from_utf8_lossy(&body).trim().to_string();
