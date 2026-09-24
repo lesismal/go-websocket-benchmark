@@ -58,9 +58,10 @@ at 50000 connections, 3 server CPUs and 4 client CPUs in Docker, averaged over t
 | now | 440k | 3.15M | 93M | 353% | 1.02GB |
 | `benchcli-uwscpp` | 446k | 3.07M | 134M | 313% | 566MB |
 
-The old client's memory also lost a run against `tokio_tungstenite`, whose server holds about
-8.8G at 50000 connections: in a 12.48GB container the kernel killed the client or the server in
-BenchRate. The client now finishes it at about 800MB. The one thing done here (`src/upgrade.rs`) is checking that answer:
+The old client's memory also lost a run against `tokio_tungstenite`, whose server then held
+about 8.8G at 50000 connections: in a 12.48GB container the kernel killed the client or the
+server in BenchRate. The client now finishes it at about 800MB (and the server holds under 1G;
+see [its README](../frameworks/tokio_tungstenite/README.md)). The one thing done here (`src/upgrade.rs`) is checking that answer:
 tungstenite's client handshake takes the `Connection` header for a single value and fails a
 server that answers `Connection: keep-alive, Upgrade`, which RFC 6455 allows, and a benchmark
 client that counts a conforming server's connections as failed is measuring itself. The check is

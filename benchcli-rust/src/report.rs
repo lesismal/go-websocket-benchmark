@@ -72,7 +72,11 @@ fn format_field(r: &Report, field: &Value) -> String {
     let fmt = field["fmt"].as_str().unwrap();
     // Missing - a report written before the field existed - reads as Go's zero value.
     let Some(value) = r.get(key).filter(|v| !v.is_null()) else {
-        return if field["string"].as_bool().unwrap() { String::new() } else { "0".into() };
+        return if field["string"].as_bool().unwrap() {
+            String::new()
+        } else {
+            "0".into()
+        };
     };
     if let Some(s) = value.as_str() {
         // The Client column reads "go", "uwscpp" or "rust"; the JSON keeps the full name.
@@ -378,8 +382,13 @@ fn summary_table(o: &Options) -> Result<String, String> {
         }
     }
     let project = o.get("project");
-    let project_row = (!project.is_empty())
-        .then(|| vec!["Project".to_string(), project.to_string(), summary_description("Project")]);
+    let project_row = (!project.is_empty()).then(|| {
+        vec![
+            "Project".to_string(),
+            project.to_string(),
+            summary_description("Project"),
+        ]
+    });
     // A parameter no report carries has no row, as report.Summary has it.
     ordered.retain(|name| !(values[name].len() == 1 && values[name][0].0.is_empty()));
     let rows = project_row

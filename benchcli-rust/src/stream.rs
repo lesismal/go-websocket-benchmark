@@ -131,7 +131,9 @@ impl AsyncRead for Stream {
             let n = buf.remaining().min(data.len());
             buf.put_slice(&data[..n]);
             if n < data.len() {
-                let mut stash = POOL.with(|pool| pool.borrow_mut().pop()).unwrap_or_default();
+                let mut stash = POOL
+                    .with(|pool| pool.borrow_mut().pop())
+                    .unwrap_or_default();
                 stash.extend_from_slice(&data[n..]);
                 this.stash = stash;
                 this.pos = 0;

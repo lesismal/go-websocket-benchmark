@@ -335,7 +335,10 @@ fn benchmark(o: &Options) -> Result<i32, String> {
     echo.insert("Conns".into(), json!(dial.success));
     echo.insert("Concurrency".into(), json!(concurrency));
     echo.insert("Payload".into(), json!(runner.shared.payloads[0].len()));
-    echo.insert("EchoPprof".into(), json!(if o.b("ep") { "on" } else { "off" }));
+    echo.insert(
+        "EchoPprof".into(),
+        json!(if o.b("ep") { "on" } else { "off" }),
+    );
     ps::resource_stats(&mut echo, o, false, &ps);
     join_profile(echo_profile);
     save_report(o, "BenchEcho", &echo)?;
@@ -370,7 +373,10 @@ fn benchmark(o: &Options) -> Result<i32, String> {
         rate.insert("Pipeline".into(), json!(runner.shared.batch));
         rate.insert("SendRate".into(), json!(o.i("rr").max(1)));
         rate.insert("Payload".into(), json!(payload));
-        rate.insert("RatePprof".into(), json!(if o.b("rp") { "on" } else { "off" }));
+        rate.insert(
+            "RatePprof".into(),
+            json!(if o.b("rp") { "on" } else { "off" }),
+        );
         rate.insert("SendTimes".into(), json!(s.sent));
         rate.insert("SendBytes".into(), json!(s.sent * payload));
         rate.insert("RecvTimes".into(), json!(s.received));

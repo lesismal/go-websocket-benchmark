@@ -30,7 +30,8 @@ request, read, answered and closed.
 ## Echo
 
 tokio-tungstenite's `WebSocketStream` is a futures `Stream` + `Sink`: `Sink::start_send` only
-frames a message into tungstenite's write buffer, and `poll_flush` writes the buffer out. So the
+frames a message, and `poll_flush` writes what has gathered out (here the frames gather under
+tungstenite, in the socket wrapper - see Memory below). So the
 echo loop feeds every message that is already readable - the ones the last read parsed out along
 with the first, and bytes already waiting in the socket - and flushes once for the batch, which
 is one write where sending each message would have been one apiece. uWS corks the sends a message
@@ -45,7 +46,7 @@ Pings and Closes are answered by tungstenite itself.
 
 - tungstenite's `WebSocketConfig` defaults, but for the payload limits: 64MiB for a message and
   for a frame, as `uwebsockets` sets uWS's `maxPayloadLength` (tungstenite's own frame limit is
-  16MiB). The buffers stay as the library ships them - see Memory below.
+  16MiB), and for the buffers: a 4KiB read buffer, and a write buffer of 0 - see Memory below.
 - tungstenite sends no pings and has no idle timeout of its own, so a connection opened in the
   Connections phase stays up however long it sits idle before the echo phase, as the
   `uwebsockets` server has uWS keep it.
@@ -64,26 +65,41 @@ Pings and Closes are answered by tungstenite itself.
 
 ## Memory
 
-tungstenite reserves a 128KiB read buffer for every connection (`read_buffer_size`), and
-gathers writes up to 128KiB (`write_buffer_size`) before they go out. Every read zero-fills the
-part of the read buffer it reads into, up to that 128KiB, before handing it to the socket - so
-all of it is resident as soon as a connection has read once, and each read also costs a 128KiB
-`memset`. That is what an application on the library gets unless it sizes the buffer itself -
-tungstenite's documentation suggests 4KiB where there are many connections and little read load
-- and it is most of what separates this server from the others in the memory column. Measured in
-a container with 3 CPUs for the server, 10000 connections and a 1KiB payload:
+As tungstenite ships, a connection keeps a 128KiB read buffer (`read_buffer_size`) and
+zero-fills the part of it each read goes into, up to all 128KiB, before handing it to the
+socket - so all of it is resident as soon as a connection has read once, and every read pays a
+128KiB `memset`. Its write buffer gathers frames up to 128KiB (`write_buffer_size`) and never
+shrinks, so every connection that has echoed a burst keeps its peak. At 50000 connections that
+was 6.85G in BenchEcho and 8.9G in BenchRate, in a 12.48GB container that also has to hold the
+client - enough for the kernel to kill one of the two in BenchRate. None of it was a leak: it
+is what those buffers hold on to by design.
 
-| | BenchEcho MEM Avg | BenchRate MEM Avg |
-| --- | --- | --- |
-| tokio_tungstenite | 1.37G | 1.52G |
-| gws | 169M | 206M |
-| fib | 43M | 45M |
-| uwebsockets | 17M | 77M |
+So the socket under each `WebSocketStream` is a wrapper (`src/stream.rs`) that does what uWS does
+with its buffers:
 
-That is about 140KiB a connection, so at `script/config.sh`'s 50000 connections on the order of
-7GiB, where the Docker runner's default memory limit - 80% of what Docker has - is what to check
-on a small machine. The same run put it second of the four on BenchEcho TPS (484k, against fib's
-507k, gws's 478k and uwebsockets' 354k), with its server CPU at 299%.
+- Reads go through one 512KiB buffer per worker thread, so one `recv` takes all a socket has,
+  and tungstenite, its read buffer set to 4KiB - the size its documentation suggests where there
+  are many connections - reads from that 4KiB at a time. What it has not taken yet waits in a
+  stash from a per-thread pool, which goes back as soon as it is empty.
+- With `write_buffer_size` at 0, tungstenite hands each frame to the wrapper as it frames it,
+  and the frames gather there in a pooled buffer until the echo loop's flush writes the batch in
+  one send and hands the buffer back. Past 64KiB unwritten, a write goes out before more gathers,
+  so a client that stops reading stops the echo loop rather than growing it.
+- The 8KiB buffer the request head is peeked into is dropped before the connection starts
+  echoing, not held for its life as part of the task's state.
+
+The WebSocket side is still tungstenite's: the framing, the parsing, the handshake, and the
+answers to pings and closes, which go out through the same wrapper. Measured in Docker with 3
+CPUs for the server and 4 for `benchcli-uwscpp`, 50000 connections and a 1KiB payload, averaged
+over three runs:
+
+| | BenchEcho TPS | BenchEcho MEM | BenchRate TPS | BenchRate MEM Avg | BenchRate MEM Max |
+| --- | --- | --- | --- | --- | --- |
+| tungstenite's buffers | 315k | 6.85G | 2.84M | 7.93G | 8.87G |
+| these | 454k | 403M | 2.85M | 723M | 900M |
+
+The server's CPU was the same in both, pinned in BenchEcho: the `memset` alone was costing it
+three echoes in ten.
 
 ## Build
 
