@@ -1,7 +1,7 @@
 # benchcli-rust
 
 The benchmark client in Rust, on [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite)
-0.30.0, and the one `script/config.sh` runs by default. It takes `benchcli-go`'s flags, loads a
+0.30.0. It takes `benchcli-go`'s flags, loads a
 server the way `benchcli-uwscpp` does, and writes the same JSON reports and markdown tables as
 both, so a run from any of the three reads and diffs against a run from the others.
 
@@ -70,7 +70,7 @@ tungstenite's configuration holds the server to what `benchcli-uwscpp`'s uWS par
 message or frame longer than the payload being echoed (or 125 bytes, whichever is more) closes
 the connection. Its read buffer is 4KiB, tungstenite's own suggestion where there are many
 connections, rather than its 128KiB default: the buffer is reserved for every connection, and
-the 1M-connection script runs this client. That is still 4GiB at a million connections before
+the 1M-connection script may run this client. That is still 4GiB at a million connections before
 anything else a connection holds, where `benchcli-uwscpp` keeps nothing per connection but a
 partial frame - and 4GiB is `-m`'s default, which on Linux is this client's address-space
 ceiling. So `script/1m_conns_benchmark.sh` needs `-m=0` (or a larger `-m`) and the memory to
@@ -82,12 +82,8 @@ back it, or `BENCH_CLIENT=benchcli-uwscpp`.
 # Needs cargo (Rust 1.85+; built and tested with 1.98) and python3.
 bash benchcli-rust/build.sh
 
-# Built automatically as part of the full benchmark, which runs it by default.
-bash script/benchmark.sh
-
-# One of the other two instead.
-BENCH_CLIENT=benchcli-uwscpp bash script/benchmark.sh
-BENCH_CLIENT=benchcli-go bash script/benchmark.sh
+# Run the full benchmark with this client; script/config.sh defaults to benchcli-uwscpp.
+BENCH_CLIENT=benchcli-rust bash script/benchmark.sh
 ```
 
 All three build `output/bin/bench.client`, which the runner and report scripts run.

@@ -34,7 +34,7 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("ec", "10000"),
     ("en", "2000000"),
     ("el", "0"),
-    ("ep", "true"),
+    ("ep", "false"),
     ("epd", "5"),
     ("rate", "false"),
     ("rc", "10000"),

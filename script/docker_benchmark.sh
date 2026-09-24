@@ -18,7 +18,7 @@ Options:
   -h, --help    Show this help.
 
 Environment overrides:
-  BENCH_CLIENT             benchcli-rust (default), benchcli-uwscpp or
+  BENCH_CLIENT             benchcli-uwscpp (default), benchcli-rust or
                            benchcli-go
   BENCH_FRAMEWORKS         Comma-separated framework subset
   BENCH_TASKPOOL           Pool the servers run their callbacks on, and
