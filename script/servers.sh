@@ -31,4 +31,16 @@ for f in ${frameworks[@]}; do
         taskpool_args="${taskpool_args} -tpmaxpercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
     fi
     ./script/server.sh $f $server_flags $taskpool_args
+    # uwebsockets sizes its event loops and its task pool itself, against the
+    # CPUs it was given, so say what it built: the multipliers env.sh prints
+    # are what was asked for, 0 for the server's own sizing.
+    if [ "$f" = uwebsockets ]; then
+        uws_log="./output/log/${preffix}${f}${suffix}.log"
+        uws_threads=""
+        for ((i = 0; i < 50; i++)); do
+            uws_threads=$(grep -m1 "^uwebsockets threads:" "$uws_log" 2>/dev/null) && break
+            sleep 0.1
+        done
+        echo "${uws_threads:-uwebsockets threads: not logged yet, see $uws_log}"
+    fi
 done

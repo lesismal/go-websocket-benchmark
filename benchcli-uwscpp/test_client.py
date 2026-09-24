@@ -324,11 +324,20 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(), b'profile-fixture')
         init = [json.loads(body) for method, path, body in self.server.requests if path == '/init']
         self.assertEqual(init, [{'PsInterval': 42000000}])
+        self.assertEqual(self.report('BenchEcho', 'test_', '_small')['EchoPprof'], 'on')
+        self.assertEqual(self.report('BenchRate', 'test_', '_small')['RatePprof'], 'on')
         self.run_client('-r=true', '-preffix=test_', '-suffix=_small', '-tpn=false')
         for kind in ['Connections', 'BenchEcho', 'BenchRate']:
             md = (self.cwd / f'output/report/test_{kind}_small.md').read_text()
             self.assertIn('gorilla', md)
             self.assertNotIn('TP99', md)
+        summary = (self.cwd / 'output/report/test_Summary_small.md').read_text()
+        rows = {cells[1]: cells[2] for cells in
+                ([cell.strip() for cell in line.split('|')] for line in summary.splitlines()[2:])}
+        self.assertEqual((rows['Echo Pprof'], rows['Rate Pprof']), ('on', 'on'), summary)
+        # Both are off unless asked for.
+        self.run_client('-rate=true', '-rd=1')
+        self.assertEqual((self.report('BenchEcho')['EchoPprof'], self.report('BenchRate')['RatePprof']), ('off', 'off'))
 
     # Only a Go server has /debug/pprof, so a profile is not asked of any other one - not even
     # with -ep and -rp on - and there is no pprof hint to print for it either.

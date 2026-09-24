@@ -134,7 +134,8 @@ inline bool tableColumn(const json &field,const Options &o) {
 }
 inline std::string formatField(const json &r,const json &field) {
     std::string key=field["key"], fmt=field["fmt"];
-    if (!r.contains(key) || r[key].is_null()) return "0";
+    // Missing - a report written before the field existed - reads as Go's zero value.
+    if (!r.contains(key) || r[key].is_null()) return field["string"].get<bool>()?"":"0";
     const auto &value=r[key];
     if (value.is_string()) {
         auto s=value.get<std::string>();
@@ -383,6 +384,8 @@ inline std::string summaryTable(const Options &o) {
     if (!o.get("project").empty()) rows.push_back({"Project",o.get("project"),summaryDescription("Project")});
     for (const auto &name:ordered) {
         const auto &list=values[name];
+        // A parameter no report carries has no row, as report.Summary has it.
+        if (list.size()==1 && list[0].value.empty()) continue;
         std::string text;
         if (name=="Pool") text=poolSummary(list);
         else if (list.size()==1) text=list[0].value;

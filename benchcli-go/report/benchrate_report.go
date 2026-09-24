@@ -32,6 +32,8 @@ type BenchRateReport struct {
 	SendRate    int     `json:"SendRate" md:"SendRate" summary:"Rate SendRate"`
 	Pipeline    int     `json:"Pipeline" md:"Pipeline" summary:"Rate Pipeline"`
 	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
+	// RatePprof is BenchEchoReport.EchoPprof for BenchRate (-rp).
+	RatePprof string `json:"RatePprof" md:"Pprof" summary:"Rate Pprof"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`

@@ -40,6 +40,9 @@ type BenchEchoReport struct {
 	Connections int     `json:"Conns" md:"Conns" summary:"Conns"`
 	Concurrency int     `json:"Concurrency" md:"Concurrency" summary:"Echo Concurrency"`
 	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
+	// EchoPprof is whether the run asked for the servers' profiles during
+	// BenchEcho (-ep), "on" or "off"; only the Go servers are ever sampled.
+	EchoPprof string `json:"EchoPprof" md:"Pprof" summary:"Echo Pprof"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
 	// GoMax       int     `json:"GoMax" md:"Go Max" fmt:"go"`

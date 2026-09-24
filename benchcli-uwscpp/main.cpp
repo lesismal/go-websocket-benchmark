@@ -153,6 +153,7 @@ int benchmark(const Options &o) {
     auto stats=runner.collect(false);
     setLatency(echo,stats,o.boolean("tpn"));
     echo["Total"]=o.integer("en");echo["Conns"]=dial.success;echo["Concurrency"]=concurrency;echo["Payload"]=runner.shared.payloads[0].size();
+    echo["EchoPprof"]=o.boolean("ep")?"on":"off";
     resourceStats(echo,o,false,ps);
     if (echoProfile.valid()) echoProfile.get();
     saveReport(o,"BenchEcho",echo);
@@ -172,6 +173,7 @@ int benchmark(const Options &o) {
         rate["Concurrency"]=rateConcurrency;
         rate["Pipeline"]=runner.shared.batch;
         rate["SendRate"]=std::max(1,o.integer("rr"));rate["Payload"]=runner.shared.payloads[0].size();
+        rate["RatePprof"]=o.boolean("rp")?"on":"off";
         rate["SendTimes"]=sent;rate["SendBytes"]=sent*int64_t(runner.shared.payloads[0].size());
         rate["RecvTimes"]=received;rate["RecvBytes"]=bytes;
         fillRateTPS(rate);
