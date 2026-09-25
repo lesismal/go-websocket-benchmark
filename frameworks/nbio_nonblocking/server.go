@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"time"
 
@@ -48,7 +49,7 @@ func main() {
 	if err != nil {
 		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
 	}
-	engine := startServers(addrs)
+	engine := startServers(name, addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -58,7 +59,7 @@ func main() {
 	engine.Shutdown(ctx)
 }
 
-func startServers(addrs []string) *nbhttp.Engine {
+func startServers(name string, addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	frameworks.HandleCommon(mux)
@@ -69,6 +70,13 @@ func startServers(addrs []string) *nbhttp.Engine {
 		IOMod:                   nbhttp.IOModNonBlocking,
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
+	}
+	if name == config.NbioModNonblockingInline {
+		// Inline, each poller answers the connections it reads rather than
+		// handing them on, so the pollers do all of the work: one per CPU
+		// rather than nbhttp's default of a quarter of that.
+		engineConfig.NPoller = runtime.NumCPU()
+		logging.Printf("nbio pollers: %d (NumCPU)", engineConfig.NPoller)
 	}
 
 	// nbio runs the reading callbacks on a task pool of its own sizing.

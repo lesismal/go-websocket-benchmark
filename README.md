@@ -112,6 +112,8 @@ up in the same run and get a row each in the report. The framework's own entry
 runs `BENCH_TASKPOOL`. `fib-inline` also spreads its connections over fib's IO
 pollers, one per CPU (`runtime.NumCPU`, which counts the CPUs the server is
 pinned to), each running its own connections' rounds on fib's own inline pool.
+`nbio_nonblocking-inline` likewise runs one nbio poller per CPU, where nbhttp's
+default is a quarter of that.
 `config.Inlines` in [`config/config.go`](config/config.go)
 lists them; `uws_std` is not one, since it reads on a goroutine per connection
 rather than in an event loop.
