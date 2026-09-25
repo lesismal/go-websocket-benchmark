@@ -136,6 +136,7 @@ print_env() {
     echo "benchmark client: ${BENCH_CLIENT}"
     echo $line
     echo "taskpool: ${BENCH_TASKPOOL} (min ${BENCH_TASKPOOL_MIN}, max ${BENCH_TASKPOOL_MAX}, queue ${BENCH_TASKPOOL_QUEUE})"
+    echo "uwebsockets logic pool: ${BENCH_UWS_LOGIC_POOL} (its own switch; BENCH_TASKPOOL does not apply to it)"
     echo "uwebsockets threads asked for: workers ${BENCH_UWS_WORKERS_PER_CPU}/cpu, loops ${BENCH_UWS_LOOPS_PER_CPU}/cpu (0 = the server's own sizing; the server's startup line says what it built)"
     echo $line
     echo "report sort: ${BENCH_REPORT_SORT} (result = best first, framework = config.FrameworkList order)"

@@ -129,22 +129,21 @@ forked ones in another - so the same `_MAX` does not mean the same thing to
 all of them.
 
 The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
-`-tpqueue`, which default the same way, and log which pool they installed. Nine of the server binaries
+`-tpqueue`, which default the same way, and log which pool they installed. Eight of the server binaries
 accept them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
-`nbio_nonblocking`, `uwebsockets`, `uws_events` and `uws_std`. The rest have no
+`nbio_nonblocking`, `uws_events` and `uws_std`. The rest have no
 pool to swap and exit on a flag they do not define, which is why
-`script/servers.sh` passes these only to the nine.
+`script/servers.sh` passes these only to the eight.
 
 `uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
-run under it. It has one thread pool of its own, built the way the `uws` pool
-is - workers up front over sharded queues, refusing rather than waiting - and
-what it reads out of the flag is where a server answers from. `default` and
-`inline` install no pool, which for uWS means the loop callback; every other
-mode hands the callback to a goroutine off the event loop, and its thread pool
-stands in for that. It logs which way it read the flag, and exits on a name
-that names no mode, as the Go servers do. `-tpmin` is ignored. Its workers
+run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It has one
+thread pool of its own - its logic thread pool, built the way the `uws` pool
+is: workers up front over sharded queues, refusing rather than waiting - with
+a switch of its own, `BENCH_UWS_LOGIC_POOL` (`-logicpool` on the server).
+`false`, the default, echoes straight from the loop callback; `true` hands the
+callback to the pool, off the event loop. Its workers
 are OS threads on top of the loop threads, not goroutines sharing the pollers'
-`GOMAXPROCS` threads, so by default every CPU keeps its own event loop and the
+`GOMAXPROCS` threads, so with the pool on every CPU keeps its own event loop and the
 pool adds one worker per four CPUs (at least one) on top: a loop given up to
 the pool measured as a 1/cpus share of the throughput lost, while the extra
 thread cost nothing measurable. The CPU count it divides is the one `sched_getaffinity`
@@ -155,13 +154,13 @@ this server about 61% of its throughput with the pool on.
 Both counts can be set as a multiplier of those CPUs instead of a thread count,
 which is the form that carries from one machine to the next:
 `BENCH_UWS_WORKERS_PER_CPU` for the pool and `BENCH_UWS_LOOPS_PER_CPU` for the
-loops (`-tpmaxpercpu` and `-loopspercpu` on the server; `-tpmax` and `-loops`
-still take absolute counts). 0, the default for both, keeps the sizing above,
+loops (`-workerspercpu` and `-loopspercpu` on the server; `-workers` and `-loops`
+take absolute counts, and `-poolqueue` the pool's queue). 0, the default for both, keeps the sizing above,
 and each one sets its own side only.
 
 ```sh
-# Half as many workers as CPUs, on top of a loop per CPU
-BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+# The logic pool on, with half as many workers as CPUs, on top of a loop per CPU
+BENCH_UWS_LOGIC_POOL=true BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
 The default is the best of what was measured with 2, 3 and 5 server CPUs, so
@@ -176,8 +175,9 @@ the Summary table, which each client reads from that server's own `/taskpool`
 route when it builds the report. It is what ran rather than what the run asked for, so a
 server whose own scheduling is one of these pools shows that pool under
 `BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
-there. `-` is a framework with no pool hook at all, and `uwebsockets` adds
-which side of its loop the echo ran on, e.g. `nbio(pool)` or `default(loop)`.
+there. `-` is a framework with no pool hook at all, or one that installed
+none; `uwebsockets` reports `logicpool` with its logic thread pool on and `-`
+without it.
 
 `EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
 server's CPU average, which the clients collect along with the memory columns.

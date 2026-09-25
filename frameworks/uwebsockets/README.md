@@ -26,64 +26,51 @@ same arrangement on machines of different sizes. The startup lines print both nu
 `script/servers.sh` copies the last of them to the benchmark console:
 
 ```
-uwebsockets benchmark config: loops=5 workers=1 threads=6 cpus=5 hardware_concurrency=10 ports=31001-31050
-uwebsockets threads: event loops=5, task pool workers=1, cpus=5
+uwebsockets benchmark config: loops=5 workers=0 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
+uwebsockets threads: event loops=5, task pool workers=0 (-logicpool=false answers on the event loops), cpus=5
 ```
 
-## Task pool
+With `-logicpool=true` the same lines read `workers=1 threads=6` and `task pool workers=1`.
 
-Like the Go servers (see [`taskpool`](../../taskpool)), this one runs its message callback off
-the reactor: a thread pool takes each connection's frames, and the loop threads keep the reads,
-the parse and the writes.
+## Logic thread pool
 
-`-taskpool` takes the same names the Go servers take, and it defaults the same way
-(`fib_adaptive`). None of those names is anything a C++ server can run, so what this one reads
-out of the name is **where a server answers from**: `default` and `inline` install no pool,
-which for uWS means the event loop, and every other mode hands the callback to a goroutine off
-the loop, which this server's thread pool stands in for.
+The message callback can run off the reactor, the way the Go servers run theirs on a pool (see
+[`taskpool`](../../taskpool)): a thread pool takes each connection's frames, and the loop
+threads keep the reads, the parse and the writes. It is **off by default** - the echo is
+written straight from the loop callback, uWS's own scheduling - and `-logicpool=true` turns it
+on.
 
-| `BENCH_TASKPOOL` / `-taskpool` | Go side | here |
-| --- | --- | --- |
-| `default` | no pool installed: each framework keeps the scheduling it ships with | the loop callback, since uWS's own scheduling is the event loop |
-| `inline` | no pool: the callback runs on the I/O goroutine that read the frame | the loop callback, likewise |
-| `go`, `fib_adaptive`, `fib_cond`, `fib_elastic`, `nbio`, `fnet`, `greatws`, `uws` | a pool, off the event loop | the pool |
-| `pool` | - | the pool, asked for directly rather than through what a Go mode implies |
-| anything else | - | the server exits, as `taskpool.FromFlags` does on a name that names no pool |
+This is the server's own switch, independent of the Go servers' pools: it does not read
+`-taskpool` or the `-tp*` flags, and `script/servers.sh` passes it none of them, so
+`BENCH_TASKPOOL` and `BENCH_TASKPOOL_MIN/_MAX/_QUEUE` never change what it runs.
+`script/config.sh` configures it as `BENCH_UWS_LOGIC_POOL` (`true` or `false`, default `false`).
 
-The two in-loop modes are not the same thing on the Go side - `default` leaves each framework
-the scheduling it ships with, which is a pool for most of them, while `inline` puts them all on
-the reading goroutine - but neither installs a pool, and for this server not installing one
-means the loop callback. That is also what makes `default` the mode to compare against
-`greatws_event`, the one Go server that answers in its poller under it.
-
-The startup line says which way the flag was read, and the `/taskpool` route serves the same
-decision for the report's Pool (`fib_adaptive(pool)`, `default(loop)`):
+The startup line says which way it went, and the `/taskpool` route serves the same for the
+report's Pool: `logicpool` with the pool on, `-` without it.
 
 ```
-uwebsockets taskpool: fib_adaptive -> pool (Go side: fib's taskpool, adaptive mode, off the
-event loop; here a thread pool stands in for it) min=0(ignored) max=0 queue=0 workers=14
-shards=14 pending=65536 rejects=true loops=14 hardware_concurrency=14
+uwebsockets logicpool: on -> thread pool off the event loop workers=1 shards=1 pending=65536
+rejects=true loops=5 cpus=5
 ```
 
-`-tpmax` sets the worker count, `-tpmaxpercpu` sets it as a multiplier of the CPUs the process
-may run on (`round(N * cpus)`, at least one thread), and `-tpqueue` the queued connections
-(65536 by default, as for the `uws` pool). `-tpmin` is accepted and ignored: the workers are
-all started up front.
+`-workers` sets the worker count, `-workerspercpu` sets it as a multiplier of the CPUs the
+process may run on (`round(N * cpus)`, at least one thread), and `-poolqueue` the queued
+connections (65536 by default, as for the `uws` pool). All three only matter with the pool on.
 
 `script/config.sh` configures the two multipliers as `BENCH_UWS_WORKERS_PER_CPU` and
 `BENCH_UWS_LOOPS_PER_CPU`, and `script/servers.sh` passes them to this server alone - no Go
 server defines them. 0, the default for both, leaves the sizing below. Sweeping the pool is
-one variable:
+one variable on top of the switch:
 
 ```sh
-BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+BENCH_UWS_LOGIC_POOL=true BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
 The pool's workers are OS threads on top of the loop threads. The Go pools can be hundreds of
 goroutines because those multiplex onto the `GOMAXPROCS` threads their pollers already run on;
 OS threads do not, so the pool's size here is a question of whether its threads come out of the
 loops' CPUs or sit on top of them. By default they sit on top: a loop for every CPU, and one
-worker per four CPUs (at least one) besides. `-loops`/`-loopspercpu` and `-tpmax`/`-tpmaxpercpu`
+worker per four CPUs (at least one) besides. `-loops`/`-loopspercpu` and `-workers`/`-workerspercpu`
 each set their own side only.
 
 Measured in Docker, server and client pinned to disjoint CPU sets the way `script/env.sh` pins
@@ -104,7 +91,7 @@ averaged over two to four runs:
 | 5 | 6+1 | 570k | 3.03M | |
 | 5 | 4+2 | 526k | 2.97M | |
 | 5 | 5+2 | 518k | 3.10M | |
-| 5 | `-taskpool=inline`, 5 loops | 591k | 4.14M | no pool, for reference |
+| 5 | `-logicpool=false`, 5 loops | 591k | 4.14M | no pool, for reference |
 
 A loop is worth more than a worker - the loop side does the poll, the read, the frame parse and
 the write, while a worker only copies a payload and defers it back, and parks between batches.
@@ -127,7 +114,7 @@ What remains is the handoff itself: at the same thread count the pool echoes at 
 the in-loop rate in that 2000-connection measurement (858k against 1,375k at four loops), because every batch pays a payload copy,
 a cross-thread queue and a `Loop::defer` for work that is otherwise a `memcpy`. That is the
 price of answering off the reactor, which is what the Go frameworks are being measured doing;
-`-taskpool=inline` (or `default`) is the mode that does not pay it.
+`-logicpool=false`, the default, is the mode that does not pay it.
 
 One thing that did not help, in case it looks obvious: batching the defers. Each finished batch
 defers its own send, so a burst across a thousand connections is a thousand `Loop::defer`

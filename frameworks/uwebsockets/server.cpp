@@ -8,19 +8,19 @@
 // always enables TCP_NODELAY on accepted sockets and does not expose a way to turn it off, so
 // -nodelay=false cannot be honored here (unlike the Go frameworks in this repo).
 //
-// # Task pool
+// # Logic thread pool
 //
-// Like the Go servers (see taskpool/taskpool.go), this one runs its message callback off the
-// reactor: it hands each connection's frames to a fixed pool of worker threads, leaving the
-// loop threads with the reads, the parse and the writes.
+// The message callback can run off the reactor: -logicpool=true hands each connection's frames
+// to a fixed pool of worker threads, leaving the loop threads with the reads, the parse and the
+// writes. It is off by default, which echoes straight from the loop callback - uWS's own
+// scheduling.
 //
-// -taskpool takes the same names the Go servers take, and none of them names anything that
-// can run under a C++ server, so what this one reads out of the name is where a server answers
-// from: "default" and "inline" install no pool, which for uWS means echoing straight from the
-// loop callback - what this server did before the pool existed - and every other mode hands
-// the callback to a goroutine off the event loop, which this pool stands in for. See
-// kPoolModes, the /taskpool route that serves the decision to the report's Pool column, and
-// the same table from the other side in script/config.sh.
+// This server's pool is its own setting, not the Go servers' goroutine pool: it does not read
+// -taskpool or the -tp* flags, so BENCH_TASKPOOL and its sizing in script/config.sh leave it
+// alone, and BENCH_UWS_LOGIC_POOL is what turns it on. The /taskpool route still answers, for
+// the report's Pool: "logicpool" with the pool on, "-" (no pool) without it. The pool is sized
+// by its own flags too: -workers or -workerspercpu for the threads (see planThreads) and
+// -poolqueue for the queue.
 //
 // The pool keeps one connection's messages in order the way the Go frameworks do: a
 // connection carries a queue of frames and a drain flag, and a drain is submitted only when
@@ -101,19 +101,9 @@ bool parseBoolFlag(int argc, char **argv, const char *name, bool defaultValue) {
     return defaultValue;
 }
 
-std::string parseStringFlag(int argc, char **argv, const char *name, const char *defaultValue) {
-    std::string prefix = std::string("-") + name + "=";
-    for (int i = 1; i < argc; ++i) {
-        std::string arg(argv[i]);
-        if (arg.rfind(prefix, 0) == 0) {
-            return arg.substr(prefix.size());
-        }
-    }
-    return defaultValue;
-}
-
 // Returns defaultValue for a missing flag and for one whose value does not parse, matching
-// the way the -tp* flags treat 0 as "the implementation's own default" rather than an error.
+// the way the Go servers' -tp* flags treat 0 as "the implementation's own default" rather than
+// an error.
 long parseIntFlag(int argc, char **argv, const char *name, long defaultValue) {
     std::string prefix = std::string("-") + name + "=";
     for (int i = 1; i < argc; ++i) {
@@ -133,7 +123,7 @@ long parseIntFlag(int argc, char **argv, const char *name, long defaultValue) {
     return defaultValue;
 }
 
-// The per-CPU thread counts (-loopspercpu, -tpmaxpercpu) are multipliers rather than counts,
+// The per-CPU thread counts (-loopspercpu, -workerspercpu) are multipliers rather than counts,
 // so they are fractional: a quarter of the CPUs is the pool's own default share. Treated like
 // parseIntFlag treats its flags - 0 means "size it the usual way", and an unparsable value is
 // a warning rather than an exit.
@@ -209,7 +199,7 @@ public:
         for (unsigned index = 0; index < workerCount_; ++index) {
             auto shard = std::make_unique<Shard>();
             // Split the queue over the shards, giving the remainder to the lowest-numbered
-            // ones, so that -tpqueue means the same total it means for the Go pools.
+            // ones, so that -poolqueue is the total, as -tpqueue is for the Go pools.
             shard->capacity = pending_ / workerCount_ + (index < pending_ % workerCount_ ? 1 : 0);
             if (shard->capacity == 0) shard->capacity = 1;
             shards_.push_back(std::move(shard));
@@ -292,13 +282,13 @@ private:
     std::vector<std::thread> workers_;
 };
 
-// Null for the modes that answer in the loop, which is the whole of the mode: the handlers
-// branch on it once, at registration.
+// Null unless -logicpool is on, which is the whole of the setting: the handlers branch on it
+// once, at registration.
 std::unique_ptr<TaskPool> g_pool;
 
-// What /taskpool answers, for the Pool column of the reports: the mode this server was given
-// and what it did with it, since the same name means the pool here and a goroutine pool on the
-// Go side. Written once, before the loops start. See config.GetFrameworkTaskPool.
+// What /taskpool answers, for the Pool row of the reports: "logicpool" with the pool on, and
+// config.TaskPoolNone without it. Written once, before the loops start. See
+// config.GetFrameworkTaskPool.
 std::string g_taskPoolReport = "-";
 
 std::atomic<bool> g_warnedRefusal{false};
@@ -308,7 +298,7 @@ void warnRefusalOnce() {
     if (g_warnedRefusal.compare_exchange_strong(expected, true)) {
         std::fprintf(stderr,
                      "uwebsockets: taskpool queue full, echoing on the event loop instead; "
-                     "raise -tpqueue if this is not what you meant to measure\n");
+                     "raise -poolqueue if this is not what you meant to measure\n");
     }
 }
 
@@ -589,60 +579,8 @@ void runWorker(const std::vector<int> &ports) {
 
 // The queue the pool's shards add up to, as taskpool's uws pool sizes it. A connection is in
 // a queue at most once, so this is a ceiling on connections waiting for a worker rather than
-// on messages; -tpqueue raises it.
+// on messages; -poolqueue raises it.
 constexpr unsigned kDefaultPending = 65536;
-
-// The -taskpool modes, as taskpool.Names lists them, and what each says about where the Go
-// servers answer a message from. That is the whole of the decision this server has to make:
-// none of the Go pools can run under a C++ server, but every mode either hands the callback to
-// a goroutine off the event loop, which this server's own pool is the stand-in for, or leaves
-// it on the goroutine that read the frame, which is this server's loop callback.
-struct PoolMode {
-    const char *name;
-    bool offLoop;
-    const char *goSide;
-};
-
-constexpr PoolMode kPoolModes[] = {
-    // Not a pool: each framework keeps the scheduling it ships with, and this server's own is
-    // the event loop. It is the one mode where the Go servers do not answer from the same
-    // place as each other either - greatws_event answers in its poller under it, the rest run
-    // the pool they ship with.
-    {"default", false, "no pool installed: each framework keeps the scheduling it ships with"},
-    {"inline", false, "no pool: the callback runs on the I/O goroutine that read the frame"},
-    {"go", true, "one goroutine per task"},
-    {"fib_adaptive", true, "fib's taskpool, adaptive mode"},
-    {"fib_cond", true, "fib's taskpool, cond mode"},
-    {"fib_elastic", true, "fib's taskpool, elastic mode"},
-    {"nbio", true, "nbio's taskpool"},
-    {"fnet", true, "fnet.WorkerPool"},
-    {"greatws", true, "greatws's stream2 business pool"},
-    {"uws", true, "the sharded channel executor uws runs on"},
-    // This server's own name for what it runs, for asking directly rather than through what a
-    // Go mode implies. No Go side to describe, hence the empty note.
-    {"pool", true, nullptr},
-};
-
-const PoolMode *findPoolMode(const std::string &name) {
-    for (const PoolMode &mode : kPoolModes) {
-        if (name == mode.name) return &mode;
-    }
-    return nullptr;
-}
-
-const PoolMode *resolvePoolMode(int argc, char **argv) {
-    const std::string name = parseStringFlag(argc, argv, "taskpool", "fib_adaptive");
-    const PoolMode *mode = findPoolMode(name);
-    if (mode != nullptr) return mode;
-    // taskpool.FromFlags exits on a name that names no pool, since a run that silently
-    // ignored the flag would be reported under the wrong one. Same here.
-    std::fprintf(stderr, "uwebsockets: unknown -taskpool=%s, want one of:", name.c_str());
-    for (const PoolMode &known : kPoolModes) {
-        std::fprintf(stderr, " %s", known.name);
-    }
-    std::fprintf(stderr, "\n");
-    std::exit(1);
-}
 
 // How the process splits its threads.
 //
@@ -678,30 +616,30 @@ const PoolMode *resolvePoolMode(int argc, char **argv) {
 // capacity, which is 30% of the throughput at 3 CPUs, while the one extra thread a worker adds
 // cost nothing measurable at any size tried: a worker only copies a payload and defers it back,
 // and it parks between batches. A second worker was slower at every size tried, and at 5 CPUs
-// one worker already echoes within 1% of -taskpool=inline's BenchEcho, so the pool grows only
+// one worker already echoes within 1% of the pool-less (-logicpool=false) BenchEcho, so the pool grows only
 // by one worker per kCoresPerWorker CPUs, for larger machines where one would not keep up.
 //
-// Both counts are overridable, either as a count of threads (-loops, -tpmax) or as a
-// multiplier of the CPUs the process may run on (-loopspercpu, -tpmaxpercpu), the form that
+// Both counts are overridable, either as a count of threads (-loops, -workers) or as a
+// multiplier of the CPUs the process may run on (-loopspercpu, -workerspercpu), the form that
 // carries from one machine to another and the one script/config.sh configures. Each flag sets
 // its own side only; the other keeps the sizing above. Nothing larger than 5 server CPUs was
 // measured, so a bigger machine is worth re-measuring: raise or lower the multiplier and watch
 // the server's CPU% and TPS columns move together.
 struct ThreadPlan {
     unsigned loops;
-    unsigned workers;  // 0 when the echo runs in the loop
+    unsigned workers;  // 0 when the echo runs in the loop (-logicpool=false)
 };
 
 // One worker per this many cores, when nothing on the command line says otherwise, and at
 // least one. Below 8 CPUs that is a single worker, which is what the table above measured best;
 // a pool of one thread for every loop would be a poor default for any callback heavier than an
 // echo, so a quarter of the CPUs is where it scales to. The multiplier that says the same thing
-// is -tpmaxpercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
+// is -workerspercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
 // to nearest); script/config.sh has it as BENCH_UWS_WORKERS_PER_CPU.
 constexpr unsigned kCoresPerWorker = 4;
 
-// One thread count, from the two flags that can set it: the absolute one (-loops, -tpmax) if
-// it is set, else the per-CPU multiplier (-loopspercpu, -tpmaxpercpu) against the CPUs this
+// One thread count, from the two flags that can set it: the absolute one (-loops, -workers) if
+// it is set, else the per-CPU multiplier (-loopspercpu, -workerspercpu) against the CPUs this
 // process may actually run on, which is the form that means the same thing on machines of
 // different sizes - the benchmark configures one N for every host it runs on, and a host with
 // twice the CPUs gets twice the threads. A multiplier that rounds to nothing still gets one
@@ -717,12 +655,12 @@ unsigned resolveThreadCount(int argc, char **argv, const char *absoluteName,
     return scaled > 0 ? unsigned(scaled) : 1;
 }
 
-ThreadPlan planThreads(int argc, char **argv, const PoolMode &mode, unsigned cores) {
+ThreadPlan planThreads(int argc, char **argv, bool logicPool, unsigned cores) {
     const unsigned loopCount = resolveThreadCount(argc, argv, "loops", "loopspercpu", cores);
-    const unsigned workerCount = resolveThreadCount(argc, argv, "tpmax", "tpmaxpercpu", cores);
+    const unsigned workerCount = resolveThreadCount(argc, argv, "workers", "workerspercpu", cores);
 
     ThreadPlan plan{cores, 0};
-    if (!mode.offLoop) {
+    if (!logicPool) {
         // No pool to leave room for, so the loop count is the whole of it.
         if (loopCount > 0) plan.loops = loopCount;
         if (plan.loops == 0) plan.loops = 1;
@@ -738,35 +676,27 @@ ThreadPlan planThreads(int argc, char **argv, const PoolMode &mode, unsigned cor
     return plan;
 }
 
-// Builds the pool -taskpool asks for, or nothing for a mode that answers in the loop, and logs
-// which it is so that a report can be read back against the scheduling that produced it.
-void installTaskPool(int argc, char **argv, const PoolMode &mode, const ThreadPlan &plan) {
-    const long minWorkers = parseIntFlag(argc, argv, "tpmin", 0);
-    const long queueSize = parseIntFlag(argc, argv, "tpqueue", 0);
-
-    g_taskPoolReport = std::string(mode.name) + (mode.offLoop ? "(pool)" : "(loop)");
-
-    if (!mode.offLoop) {
+// Builds the logic pool when -logicpool asks for it, and logs which way the server answers so
+// that a report can be read back against the scheduling that produced it.
+void installTaskPool(int argc, char **argv, bool logicPool, const ThreadPlan &plan) {
+    if (!logicPool) {
+        g_taskPoolReport = "-";
         std::fprintf(stderr,
-                     "uwebsockets taskpool: %s -> event loop (Go side: %s; here the echo is "
-                     "written from the loop callback, which is uWS's own scheduling) "
-                     "loops=%u cpus=%u\n",
-                     mode.name, mode.goSide, plan.loops, availableCPUs());
+                     "uwebsockets logicpool: off -> event loop (the echo is written from the loop "
+                     "callback, which is uWS's own scheduling) loops=%u cpus=%u\n",
+                     plan.loops, availableCPUs());
         return;
     }
 
+    const long queueSize = parseIntFlag(argc, argv, "poolqueue", 0);
     unsigned pending = queueSize > 0 ? unsigned(queueSize) : kDefaultPending;
     g_pool = std::make_unique<TaskPool>(plan.workers, pending);
-    std::string reason = "this server's thread pool, named directly";
-    if (mode.goSide != nullptr) {
-        reason = std::string("Go side: ") + mode.goSide +
-                 ", off the event loop; here a thread pool stands in for it";
-    }
+    g_taskPoolReport = "logicpool";
     std::fprintf(stderr,
-                 "uwebsockets taskpool: %s -> pool (%s) min=%ld(ignored) queue=%ld workers=%u "
+                 "uwebsockets logicpool: on -> thread pool off the event loop workers=%u "
                  "shards=%u pending=%u rejects=true loops=%u cpus=%u\n",
-                 mode.name, reason.c_str(), minWorkers, queueSize, g_pool->workers(),
-                 g_pool->workers(), g_pool->pending(), plan.loops, availableCPUs());
+                 g_pool->workers(), g_pool->workers(), g_pool->pending(), plan.loops,
+                 availableCPUs());
 }
 
 }  // namespace
@@ -787,15 +717,17 @@ int main(int argc, char **argv) {
 
     const unsigned cores = availableCPUs();
 
-    const PoolMode *mode = resolvePoolMode(argc, argv);
-    const ThreadPlan plan = planThreads(argc, argv, *mode, cores);
+    // Off by default, and independent of the Go servers' -taskpool: see the Logic thread pool
+    // section at the top of this file.
+    const bool logicPool = parseBoolFlag(argc, argv, "logicpool", false);
+    const ThreadPlan plan = planThreads(argc, argv, logicPool, cores);
     std::fprintf(stderr,
                  "uwebsockets benchmark config: loops=%u workers=%u threads=%u cpus=%u "
                  "hardware_concurrency=%u ports=%d-%d\n",
                  plan.loops, plan.workers, plan.loops + plan.workers, cores,
                  std::thread::hardware_concurrency(), kPortStart, kPortEnd);
 
-    installTaskPool(argc, argv, *mode, plan);
+    installTaskPool(argc, argv, logicPool, plan);
     // The two counts on a line of their own, the one script/servers.sh copies to the benchmark
     // console: the lines above carry them among everything else.
     if (g_pool) {
@@ -803,9 +735,9 @@ int main(int argc, char **argv) {
                      plan.loops, g_pool->workers(), cores);
     } else {
         std::fprintf(stderr,
-                     "uwebsockets threads: event loops=%u, task pool workers=0 (-taskpool=%s answers "
-                     "on the event loops), cpus=%u\n",
-                     plan.loops, mode->name, cores);
+                     "uwebsockets threads: event loops=%u, task pool workers=0 (-logicpool=false "
+                     "answers on the event loops), cpus=%u\n",
+                     plan.loops, cores);
     }
 
     std::vector<std::thread> workers;
