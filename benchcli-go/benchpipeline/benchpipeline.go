@@ -1,4 +1,4 @@
-package benchrate
+package benchpipeline
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type BenchRate struct {
+type BenchPipeline struct {
 	Framework   string
 	Ip          string
 	Duration    time.Duration
@@ -69,8 +69,8 @@ type Conn struct {
 	recvCnt int64
 }
 
-func New(framework string, serverPid int, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchRate {
-	bm := &BenchRate{
+func New(framework string, serverPid int, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchPipeline {
+	bm := &BenchPipeline{
 		Framework:  framework,
 		Ip:         ip,
 		ConnsMap:   connsMap,
@@ -82,7 +82,7 @@ func New(framework string, serverPid int, ip string, options *websocket.Options,
 	return bm
 }
 
-func (br *BenchRate) Run() {
+func (br *BenchPipeline) Run() {
 	br.init()
 	defer br.clean()
 
@@ -106,7 +106,7 @@ func (br *BenchRate) Run() {
 		close(done)
 	})
 
-	logging.Printf("BenchRate for %.2f seconds ...", br.Duration.Seconds())
+	logging.Printf("BenchPipeline for %.2f seconds ...", br.Duration.Seconds())
 
 	wg := sync.WaitGroup{}
 
@@ -145,7 +145,7 @@ func (br *BenchRate) Run() {
 	}
 	wg.Wait()
 
-	logging.Printf("BenchRate for %.2f seconds done", br.Duration.Seconds())
+	logging.Printf("BenchPipeline for %.2f seconds done", br.Duration.Seconds())
 
 	// if br.PsCounter != nil {
 	// 	<-chCounterStart
@@ -153,21 +153,21 @@ func (br *BenchRate) Run() {
 	// }
 }
 
-func (br *BenchRate) Stop() {
+func (br *BenchPipeline) Stop() {
 
 }
 
-func (br *BenchRate) OnBenchmark(f func()) {
+func (br *BenchPipeline) OnBenchmark(f func()) {
 	br.onBenchmark = f
 }
 
-func (br *BenchRate) SetPprofData(cpu, mem []byte) {
+func (br *BenchPipeline) SetPprofData(cpu, mem []byte) {
 	br.pprofDataCPU = cpu
 	br.pprofDataMEM = mem
 }
 
-func (br *BenchRate) Report() *report.BenchRateReport {
-	r := &report.BenchRateReport{
+func (br *BenchPipeline) Report() *report.BenchPipelineReport {
+	r := &report.BenchPipelineReport{
 		BenchClient: "benchcli-go",
 		Framework:   br.Framework,
 		Lang:        config.FrameworkLang(br.Framework),
@@ -187,7 +187,7 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 	var psErr error
 	br.PsCounter, psErr = br.psInfo()
 	if psErr != nil {
-		logging.Printf("BenchRate: resource statistics for %v incomplete, EchoEER will read 0: %v",
+		logging.Printf("BenchPipeline: resource statistics for %v incomplete, CPU EER and MEM EER will read 0: %v",
 			br.Framework, psErr)
 	}
 	if br.PsCounter != nil {
@@ -200,7 +200,8 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 		r.MEMRSSMin = br.PsCounter.MEMRSSMin()
 		r.MEMRSSAvg = br.PsCounter.MEMRSSAvg()
 		r.MEMRSSMax = br.PsCounter.MEMRSSMax()
-		r.EchoEER = report.EER(report.RateTPS(r.RecvTimes, r.Duration), r.CPUAvg)
+		r.CPUEER = report.EER(report.RateTPS(r.RecvTimes, r.Duration), r.CPUAvg)
+		r.MEMEER = report.MEMEER(report.RateTPS(r.RecvTimes, r.Duration), r.MEMRSSAvg)
 	}
 	r.TPS = int64(math.Floor(report.RateTPS(r.RecvTimes, r.Duration)))
 	return r
@@ -208,14 +209,14 @@ func (br *BenchRate) Report() *report.BenchRateReport {
 
 // psInfo reads the server's resource samples from wherever this run takes
 // them; see BenchEcho.psInfo.
-func (br *BenchRate) psInfo() (*perf.PSCounter, error) {
+func (br *BenchPipeline) psInfo() (*perf.PSCounter, error) {
 	if br.PsSource != nil {
 		return br.PsSource.PsInfo()
 	}
 	return config.GetFrameworkPsInfo(br.Framework, br.Ip)
 }
 
-func (br *BenchRate) init() {
+func (br *BenchPipeline) init() {
 	if br.Duration <= 0 {
 		br.Duration = time.Second * 10
 	}
@@ -238,7 +239,7 @@ func (br *BenchRate) init() {
 	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, br.BatchSize, br.Pipeline, br.SendLimit)
 	// br.batchBuffer, br.batch, br.tickRate = message, 1, br.SendRate
 	if br.tickRate <= 0 || len(br.batchBuffer) == 0 {
-		logging.Fatalf("BenchRate get wrong tickRate: %v, or batchBuffer: %v", br.tickRate, len(br.batchBuffer))
+		logging.Fatalf("BenchPipeline get wrong tickRate: %v, or batchBuffer: %v", br.tickRate, len(br.batchBuffer))
 	}
 
 	if br.PsInterval <= 0 {
@@ -268,16 +269,16 @@ func (br *BenchRate) init() {
 	// }
 }
 
-func (br *BenchRate) clean() {
+func (br *BenchPipeline) clean() {
 	br.chConns = nil
 	br.limitFn = func() {}
 }
 
-func (br *BenchRate) getWriteBuffer() []byte {
+func (br *BenchPipeline) getWriteBuffer() []byte {
 	return br.wbuffer
 }
 
-func (br *BenchRate) doOnce(conns []*Conn) {
+func (br *BenchPipeline) doOnce(conns []*Conn) {
 	for _, conn := range conns {
 		if atomic.LoadInt64(&conn.sendCnt)-atomic.LoadInt64(&conn.recvCnt)+int64(br.batch) < int64(br.batch*5) {
 			br.limitFn()
@@ -291,7 +292,7 @@ func (br *BenchRate) doOnce(conns []*Conn) {
 	}
 }
 
-func (br *BenchRate) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
+func (br *BenchPipeline) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
 	if !br.checkValid {
 		conn := c.Session().(*Conn)
 		atomic.AddInt64(&conn.recvCnt, 1)

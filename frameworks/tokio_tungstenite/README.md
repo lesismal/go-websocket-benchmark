@@ -88,8 +88,8 @@ zero-fills the part of it each read goes into, up to all 128KiB, before handing 
 socket - so all of it is resident as soon as a connection has read once, and every read pays a
 128KiB `memset`. Its write buffer gathers frames up to 128KiB (`write_buffer_size`) and never
 shrinks, so every connection that has echoed a burst keeps its peak. At 50000 connections that
-was 6.85G in BenchEcho and 8.9G in BenchRate, in a 12.48GB container that also has to hold the
-client - enough for the kernel to kill one of the two in BenchRate. None of it was a leak: it
+was 6.85G in BenchEcho and 8.9G in BenchPipeline, in a 12.48GB container that also has to hold the
+client - enough for the kernel to kill one of the two in BenchPipeline. None of it was a leak: it
 is what those buffers hold on to by design.
 
 So the socket under each `WebSocketStream` is a wrapper (`src/stream.rs`) that does what uWS does
@@ -111,7 +111,7 @@ answers to pings and closes, which go out through the same wrapper. Measured in 
 CPUs for the server and 4 for `benchcli-uwscpp`, 50000 connections and a 1KiB payload, averaged
 over three runs:
 
-| | BenchEcho TPS | BenchEcho MEM | BenchRate TPS | BenchRate MEM Avg | BenchRate MEM Max |
+| | BenchEcho TPS | BenchEcho MEM | BenchPipeline TPS | BenchPipeline MEM Avg | BenchPipeline MEM Max |
 | --- | --- | --- | --- | --- | --- |
 | tungstenite's buffers | 315k | 6.85G | 2.84M | 7.93G | 8.87G |
 | these | 454k | 403M | 2.85M | 723M | 900M |

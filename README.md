@@ -201,8 +201,9 @@ route when it builds the report. `-` is a framework with no pool hook at all,
 `uws_std` among them, or one that installed none; `uwebsockets` and
 `tokio_tungstenite` report `logicpool`, and their `-inline` entries `inline`.
 
-`EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
-server's CPU average, which the clients collect along with the memory columns.
+`CPU EER` is throughput per percent of a CPU core and `MEM EER` is throughput
+per MB (1024*1024 bytes, the `M` of the memory columns) of resident memory, so
+they need the server's CPU and memory averages, which the clients collect.
 Where they collect it from depends on which machine the server is on, and `-ps`
 selects that: `auto` (the default) samples the server here when it is running
 on this machine and asks it over HTTP when it is not, `local` always samples
@@ -266,16 +267,21 @@ The report tables are written best first. `-sort` takes the two orders:
 | `framework` | the order `config.FrameworkList` lists the frameworks in, which is what every report was written in before `-sort` existed |
 
 Which number `result` ranks by is the one each benchmark answers with: `TPS`
-in all three. In `BenchRate` that is `Packet Recv` per second of
+in all three. In `BenchPipeline` that is `Packet Recv` per second of
 `Rate Duration`, the messages the clients read back off the server per second:
 the rate test writes at a rate the clients set rather than to completion, so
 what the server got back under that load is its result there the way TPS is in
-the other two - `Packet Sent` is the load rather than the answer. `EER` is that
-`TPS` divided by `CPU Avg` in both `BenchEcho` and `BenchRate`. A `BenchRate`
+the other two - `Packet Sent` is the load rather than the answer. `CPU EER` is that
+`TPS` divided by `CPU Avg`, and `MEM EER` is that `TPS` divided by `MEM Avg` in
+MB, in both `BenchEcho` and `BenchPipeline`. A `BenchPipeline`
 report written before it recorded `TPS` gets it from `Packet Recv` and
-`Duration` when the report is read again. In `BenchEcho` and `BenchRate`, rows that tie
-on that are ranked by `EER`, the one that spent less CPU on it first;
-`Connections` samples no CPU, so it has no `EER` to break a tie with.
+`Duration` when the report is read again, and a report written before it
+recorded `MEM EER` gets it from `TPS` and `MEM Avg`. In `BenchEcho` and
+`BenchPipeline`, rows that tie on `TPS` are ranked by `CPU EER`, the one that
+spent less CPU on it first, and rows that tie on both by `MEM EER`, the one
+that held less memory for it first; `Connections` samples neither, so it has no
+EER to break a tie with. The JSON keeps `CPU EER` under its old keys, `EER` in
+`BenchEcho` and `EchoEER` in `BenchPipeline`, and `MEM EER` is `MEMEER` in both.
 
 Every table's first two columns are `Framework` and `Lang`, the language that
 framework's server is written in - `go`, `c++` (`uwebsockets`) or `rust`
@@ -298,17 +304,19 @@ language-framework: `cpp-uwebsockets`, `rust-tokio_tungstenite` or `go-nbio`
 field, and so does the block each benchmark prints to the console as it
 finishes.
 
-In either order, every column a table is ranked by - `TPS`, and `EER` - shows each row's share of the best in that column after the
+In either order, every column a table is ranked by - `TPS`, `CPU EER` and
+`MEM EER` - shows each row's share of the best in that column after the
 number, the best being `100%`, floored so that only the best reads `100%`. Each
 column has its own best, so the row with the most `TPS` need not have the most
-`EER`. Their titles carry `[↓1]` on the key the rows are ranked by, highest
-first, and `[↓2]` on the one that breaks a tie on it:
+`CPU EER` or `MEM EER`. Their titles carry `[↓1]` on the key the rows are
+ranked by, highest first, `[↓2]` on the one that breaks a tie on it, and `[↓3]`
+on the one that breaks a tie on both:
 
-| Framework | TPS [↓1]  | EER [↓2]      |
-| --------- | --------- | ------------- |
-| gorilla   | 3000 100% | 1250.50  50%  |
-| gobwas    | 1500  50% | 2501.00 100%  |
-| nhooyr    |   10   0% |    9.25   0%  |
+| Framework | TPS [↓1]  | CPU EER [↓2] | MEM EER [↓3] |
+| --------- | --------- | ------------ | ------------ |
+| gorilla   | 3000 100% | 1250.50  50% |   10.00  40% |
+| gobwas    | 1500  50% | 2501.00 100% |   25.00 100% |
+| nhooyr    |   10   0% |    9.25   0% |    0.50   2% |
 
 Rows that tie keep the framework order between them, so two frameworks that
 scored the same - or a whole table from a benchmark that did not run, which
@@ -464,7 +472,7 @@ results:
 | greatws_event    | 657385 | 1158.59 | 28.88us | 15.17ms | 190.30ms | 13.45ms | 16.33ms | 21.33ms | 22.78ms | 31.36ms  | 3.04s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 11.99   | 567.40  | 845.77  | 161.71M | 163.85M | 165.98M |
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
-20240403 16:31.05.064 [BenchRate] Report
+20240403 16:31.05.064 [BenchPipeline] Report
 
 | Framework        | Duration | EchoEER | Packet Sent | Bytes Sent | Packet Recv | Bytes Recv | Conns | SendRate | Payload | CPU Min | CPU Avg | CPU Max | MEM Min | MEM Avg | MEM Max |
 | ---------------- | -------- | ------- | ----------- | ---------- | ----------- | ---------- | ----- | -------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |

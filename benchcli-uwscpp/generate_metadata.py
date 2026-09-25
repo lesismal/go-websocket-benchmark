@@ -29,7 +29,7 @@ if not taskpool_frameworks or set(taskpool_frameworks) - set(frameworks):
 schemas = {}
 for kind, filename in [('Connections', 'connections_report.go'),
                        ('BenchEcho', 'benchecho_report.go'),
-                       ('BenchRate', 'benchrate_report.go')]:
+                       ('BenchPipeline', 'benchpipeline_report.go')]:
     fields = []
     for line in (root / 'benchcli-go/report' / filename).read_text().splitlines():
         if line.lstrip().startswith('//'):

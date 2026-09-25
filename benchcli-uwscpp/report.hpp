@@ -262,8 +262,8 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 }
 // rankKeys is what -sort=result ranks a report by, most significant first: the fields
 // tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
-// That is TPS for Connections, and TPS then EER for BenchEcho and BenchRate, whose TPS is
-// the packets the clients read back off the server per second.
+// That is TPS for Connections, and TPS then CPU EER then MEM EER for BenchEcho and
+// BenchPipeline, whose TPS is the packets the clients read back off the server per second.
 inline std::vector<json> rankFields(const std::string &kind) {
     std::vector<json> fields;
     for (const auto &field:metadata["schemas"][kind])
@@ -310,7 +310,7 @@ inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,c
         rows[i][col]=std::string(valueLen-rows[i][col].size(),' ')+rows[i][col]+" "+
                      std::string(percentLen-percents[i].size(),' ')+percents[i];
 }
-// fillRateTPS mirrors BenchRateReport.fillTPS and benchrate.Report: a rate run's TPS is the
+// fillRateTPS mirrors BenchPipelineReport.fillTPS and benchpipeline.Report: a rate run's TPS is the
 // packets the clients read back per second of its duration, floored. A report written before
 // it had one gets it here, so that an earlier run still ranks by it when it is read again.
 inline void fillRateTPS(json &r) {
@@ -318,6 +318,22 @@ inline void fillRateTPS(json &r) {
     if (number("TPS")!=0 || number("RecvTimes")<=0) return;
     double duration=number("Duration");
     r["TPS"]=duration>0?int64_t(std::floor(number("RecvTimes")/(duration/1e9))):int64_t(0);
+}
+// perUnit is throughput/unit, or 0 when there is nothing to divide by, as report.EER has it.
+inline double perUnit(double throughput,double unit) {
+    double eer=throughput/unit;
+    return unit>0&&std::isfinite(eer)?eer:0.0;
+}
+// memEER is report.MEMEER, the MEM EER column: the throughput a server got for each MB
+// (1024*1024 bytes, the M of the MEM columns) of the memory it held on average.
+inline double memEER(double throughput,double memAvg) { return perUnit(throughput,memAvg/(1024.0*1024.0)); }
+// fillMEMEER mirrors BenchEchoReport.fillMEMEER and BenchPipelineReport.fillMEMEER: a report
+// written before MEM EER existed gets it here, so that an earlier run still ranks by it.
+inline void fillMEMEER(json &r,bool rate) {
+    auto number=[&r](const char *key) { return r.contains(key)&&r[key].is_number()?r[key].get<double>():0.0; };
+    if (number("MEMEER")!=0) return;
+    double tps=rate?number("RecvTimes")/(number("Duration")/1e9):number("TPS");
+    r["MEMEER"]=memEER(tps,number("MEMAvg"));
 }
 inline std::vector<json> readReports(const Options &o,const std::string &kind) {
     std::vector<json> rows;
@@ -331,7 +347,8 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
         auto &row=rows.back();
         if (!row.contains("Lang") || !row["Lang"].is_string() || row["Lang"].get<std::string>().empty())
             row["Lang"]=frameworkLang(f.get<std::string>());
-        if (kind=="BenchRate") fillRateTPS(row);
+        if (kind=="BenchPipeline") fillRateTPS(row);
+        if (kind=="BenchEcho" || kind=="BenchPipeline") fillMEMEER(row,kind=="BenchPipeline");
     }
     return rows;
 }
@@ -367,7 +384,7 @@ inline std::string summaryTable(const Options &o) {
     using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
     std::vector<std::string> names;
-    for (auto kind:{"Connections","BenchEcho","BenchRate"})
+    for (auto kind:{"Connections","BenchEcho","BenchPipeline"})
         for (const auto &r:readReports(o,kind)) {
             std::string framework=r.value("Framework","");
             for (const auto &field:metadata["schemas"][kind]) {
@@ -418,7 +435,7 @@ inline void generateReports(const Options &o) {
     auto summary=summaryTable(o);
     writeFile(filename(o,"Summary",".md"),summary);
     std::cout<<consoleSection(o.get("preffix")+"Summary"+o.get("suffix"),summary);
-    for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
+    for (auto kind:{"Connections","BenchEcho","BenchPipeline"}) {
         auto rows=readReports(o,kind);
         // The rows are read in metadata["frameworks"] order, which is
         // config.FrameworkList's, so -sort=framework is already what they are
@@ -520,7 +537,7 @@ inline PSSetup setupPS(const Options &o) {
     }
     return ps;
 }
-// applyResourceStats fills the CPU, MEM and EER columns from a set of samples,
+// applyResourceStats fills the CPU, MEM, CPU EER and MEM EER columns from a set of samples,
 // whoever took them. Min and Avg skip the first sample, and MEM sorts before it
 // does, the way github.com/lesismal/perf PSCounter computes the same columns.
 inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint64_t> mem,bool rate) {
@@ -539,7 +556,8 @@ inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint6
     }
     double avg=r["CPUAvg"].get<double>();
     double tps=rate?r["RecvTimes"].get<double>()/(r["Duration"].get<double>()/1e9):r["TPS"].get<double>();
-    r[rate?"EchoEER":"EER"]=avg>0&&std::isfinite(tps)?tps/avg:0.0;
+    r[rate?"EchoEER":"EER"]=perUnit(tps,avg);
+    r["MEMEER"]=memEER(tps,r.contains("MEMAvg")?r["MEMAvg"].get<double>():0.0);
 }
 inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) {
     std::vector<double> cpu;
@@ -560,7 +578,7 @@ inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) 
     }
     applyResourceStats(r,cpu,mem,rate);
     if (cpu.empty()) {
-        std::cerr<<"server resource statistics unavailable, "<<(rate?"EchoEER":"EER")<<" reads 0: ";
+        std::cerr<<"server resource statistics unavailable, CPU EER and MEM EER read 0: ";
         if (!trouble.empty()) std::cerr<<trouble<<'\n';
         else std::cerr<<"nothing was sampled, so either the sampling never started or the phase was"
                         " shorter than the -pi sampling interval\n";
