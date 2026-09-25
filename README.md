@@ -89,9 +89,9 @@ The frameworks here schedule their callbacks in different ways, and some of the
 difference a benchmark shows between two of them is the pool rather than the
 framework. [`taskpool`](taskpool) collects those pools behind one interface -
 the fib, nbio, fnet and greatws entries import those projects' own pools, and
-`uws` is the sharded executor this benchmark has always given the uws servers -
-so that one pool can be run under several frameworks, or one framework under
-several pools.
+`uws` is taskgo, the pool UIO runs the uws servers' connections on - so that
+one pool can be run under several frameworks, or one framework under several
+pools.
 
 `script/config.sh` selects it with `BENCH_TASKPOOL`, which defaults to
 `fib_adaptive`: a run nobody configured puts every framework that has a pool
@@ -99,14 +99,14 @@ hook on the one pool, and `BENCH_TASKPOOL=default` asks for the scheduling each
 framework ships with instead. Two servers lose their distinguishing feature to
 that default and are worth setting explicitly: `greatws_event` runs its
 callbacks in the event loop only under `default` (its `-inline` entry below is
-the same arrangement), and `uws` runs its own sharded executor only under
-`default` (or `uws`).
+the same arrangement), and `uws_events` runs on UIO's own taskgo scheduler
+only under `default`.
 
 `inline` - no pool, the callback running on the I/O goroutine that read the
 frame - is not a `BENCH_TASKPOOL` value: every run measures it next to the
 selected pool instead. Each Go event loop server that takes a pool - `fib`,
-`fnet`, `greatws`, `greatws_event`, `nbio_mixed`, `nbio_nonblocking` and
-`uws_events` - has a second entry named after it with `-inline` on the end,
+`fnet`, `greatws`, `greatws_event`, `nbio_mixed` and `nbio_nonblocking` - has
+a second entry named after it with `-inline` on the end,
 `fib-inline` and so on: the same server binary, started with
 `-taskpool=inline` on ports of its own (the framework's, 100 up), so both are
 up in the same run and get a row each in the report. The framework's own entry
@@ -116,8 +116,10 @@ pinned to), each running its own connections' rounds on fib's own inline pool.
 `nbio_nonblocking-inline` likewise runs one nbio poller per CPU, where nbhttp's
 default is a quarter of that.
 `config.Inlines` in [`config/config.go`](config/config.go)
-lists them; `uws_std` is not one, since it reads on a goroutine per connection
-rather than in an event loop.
+lists them. `uws_events` has none: UIO runs every connection's callbacks in a
+task off its event loops, and a UIO executor must not run that task inline.
+`uws_std` has none either, since it reads on a goroutine per connection rather
+than in an event loop.
 
 ```sh
 # Every framework that can, on nbio's pool
@@ -136,7 +138,7 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
 | `fnet` | `fnet.WorkerPool`, sharded and elastic: workers spawn on demand and retire when idle |
 | `greatws` | greatws's `stream2` business pool |
-| `uws` | the sharded channel executor uws runs on here |
+| `uws` | `github.com/limpo1989/taskgo`, set up the way UIO sets it up: about one worker per P while tasks run, up to `512 * GOMAXPROCS` while they block, idle workers kept for 30 s |
 
 `BENCH_TASKPOOL_MIN`, `_MAX` and `_QUEUE` are requests rather than promises: 0
 leaves each pool the sizing it has in the framework it came from, and a pool
@@ -146,18 +148,20 @@ forked ones in another - so the same `_MAX` does not mean the same thing to
 all of them.
 
 The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
-`-tpqueue`, which default the same way, and log which pool they installed. Eight of the server binaries
-accept them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
-`nbio_nonblocking`, `uws_events` and `uws_std`. The rest have no
+`-tpqueue`, which default the same way, and log which pool they installed. Seven of the server binaries
+use them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
+`nbio_nonblocking` and `uws_events`. `uws_std` is the `uws_events` program
+built for UIO's stdio backend, which has no executor, so it accepts them but
+installs no pool. The rest have no
 pool to swap and exit on a flag they do not define, which is why
-`script/servers.sh` passes these only to the eight, and their `-inline`
+`script/servers.sh` passes these only to the seven, and their `-inline`
 entries. `-taskpool=inline` is also what tells a server it is running as its
 `-inline` entry, and so which ports to take.
 
 `uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
 run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It has one
-thread pool of its own - its logic thread pool, built the way the `uws` pool
-is: workers up front over sharded queues, refusing rather than waiting - and
+thread pool of its own - its logic thread pool: workers started up front over
+sharded queues, refusing rather than waiting - and
 `uwebsockets` answers on it, off the event loop. Its `-inline` entry,
 `uwebsockets-inline`, is the same server with the pool off, echoing straight
 from the loop callback, on ports of its own (31101 to 31150): `-logicpool` on
@@ -193,12 +197,9 @@ the write. See
 
 Every report records the pool its server installed, shown as the `Pool` row of
 the Summary table, which each client reads from that server's own `/taskpool`
-route when it builds the report. It is what ran rather than what the run asked for, so a
-server whose own scheduling is one of these pools shows that pool under
-`BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
-there. `-` is a framework with no pool hook at all, or one that installed
-none; `uwebsockets` and `tokio_tungstenite` report `logicpool`, and their
-`-inline` entries `inline`.
+route when it builds the report. `-` is a framework with no pool hook at all,
+`uws_std` among them, or one that installed none; `uwebsockets` and
+`tokio_tungstenite` report `logicpool`, and their `-inline` entries `inline`.
 
 `EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
 server's CPU average, which the clients collect along with the memory columns.
@@ -235,19 +236,19 @@ Three things to keep in mind when reading a report:
 - Whichever pool is selected, one connection's messages are still handled and
   answered in the order they arrived. No pool promises that by itself - `go`
   runs a goroutine per task - so the order comes from never handing a pool
-  more than one task per connection at a time: fib submits the connection
-  itself, and nbio, fnet, uws and greatws each keep one per-connection queue
-  and submit a drain only when none is in flight. See the `Ordering` section
+  more than one task per connection at a time: fib and uws_events submit the
+  connection itself, and nbio, fnet and greatws each keep one per-connection
+  queue and submit a drain only when none is in flight. See the `Ordering` section
   of [the package doc](taskpool/taskpool.go) for which mechanism each
   framework uses. `uwebsockets` keeps a queue and a drain flag the same way,
   and has one more step to order: uWS is single threaded per loop, so a worker
   cannot write and hands the echo back through `uWS::Loop::defer`, whose queue
   is FIFO.
-- `uws` is the only pool that refuses work rather than waiting for room, which
-  is how uws surfaces application backpressure. fib and uws close the
-  connections behind the work their pool refused; nbio and fnet run it on the
-  caller instead, because a dropped task there would stall a connection rather
-  than lose one message.
+- No pool refuses work unless it is sized to: `uws` does once
+  `BENCH_TASKPOOL_QUEUE` bounds its pending tasks, and the others wait for
+  room. fib and uws_events close the connections behind the work their pool
+  refused; nbio and fnet run it on the caller instead, because a dropped task
+  there would stall a connection rather than lose one message.
 - `fnet`'s pool goes on its `websocket.Upgrader`, not on its `fnet.Server`:
   the latter runs the HTTP request loop and holds a worker for as long as a
   connection stays unupgraded, so a bounded pool there would wedge on the

@@ -6,3 +6,4 @@ import "go-websocket-benchmark/config"
 
 const frameworkName = config.UwsStdio
 const maxBufferSize = 1024 * 4
+const supportsExecutor = false

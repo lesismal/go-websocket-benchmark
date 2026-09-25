@@ -4,8 +4,8 @@
 //
 // Every pool here is the real thing: the fib, nbio and greatws entries import
 // those projects' pools rather than reimplementing them, and the uws entry is
-// the sharded executor this benchmark has always given uws, moved out of its
-// server so the other frameworks can use it too.
+// taskgo, the pool UIO schedules its connections' I/O on, set up as UIO sets
+// it up.
 //
 // A server picks one with the -taskpool flag; see FromFlags. It defaults to
 // FibAdaptive rather than to Default, so that a run nobody configured still
@@ -30,7 +30,9 @@
 //     list was empty, so the pool sees one drain per connection at a time.
 //     Its blocking connections read on a goroutine of their own and never
 //     reach the pool at all.
-//   - uws keeps a mailbox per connection with a single runner, likewise.
+//   - uws_events submits each connection's whole I/O task, and UIO holds a
+//     scheduled flag while it is in flight, as fib does. uws_std reads and
+//     writes on goroutines of its own and never reaches the pool.
 //   - fnet queues one connection's frames behind a drain flag and submits a
 //     drain only when none is in flight, likewise. It also copies the payload
 //     out of the reactor's read buffer before the callback runs, so the echo
@@ -195,18 +197,6 @@ func FlagConfig() Config {
 	}
 }
 
-// FromFlags builds the pool the command line selects and logs which one it
-// is, so that a report can be read back against the pool that produced it. It
-// returns nil only for -taskpool=default, which leaves the server on its own
-// scheduling, and exits on a name that names no pool, since a run that
-// silently ignored the flag would be reported under the wrong one.
-func FromFlags() Pool { return fromFlags(Default) }
-
-// FromFlagsDefault is FromFlags for a server whose own scheduling already is
-// one of the pools here, and so has nothing to fall back to: it builds
-// fallback for -taskpool=default and never returns nil.
-func FromFlagsDefault(fallback string) Pool { return fromFlags(fallback) }
-
 // installed is what FromFlags built, for the /taskpool route to report and a
 // report to carry a column for. It stays empty in a server that never calls
 // FromFlags, which is how the frameworks with no pool hook are told apart
@@ -223,16 +213,15 @@ func Installed() string {
 	return ""
 }
 
-func fromFlags(fallback string) Pool {
+// FromFlags builds the pool the command line selects and logs which one it
+// is, so that a report can be read back against the pool that produced it. It
+// returns nil only for -taskpool=default, which leaves the server on its own
+// scheduling, and exits on a name that names no pool, since a run that
+// silently ignored the flag would be reported under the wrong one.
+func FromFlags() Pool {
 	config := FlagConfig()
-	if config.Name == Default {
-		config.Name = fallback
-	}
-	// What ran, not what was asked for: a server whose own scheduling is one
-	// of these pools substitutes it for Default, and a report that said
-	// "default" for it would hide the pool it kept running.
-	ran := config.Name
-	installed.Store(&ran)
+	name := config.Name
+	installed.Store(&name)
 	pool, err := New(config)
 	if err != nil {
 		logging.Fatalf("taskpool.New failed: %v", err)
@@ -264,10 +253,16 @@ func orDefault(requested, fallback int) int {
 func call(f func()) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			logging.Printf("taskpool: task panicked: %v\n%s", recovered, stack())
+			logPanic(recovered)
 		}
 	}()
 	f()
+}
+
+// logPanic reports a task that panicked, for call and for the pools that
+// recover their tasks themselves.
+func logPanic(recovered any) {
+	logging.Printf("taskpool: task panicked: %v\n%s", recovered, stack())
 }
 
 func stack() []byte {
