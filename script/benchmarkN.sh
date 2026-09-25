@@ -34,9 +34,10 @@ for arg in "$@"; do
     esac
 done
 
-if bench_runs_servers; then
+# As in script/benchmark.sh: only a server node starts them all up front; a
+# single-node run starts each one just before its turn, below.
+if bench_runs_servers && ! bench_runs_clients; then
     . ./script/servers.sh
-    sleep 3
 fi
 echo $line
 
@@ -47,24 +48,41 @@ if ! bench_runs_clients; then
     return 0 2>/dev/null || exit 0
 fi
 
+. ./script/serverctl.sh || { return 1 2>/dev/null || exit 1; }
+
 # As in script/benchmark.sh: a failed client still leaves the others a report.
 clients_failed=0
+if bench_owns_servers; then
+    bench_check_reserved_ports
+fi
+bench_pause_needed=false
 for f in ${frameworks[@]}; do
-    echo "run ${f} server on cpu ${server_cpu_list:-unbound}"
-    # nohup $limit_cpu_server "./output/bin/${f}.server" -b=$b >"./output/log/${f}${suffix}.log" 2>&1 &
+    if bench_owns_servers; then
+        echo
+        bench_pause
+        if ! bench_start_server "$f"; then
+            echo "skip the clients to ${f}: its server did not start" >&2
+            clients_failed=1
+            bench_pause_needed=true
+            continue
+        fi
+        # Up is not settled: give it a moment before the connections arrive.
+        sleep $ServerReadyDelay
+    fi
     for c in ${Connections[@]}; do
         for b in ${BodySize[@]}; do
             for n in ${BenchTime[@]}; do
                 # echo $line
+                bench_pause
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
                 . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || clients_failed=1
-                sleep $SleepTime
+                bench_pause_needed=true
             done
         done
     done
     if bench_owns_servers; then
-        . ./script/killone.sh "${f}.server"
+        bench_stop_server "$f"
     fi
 done
 

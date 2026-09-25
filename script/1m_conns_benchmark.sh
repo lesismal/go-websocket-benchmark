@@ -44,7 +44,8 @@ for arg in "$@"; do
     esac
 done
 
-if bench_runs_servers; then
+# As in script/benchmark.sh: only a server node starts them all up front.
+if bench_runs_servers && ! bench_runs_clients; then
     . ./script/servers.sh
 
     echo $line
@@ -57,8 +58,6 @@ if ! bench_runs_clients; then
     echo $line
     return 0 2>/dev/null || exit 0
 fi
-
-sleep 3
 
 # As in script/benchmark.sh: a failed client still leaves the others a report.
 clients_failed=0

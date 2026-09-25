@@ -71,6 +71,7 @@ done
 benchmark_args=("$@")
 
 . "$repo_root/script/config.sh" || exit 1
+. "$repo_root/script/ports.sh"
 
 if [ "$BENCH_ROLE" != both ]; then
     echo "BENCH_ROLE=$BENCH_ROLE: this script runs one container with --network none," >&2
@@ -220,6 +221,10 @@ run_args=(
     --pids-limit 32768
     --ulimit nofile=1048576:1048576
     --sysctl "net.ipv4.ip_local_port_range=1024 65535"
+    # Keeps the servers' ports out of that range: each server starts just
+    # before its turn, and a port the client before it left in TIME_WAIT would
+    # fail its bind. See bench_server_reserved_ports in script/ports.sh.
+    --sysctl "net.ipv4.ip_local_reserved_ports=$(bench_server_reserved_ports)"
     --sysctl net.ipv4.tcp_tw_reuse=1
     --env "BENCH_CLIENT=$bench_client"
     --env "BENCH_SERVER_CPU_LIST=$server_cpu_list"
