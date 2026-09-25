@@ -103,7 +103,7 @@ class ScriptTests(unittest.TestCase):
         self.assertEqual(go, sorted(go))
 
         subset = (ROOT / "script/1m_conns_benchmark.sh").read_text()
-        million = re.findall(r'^\s*"([a-z0-9_]+)"$', re.search(
+        million = re.findall(r'^\s*"([a-z0-9_-]+)"$', re.search(
             r"frameworks=\((.*?)\)", subset, re.S).group(1), re.M)
         shell, taskpool = (line.split() for line in result.stdout.splitlines())
         for name, listed in [("frameworks", shell), ("taskpool_frameworks", taskpool),

@@ -45,15 +45,13 @@ case "$BENCH_ROLE" in
     *) echo "Unsupported BENCH_ROLE: $BENCH_ROLE (want both, server or client)" >&2; return 1 ;;
 esac
 
-# Goroutine pool the servers run their callbacks on. Every value the
-# taskpool package takes, and what it selects:
+# Goroutine pool the servers run their callbacks on. Every value it takes,
+# and what it selects:
 #
 #   default       each framework's own scheduling. Not a pool, and not what a
 #                 run without this variable measures. greatws_event answers
 #                 in its poller under this one value; the rest run the pool
 #                 they ship with
-#   inline        no pool: the callback runs on the I/O goroutine that read
-#                 the frame, so the answer is written from the event loop
 #   go            one goroutine per task, bounded by nothing
 #   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
 #                 is fib's own default and this benchmark's
@@ -68,9 +66,17 @@ esac
 #   uws           the sharded channel executor uws runs on here, and the only
 #                 one that refuses work rather than waiting for room
 #
-# default and inline install no pool; all the rest answer off the event loop.
+# default installs no pool; all the rest answer off the event loop.
 # None of this reaches the uwebsockets server, which has its own switch,
 # BENCH_UWS_LOGIC_POOL below.
+#
+# inline - no pool, the callback answering on the I/O goroutine that read the
+# frame - is not one of the values. It is measured on every run instead: each
+# Go event loop server that takes a pool has a second entry, its name with
+# -inline after it (fib-inline, nbio_nonblocking-inline, ...), which is the
+# same server started with -taskpool=inline on ports of its own, while the
+# framework's own entry runs the pool selected here. config.Inlines in
+# config/config.go lists them.
 #
 # Whichever is selected, each report records the pool its server installed -
 # the Pool row of the report's Summary table - read from the server's own
@@ -79,6 +85,10 @@ esac
 #
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
 BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
+if [ "$BENCH_TASKPOOL" = inline ]; then
+    echo "Unsupported BENCH_TASKPOOL: inline; the -inline frameworks run it, next to the pool this selects" >&2
+    return 1
+fi
 # Pool sizing. 0 leaves each pool its own default, which is the sizing the
 # framework it came from runs it at.
 BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
@@ -182,7 +192,8 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 
 # The servers that take the -taskpool flags, in framework-name order like every
 # other framework list here. The rest have no pool to swap and would exit on a
-# flag they do not define.
+# flag they do not define. The -inline ones take -taskpool=inline whatever
+# BENCH_TASKPOOL says; see script/servers.sh.
 #
 # uwebsockets is listed for its /taskpool route only: it is a C++ server, so
 # none of the Go pools can run under it, and script/servers.sh passes it its own
@@ -196,13 +207,20 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # benchcli-uwscpp/test_scripts.py holds the two to each other.
 taskpool_frameworks=(
     "fib"
+    "fib-inline"
     "fnet"
+    "fnet-inline"
     "greatws"
+    "greatws-inline"
     "greatws_event"
+    "greatws_event-inline"
     "nbio_mixed"
+    "nbio_mixed-inline"
     "nbio_nonblocking"
+    "nbio_nonblocking-inline"
     "uwebsockets"
     "uws_events"
+    "uws_events-inline"
     "uws_std"
 )
 
@@ -218,18 +236,24 @@ SleepTime=5
 frameworks=(
     "fasthttp"
     "fib"
+    "fib-inline"
     "fnet"
+    "fnet-inline"
     "gobwas"
     "gorilla"
     "greatws"
+    "greatws-inline"
     "greatws_event"
+    "greatws_event-inline"
     "gws"
     "gws_std"
     "hertz"
     "hertz_std"
     "nbio_blocking"
     "nbio_mixed"
+    "nbio_mixed-inline"
     "nbio_nonblocking"
+    "nbio_nonblocking-inline"
     "nbio_std"
     "nettyws"
     "nhooyr"
@@ -237,6 +261,7 @@ frameworks=(
     "tokio_tungstenite"
     "uwebsockets"
     "uws_events"
+    "uws_events-inline"
     "uws_std"
 )
 

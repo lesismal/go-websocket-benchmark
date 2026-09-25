@@ -51,9 +51,10 @@ func main() {
 	if *readBufferSize <= 0 {
 		logging.Fatalf("read buffer size must be positive: %d", *readBufferSize)
 	}
-	addrs, err := config.GetFrameworkServerAddrs(frameworkName)
+	name := frameworks.Name(frameworkName)
+	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", frameworkName, err)
+		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", name, err)
 	}
 	if len(addrs) == 0 {
 		logging.Fatalf("no websocket listen addresses configured")
@@ -75,7 +76,7 @@ func main() {
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.Serve(addrs...) }()
 
-	pidLn := startHTTPServer()
+	pidLn := startHTTPServer(name)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	var serveErr error
@@ -90,10 +91,10 @@ func main() {
 	logging.Printf("server exit: %v", serveErr)
 }
 
-func startHTTPServer() net.Listener {
-	addr, err := config.GetFrameworkHTTPServerAddrs(frameworkName)
+func startHTTPServer(name string) net.Listener {
+	addr, err := config.GetFrameworkHTTPServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", frameworkName, err)
+		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", name, err)
 	}
 	mux := &http.ServeMux{}
 	frameworks.HandleCommon(mux)

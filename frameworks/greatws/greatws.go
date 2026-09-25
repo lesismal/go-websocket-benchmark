@@ -65,9 +65,10 @@ func main() {
 	}
 	upgrader = greatws.NewUpgrade(opt...)
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Greatws)
+	name := frameworks.Name(config.Greatws)
+	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Greatws, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
 	}
 
 	lns := h.startServers(addrs)
