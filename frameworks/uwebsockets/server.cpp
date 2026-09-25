@@ -604,7 +604,7 @@ constexpr unsigned kDefaultPending = 65536;
 // script/env.sh pins them, benchcli-uwscpp echoing a 1KiB payload over 50000 connections at
 // 10000 concurrency, TPS averaged over two to four runs:
 //
-//     server CPUs  loops+workers  BenchEcho  BenchRate
+//     server CPUs  loops+workers  BenchEcho  BenchPipeline
 //     2            1+1            266k       1.12M      the old default, loops = cpus - workers
 //     2            2+1            323k       1.43M      <- this default
 //     2            2+2            263k       1.33M

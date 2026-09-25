@@ -169,7 +169,7 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 	var psErr error
 	be.PsCounter, psErr = be.psInfo()
 	if psErr != nil {
-		logging.Printf("BenchEcho: resource statistics for %v incomplete, EER will read 0: %v",
+		logging.Printf("BenchEcho: resource statistics for %v incomplete, CPU EER and MEM EER will read 0: %v",
 			be.Framework, psErr)
 	}
 	if be.PsCounter != nil {
@@ -182,7 +182,8 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 		r.MEMRSSMin = be.PsCounter.MEMRSSMin()
 		r.MEMRSSAvg = be.PsCounter.MEMRSSAvg()
 		r.MEMRSSMax = be.PsCounter.MEMRSSMax()
-		r.EER = report.EER(float64(r.TPS), r.CPUAvg)
+		r.CPUEER = report.EER(float64(r.TPS), r.CPUAvg)
+		r.MEMEER = report.MEMEER(float64(r.TPS), r.MEMRSSAvg)
 	}
 	return r
 }

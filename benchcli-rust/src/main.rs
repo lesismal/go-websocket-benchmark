@@ -360,11 +360,11 @@ fn benchmark(o: &Options) -> Result<i32, String> {
             .shared
             .rate_end
             .store(start + seconds as i64 * 1_000_000_000, Ordering::Release);
-        let rate_profile = profile(o, "BenchRate", o.b("rp"), o.i("rpd").max(1));
-        println!("BenchRate: {seconds} seconds");
+        let rate_profile = profile(o, "BenchPipeline", o.b("rp"), o.i("rpd").max(1));
+        println!("BenchPipeline: {seconds} seconds");
         runner.shared.stage.store(RATE, Ordering::Release);
         runner.wait(RATE)?;
-        let mut rate = empty_report("BenchRate", o);
+        let mut rate = empty_report("BenchPipeline", o);
         let s = runner.collect(|c| &c.rate_stats);
         let payload = runner.shared.payloads[0].len() as i64;
         rate.insert("Duration".into(), json!(seconds as i64 * 1_000_000_000));
@@ -384,7 +384,7 @@ fn benchmark(o: &Options) -> Result<i32, String> {
         fill_rate_tps(&mut rate);
         ps::resource_stats(&mut rate, o, true, &ps);
         join_profile(rate_profile);
-        save_report(o, "BenchRate", &rate)?;
+        save_report(o, "BenchPipeline", &rate)?;
     }
     Ok(if stats.failed != 0 || dial.failed != 0 {
         1

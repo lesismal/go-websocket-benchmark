@@ -13,7 +13,7 @@
 // connection's task yields, since tungstenite reads until it has no whole frame left.
 //
 // Writes the same way. tungstenite gathers a batch's frames in a write buffer of its own that
-// never shrinks, so every connection that had echoed a burst kept its peak: BenchRate went from
+// never shrinks, so every connection that had echoed a burst kept its peak: BenchPipeline went from
 // 6.85G to 8.8G at 50000 connections, and still held 1.8-2.6G with the reads fixed. So
 // write_buffer_size is 0 (see ws_config), which has tungstenite hand each frame here as it is
 // framed, and here the frames gather in a pooled buffer that the flush the echo loop makes after

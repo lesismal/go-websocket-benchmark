@@ -27,6 +27,8 @@ var (
 	memLimit = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_        = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_        = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
+
+	logStatusEnabled = flag.Bool("logstatus", false, `log the backpressure counters every 500ms and at exit`)
 )
 
 const (
@@ -54,17 +56,21 @@ func main() {
 	metricsServer := startMetricsServer(name)
 	// Sample the backpressure counters through the run as well as at the end:
 	// one total cannot say which phase the pauses belong to.
-	go func() {
-		for range time.Tick(500 * time.Millisecond) {
-			logStatus(server.Stats())
-		}
-	}()
+	if *logStatusEnabled {
+		go func() {
+			for range time.Tick(500 * time.Millisecond) {
+				logStatus(server.Stats())
+			}
+		}()
+	}
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	<-interrupt
 
-	logStatus(server.Stats())
+	if *logStatusEnabled {
+		logStatus(server.Stats())
+	}
 	server.Stop()
 	if err := metricsServer.Shutdown(context.Background()); err != nil {
 		logging.Printf("metrics server shutdown failed: %v", err)

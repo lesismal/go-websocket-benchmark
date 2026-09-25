@@ -28,12 +28,12 @@ var SummaryParameters = []SummaryParameter{
 	{"Dial Concurrency", "connections dialed at once (-dc)"},
 	{"Echo Concurrency", "echo requests in flight at once (-ec)"},
 	{"Echo Total", "echo round trips per framework (-en)"},
-	{"Rate Concurrency", "connections sending at once in BenchRate (-rc)"},
-	{"Rate Duration", "how long BenchRate sends for (-rd)"},
+	{"Rate Concurrency", "connections sending at once in BenchPipeline (-rc)"},
+	{"Rate Duration", "how long BenchPipeline sends for (-rd)"},
 	{"Rate SendRate", "messages sent to each connection per second (-rr)"},
-	{"Rate Pipeline", "messages merged into one write in BenchRate (-rpl)"},
+	{"Rate Pipeline", "messages merged into one write in BenchPipeline (-rpl)"},
 	{"Echo Pprof", "client sampled Go servers' pprof in BenchEcho (-ep); others never are"},
-	{"Rate Pprof", "client sampled Go servers' pprof in BenchRate (-rp); others never are"},
+	{"Rate Pprof", "client sampled Go servers' pprof in BenchPipeline (-rp); others never are"},
 }
 
 // PprofSetting is a report's EchoPprof or RatePprof: whether -ep or -rp was on.

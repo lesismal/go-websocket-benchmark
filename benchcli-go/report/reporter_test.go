@@ -26,7 +26,7 @@ func names(reports []Report) []string {
 			got = append(got, v.Framework)
 		case *BenchEchoReport:
 			got = append(got, v.Framework)
-		case *BenchRateReport:
+		case *BenchPipelineReport:
 			got = append(got, v.Framework)
 		}
 	}
@@ -55,12 +55,12 @@ func TestSortResultRanksConnectionsAndEchoByTPS(t *testing.T) {
 		t.Errorf("Connections ranked %v, want fast, mid, slow", got)
 	}
 
-	// EER runs the other way here, so a row ranked by it would come out
+	// CPU EER runs the other way here, so a row ranked by it would come out
 	// reversed: TPS is what the order has to read.
 	echo := []Report{
-		&BenchEchoReport{Framework: "slow", TPS: 10, EER: 900},
-		&BenchEchoReport{Framework: "fast", TPS: 300, EER: 1},
-		&BenchEchoReport{Framework: "mid", TPS: 200, EER: 50},
+		&BenchEchoReport{Framework: "slow", TPS: 10, CPUEER: 900},
+		&BenchEchoReport{Framework: "fast", TPS: 300, CPUEER: 1},
+		&BenchEchoReport{Framework: "mid", TPS: 200, CPUEER: 50},
 	}
 	if got := names(SortReports(echo, SortResult)); !equal(got, []string{"fast", "mid", "slow"}) {
 		t.Errorf("BenchEcho ranked %v, want fast, mid, slow", got)
@@ -69,17 +69,17 @@ func TestSortResultRanksConnectionsAndEchoByTPS(t *testing.T) {
 
 // TestSortResultRanksRateByTPSThenEER holds the rate benchmark to its TPS, the
 // packets the clients read back per second, not to what they sent or to the
-// bytes, and breaks a tie on it by EER.
+// bytes, and breaks a tie on it by CPU EER.
 func TestSortResultRanksRateByTPSThenEER(t *testing.T) {
 	rate := []Report{
-		&BenchRateReport{Framework: "few", SendBytes: 9000, TPS: 10, RecvBytes: 9000, EchoEER: 900},
-		&BenchRateReport{Framework: "many-costly", TPS: 90, RecvBytes: 10, EchoEER: 5},
-		&BenchRateReport{Framework: "mid", TPS: 50, EchoEER: 1},
-		&BenchRateReport{Framework: "many-cheap", TPS: 90, RecvBytes: 10, EchoEER: 50},
+		&BenchPipelineReport{Framework: "few", SendBytes: 9000, TPS: 10, RecvBytes: 9000, CPUEER: 900},
+		&BenchPipelineReport{Framework: "many-costly", TPS: 90, RecvBytes: 10, CPUEER: 5},
+		&BenchPipelineReport{Framework: "mid", TPS: 50, CPUEER: 1},
+		&BenchPipelineReport{Framework: "many-cheap", TPS: 90, RecvBytes: 10, CPUEER: 50},
 	}
 	want := []string{"many-cheap", "many-costly", "mid", "few"}
 	if got := names(SortReports(rate, SortResult)); !equal(got, want) {
-		t.Errorf("BenchRate ranked %v, want %v", got, want)
+		t.Errorf("BenchPipeline ranked %v, want %v", got, want)
 	}
 }
 
@@ -175,13 +175,13 @@ func rowOrder(table string, want ...string) bool {
 // TestHiddenColumnsStayInTheJSON holds the tables and the console to the
 // shorter set of columns, and the JSON to all of them: TP50, TP75, TP90,
 // CPU Min and MEM Min are md:"-", the Client row reads language-framework
-// rather than "benchcli-...", and BenchRate's EchoEER is headed EER.
+// rather than "benchcli-...", and BenchPipeline's EchoEER is headed CPU EER.
 func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	Init(true)
 	hidden := []string{"TP50", "TP75", "TP90", "CPU Min", "MEM Min", "benchcli-", "EchoEER"}
 
 	echo := &BenchEchoReport{Framework: "gorilla", BenchClient: "benchcli-uwscpp", CPUMin: 1, MEMRSSMin: 1}
-	rate := &BenchRateReport{Framework: "gorilla", BenchClient: "benchcli-go", EchoEER: 12.5}
+	rate := &BenchPipelineReport{Framework: "gorilla", BenchClient: "benchcli-go", CPUEER: 12.5}
 	conns := &ConnectionsReport{Framework: "gorilla", BenchClient: "benchcli-go"}
 	for _, r := range []Report{echo, rate, conns} {
 		if got, want := len(r.Headers()), len(r.Fields(true)); got != want {
@@ -200,9 +200,9 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	if !strings.Contains(table, "TP95") {
 		t.Errorf("BenchEcho table lost a column it should keep:\n%s", table)
 	}
-	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " EER [↓2] ") ||
+	if table := Markdown([]Report{rate}, true, SortFramework, nil); !strings.Contains(table, " CPU EER [↓2] ") ||
 		!strings.Contains(table, "12.50") {
-		t.Errorf("BenchRate table:\n%s", table)
+		t.Errorf("BenchPipeline table:\n%s", table)
 	}
 	if summary := Summary("", []Report{echo}, []Report{rate}); !strings.Contains(summary, "cpp-uwebsockets (gorilla); go-nbio (gorilla)") {
 		t.Errorf("Summary does not show the clients without their prefix:\n%s", summary)
@@ -214,7 +214,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 		}
 	}
 	if !strings.Contains(JSON(rate), `"EchoEER":12.5`) {
-		t.Errorf("BenchRate JSON lost EchoEER: %s", JSON(rate))
+		t.Errorf("BenchPipeline JSON lost CPUEER: %s", JSON(rate))
 	}
 }
 
@@ -249,12 +249,12 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 	}
 
 	table := Markdown([]Report{
-		&BenchRateReport{Framework: "a", TPS: 200, EchoEER: 1},
-		&BenchRateReport{Framework: "b", TPS: 50, EchoEER: 9},
+		&BenchPipelineReport{Framework: "a", TPS: 200, CPUEER: 1},
+		&BenchPipelineReport{Framework: "b", TPS: 50, CPUEER: 9},
 	}, false, SortResult, nil)
 	for _, cell := range []string{"| 200 100% |", "|  50  25% |"} {
 		if !strings.Contains(table, cell) {
-			t.Errorf("BenchRate: no %q in:\n%s", cell, table)
+			t.Errorf("BenchPipeline: no %q in:\n%s", cell, table)
 		}
 	}
 }
@@ -267,7 +267,7 @@ func TestMarkdownShowsThePercentOfTheBest(t *testing.T) {
 func TestSummaryPprofRows(t *testing.T) {
 	Init(false)
 	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", EchoPprof: "on"}}
-	rate := []Report{&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", RatePprof: "off"}}
+	rate := []Report{&BenchPipelineReport{Framework: "fib", BenchClient: "benchcli-uwscpp", RatePprof: "off"}}
 	summary := Summary("", echo, rate)
 	if !rowOrder(summary, "Rate Pipeline", "Echo Pprof", "on", "(-ep)", "Rate Pprof", "off", "(-rp)") {
 		t.Errorf("Summary has no pprof rows:\n%s", summary)
@@ -311,13 +311,13 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		&BenchEchoReport{Framework: "fasthttp", BenchClient: "benchcli-uwscpp", TaskPool: "-", Connections: 20000, Concurrency: 10000, Total: 2000000, Payload: 1024},
 	}
 	rate := []Report{
-		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
+		&BenchPipelineReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
 	}
 	summary := Summary("", conns, echo, rate)
 	rows := []string{"Client", "cpp-uwebsockets", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
 		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200", "Rate Pipeline", "10",
-		"messages merged into one write in BenchRate (-rpl)"}
+		"messages merged into one write in BenchPipeline (-rpl)"}
 	if !rowOrder(summary, rows...) {
 		t.Errorf("Summary does not read %v:\n%s", rows, summary)
 	}
@@ -368,7 +368,7 @@ func TestSummaryParametersListsEveryTag(t *testing.T) {
 			t.Errorf("SummaryParameters gives %v no description", p.Name)
 		}
 	}
-	for _, r := range []interface{}{ConnectionsReport{}, BenchEchoReport{}, BenchRateReport{}} {
+	for _, r := range []interface{}{ConnectionsReport{}, BenchEchoReport{}, BenchPipelineReport{}} {
 		typ := reflect.TypeOf(r)
 		for i := 0; i < typ.NumField(); i++ {
 			if name := typ.Field(i).Tag.Get("summary"); name != "" && !listed[name] {
@@ -380,16 +380,25 @@ func TestSummaryParametersListsEveryTag(t *testing.T) {
 }
 
 // TestSortResultBreaksAnEchoTieByEER ranks two echo runs with the same TPS by
-// the CPU they spent on it; Connections, which has no EER, keeps a tie in
+// the CPU they spent on it, and two with the same CPU EER as well by the
+// memory they held for it; Connections, which has no EER, keeps a tie in
 // framework order.
 func TestSortResultBreaksAnEchoTieByEER(t *testing.T) {
 	echo := []Report{
-		&BenchEchoReport{Framework: "costly", TPS: 300, EER: 5},
-		&BenchEchoReport{Framework: "slow", TPS: 10, EER: 900},
-		&BenchEchoReport{Framework: "cheap", TPS: 300, EER: 50},
+		&BenchEchoReport{Framework: "costly", TPS: 300, CPUEER: 5},
+		&BenchEchoReport{Framework: "slow", TPS: 10, CPUEER: 900},
+		&BenchEchoReport{Framework: "cheap-fat", TPS: 300, CPUEER: 50, MEMEER: 10},
+		&BenchEchoReport{Framework: "cheap-lean", TPS: 300, CPUEER: 50, MEMEER: 900},
 	}
-	if got, want := names(SortReports(echo, SortResult)), []string{"cheap", "costly", "slow"}; !equal(got, want) {
+	if got, want := names(SortReports(echo, SortResult)), []string{"cheap-lean", "cheap-fat", "costly", "slow"}; !equal(got, want) {
 		t.Errorf("BenchEcho ranked %v, want %v", got, want)
+	}
+	rate := []Report{
+		&BenchPipelineReport{Framework: "fat", TPS: 90, CPUEER: 5, MEMEER: 1},
+		&BenchPipelineReport{Framework: "lean", TPS: 90, CPUEER: 5, MEMEER: 2},
+	}
+	if got, want := names(SortReports(rate, SortResult)), []string{"lean", "fat"}; !equal(got, want) {
+		t.Errorf("BenchPipeline ranked %v, want %v", got, want)
 	}
 	conns := []Report{
 		&ConnectionsReport{Framework: "b", TPS: 300},
@@ -400,14 +409,15 @@ func TestSortResultBreaksAnEchoTieByEER(t *testing.T) {
 	}
 }
 
-// TestMarkdownShowsThePercentOfTheBestEER gives the EER column its own
-// percentages, of the best EER rather than of the row ranked first.
+// TestMarkdownShowsThePercentOfTheBestEER gives the CPU EER and MEM EER
+// columns their own percentages, of the best in each rather than of the row
+// ranked first.
 func TestMarkdownShowsThePercentOfTheBestEER(t *testing.T) {
 	Init(false)
 	echo := Markdown([]Report{
-		&BenchEchoReport{Framework: "fast", TPS: 3000, EER: 1250.5},
-		&BenchEchoReport{Framework: "lean", TPS: 1500, EER: 2501},
-		&BenchEchoReport{Framework: "slow", TPS: 10, EER: 9.25},
+		&BenchEchoReport{Framework: "fast", TPS: 3000, CPUEER: 1250.5},
+		&BenchEchoReport{Framework: "lean", TPS: 1500, CPUEER: 2501},
+		&BenchEchoReport{Framework: "slow", TPS: 10, CPUEER: 9.25},
 	}, false, SortResult, nil)
 	for _, cell := range []string{"| 1250.50  50% |", "| 2501.00 100% |", "|    9.25   0% |"} {
 		if !strings.Contains(echo, cell) {
@@ -415,12 +425,14 @@ func TestMarkdownShowsThePercentOfTheBestEER(t *testing.T) {
 		}
 	}
 	rate := Markdown([]Report{
-		&BenchRateReport{Framework: "a", TPS: 200, EchoEER: 40},
-		&BenchRateReport{Framework: "b", TPS: 50, EchoEER: 160},
+		&BenchPipelineReport{Framework: "a", TPS: 200, CPUEER: 40, MEMEER: 3},
+		&BenchPipelineReport{Framework: "b", TPS: 50, CPUEER: 160, MEMEER: 12},
 	}, false, SortFramework, nil)
-	for _, cell := range []string{"|  40.00  25% |", "| 160.00 100% |"} {
+	// The titles, [↓2] and [↓3] on them, are wider than these cells, so the
+	// cells are centred under them rather than filling them.
+	for _, cell := range []string{"  40.00  25% ", " 160.00 100% ", "  3.00  25% ", " 12.00 100% "} {
 		if !strings.Contains(rate, cell) {
-			t.Errorf("BenchRate: no %q in:\n%s", cell, rate)
+			t.Errorf("BenchPipeline: no %q in:\n%s", cell, rate)
 		}
 	}
 	if conns := Markdown([]Report{&ConnectionsReport{Framework: "a", TPS: 5}}, false, SortResult, nil); strings.Count(conns, "%") != 1 {
@@ -462,8 +474,8 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 			markers []string
 		}{
 			{[]Report{&ConnectionsReport{Framework: "a", TPS: 5}, &ConnectionsReport{Framework: "b", TPS: 50}}, []string{" TPS [↓1] "}},
-			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, EER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, EER: 1}}, []string{" TPS [↓1] ", " EER [↓2] "}},
-			{[]Report{&BenchRateReport{Framework: "a", TPS: 5, RecvTimes: 50, EchoEER: 2}}, []string{" TPS [↓1] ", " EER [↓2] "}},
+			{[]Report{&BenchEchoReport{Framework: "a", TPS: 5, CPUEER: 2}, &BenchEchoReport{Framework: "b", TPS: 50, CPUEER: 1}}, []string{" TPS [↓1] ", " CPU EER [↓2] ", " MEM EER [↓3] "}},
+			{[]Report{&BenchPipelineReport{Framework: "a", TPS: 5, RecvTimes: 50, CPUEER: 2}}, []string{" TPS [↓1] ", " CPU EER [↓2] ", " MEM EER [↓3] "}},
 		} {
 			table := Markdown(c.reports, false, order, nil)
 			title := strings.SplitN(table, "\n", 2)[0]
@@ -490,13 +502,13 @@ func TestRankMarkersKeepTheColumnsInLine(t *testing.T) {
 	}
 }
 
-// TestRateTPSIsPacketsPerSecond puts BenchRate's TPS right after Framework
+// TestRateTPSIsPacketsPerSecond puts BenchPipeline's TPS right after Framework
 // and Lang, works it out for a report written before it had one, and leaves
 // Packet Recv a plain column.
 func TestRateTPSIsPacketsPerSecond(t *testing.T) {
 	Init(false)
-	if got := BenchRateReportMarkdownHeaders[:4]; !equal(got, []string{"Framework", "Lang", "TPS", "EER"}) {
-		t.Errorf("BenchRate columns start %v, want Framework, Lang, TPS, EER", got)
+	if got := BenchPipelineReportMarkdownHeaders[:5]; !equal(got, []string{"Framework", "Lang", "TPS", "CPU EER", "MEM EER"}) {
+		t.Errorf("BenchPipeline columns start %v, want Framework, Lang, TPS, CPU EER, MEM EER", got)
 	}
 	if got := RateTPS(39809390, 10e9); got != 3980939 {
 		t.Errorf("RateTPS = %v, want 3980939", got)
@@ -505,12 +517,12 @@ func TestRateTPSIsPacketsPerSecond(t *testing.T) {
 		t.Errorf("RateTPS of no duration = %v, want 0", got)
 	}
 
-	old := &BenchRateReport{Framework: "fib", RecvTimes: 39809399, Duration: 10e9}
+	old := &BenchPipelineReport{Framework: "fib", RecvTimes: 39809399, Duration: 10e9}
 	old.fillTPS()
 	if old.TPS != 3980939 {
 		t.Errorf("fillTPS set %v, want 3980939", old.TPS)
 	}
-	recorded := &BenchRateReport{TPS: 7, RecvTimes: 1000, Duration: 1e9}
+	recorded := &BenchPipelineReport{TPS: 7, RecvTimes: 1000, Duration: 1e9}
 	recorded.fillTPS()
 	if recorded.TPS != 7 {
 		t.Errorf("fillTPS replaced a recorded TPS with %v", recorded.TPS)
@@ -518,7 +530,7 @@ func TestRateTPSIsPacketsPerSecond(t *testing.T) {
 
 	table := Markdown([]Report{old}, false, SortResult, nil)
 	if !strings.Contains(table, "| 3980939 100% |") || !strings.Contains(table, " 39809399 ") {
-		t.Errorf("BenchRate table:\n%s", table)
+		t.Errorf("BenchPipeline table:\n%s", table)
 	}
 }
 
@@ -571,8 +583,8 @@ func TestPercentOfFloats(t *testing.T) {
 	// One of the EERs that used to leave its table without a 100% row.
 	Init(false)
 	table := Markdown([]Report{
-		&BenchEchoReport{Framework: "a", TPS: 10, EER: 1395.7292860139253},
-		&BenchEchoReport{Framework: "b", TPS: 20, EER: 697.86464300696265},
+		&BenchEchoReport{Framework: "a", TPS: 10, CPUEER: 1395.7292860139253},
+		&BenchEchoReport{Framework: "b", TPS: 20, CPUEER: 697.86464300696265},
 	}, false, SortResult, nil)
 	for _, cell := range []string{"| 1395.73 100% |", "|  697.86  50% |"} {
 		if !strings.Contains(table, cell) {
@@ -587,9 +599,9 @@ func TestPercentOfFloats(t *testing.T) {
 func TestLangFollowsFramework(t *testing.T) {
 	Init(false)
 	for name, headers := range map[string][]string{
-		"Connections": ConnectionsReportMarkdownHeaders,
-		"BenchEcho":   BenchEchoReportMarkdownHeaders,
-		"BenchRate":   BenchRateReportMarkdownHeaders,
+		"Connections":   ConnectionsReportMarkdownHeaders,
+		"BenchEcho":     BenchEchoReportMarkdownHeaders,
+		"BenchPipeline": BenchPipelineReportMarkdownHeaders,
 	} {
 		if len(headers) < 2 || headers[0] != "Framework" || headers[1] != "Lang" {
 			t.Errorf("%s columns start %v, want Framework, Lang", name, headers)
@@ -631,5 +643,33 @@ func TestLangFollowsFramework(t *testing.T) {
 		if !regexp.MustCompile(`\| *` + framework + ` *\| *` + regexp.QuoteMeta(lang) + ` *\|`).MatchString(table) {
 			t.Errorf("no %s row with Lang %s in:\n%s", framework, lang, table)
 		}
+	}
+}
+
+// TestMEMEERIsTPSPerMB divides by the average RSS in MB, the M of the MEM
+// columns, reads 0 rather than +Inf when nothing was sampled, and is worked out
+// for a report written before it had one.
+func TestMEMEERIsTPSPerMB(t *testing.T) {
+	if got := MEMEER(1000, 50*1024*1024); got != 20 {
+		t.Errorf("MEMEER(1000, 50M) = %v, want 20", got)
+	}
+	if got := MEMEER(1000, 0); got != 0 {
+		t.Errorf("MEMEER of no memory = %v, want 0", got)
+	}
+
+	echo := &BenchEchoReport{TPS: 3000, MEMRSSAvg: 100 * 1024 * 1024}
+	echo.fillMEMEER()
+	if echo.MEMEER != 30 {
+		t.Errorf("BenchEcho fillMEMEER set %v, want 30", echo.MEMEER)
+	}
+	rate := &BenchPipelineReport{RecvTimes: 4000, Duration: 2e9, MEMRSSAvg: 10 * 1024 * 1024}
+	rate.fillMEMEER()
+	if rate.MEMEER != 200 {
+		t.Errorf("BenchPipeline fillMEMEER set %v, want 200", rate.MEMEER)
+	}
+	recorded := &BenchEchoReport{TPS: 3000, MEMRSSAvg: 100 * 1024 * 1024, MEMEER: 7}
+	recorded.fillMEMEER()
+	if recorded.MEMEER != 7 {
+		t.Errorf("fillMEMEER replaced a recorded MEM EER with %v", recorded.MEMEER)
 	}
 }
