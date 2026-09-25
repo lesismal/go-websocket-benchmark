@@ -262,8 +262,8 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 }
 // rankKeys is what -sort=result ranks a report by, most significant first: the fields
 // tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
-// That is TPS for Connections, and TPS then EER for BenchEcho and BenchPipeline, whose TPS is
-// the packets the clients read back off the server per second.
+// That is TPS for Connections, and TPS then CPU EER then MEM EER for BenchEcho and
+// BenchPipeline, whose TPS is the packets the clients read back off the server per second.
 inline std::vector<json> rankFields(const std::string &kind) {
     std::vector<json> fields;
     for (const auto &field:metadata["schemas"][kind])
@@ -319,6 +319,22 @@ inline void fillRateTPS(json &r) {
     double duration=number("Duration");
     r["TPS"]=duration>0?int64_t(std::floor(number("RecvTimes")/(duration/1e9))):int64_t(0);
 }
+// perUnit is throughput/unit, or 0 when there is nothing to divide by, as report.EER has it.
+inline double perUnit(double throughput,double unit) {
+    double eer=throughput/unit;
+    return unit>0&&std::isfinite(eer)?eer:0.0;
+}
+// memEER is report.MEMEER, the MEM EER column: the throughput a server got for each MB
+// (1024*1024 bytes, the M of the MEM columns) of the memory it held on average.
+inline double memEER(double throughput,double memAvg) { return perUnit(throughput,memAvg/(1024.0*1024.0)); }
+// fillMEMEER mirrors BenchEchoReport.fillMEMEER and BenchPipelineReport.fillMEMEER: a report
+// written before MEM EER existed gets it here, so that an earlier run still ranks by it.
+inline void fillMEMEER(json &r,bool rate) {
+    auto number=[&r](const char *key) { return r.contains(key)&&r[key].is_number()?r[key].get<double>():0.0; };
+    if (number("MEMEER")!=0) return;
+    double tps=rate?number("RecvTimes")/(number("Duration")/1e9):number("TPS");
+    r["MEMEER"]=memEER(tps,number("MEMAvg"));
+}
 inline std::vector<json> readReports(const Options &o,const std::string &kind) {
     std::vector<json> rows;
     for (const auto &f:metadata["frameworks"]) {
@@ -332,6 +348,7 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
         if (!row.contains("Lang") || !row["Lang"].is_string() || row["Lang"].get<std::string>().empty())
             row["Lang"]=frameworkLang(f.get<std::string>());
         if (kind=="BenchPipeline") fillRateTPS(row);
+        if (kind=="BenchEcho" || kind=="BenchPipeline") fillMEMEER(row,kind=="BenchPipeline");
     }
     return rows;
 }
@@ -520,7 +537,7 @@ inline PSSetup setupPS(const Options &o) {
     }
     return ps;
 }
-// applyResourceStats fills the CPU, MEM and EER columns from a set of samples,
+// applyResourceStats fills the CPU, MEM, CPU EER and MEM EER columns from a set of samples,
 // whoever took them. Min and Avg skip the first sample, and MEM sorts before it
 // does, the way github.com/lesismal/perf PSCounter computes the same columns.
 inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint64_t> mem,bool rate) {
@@ -539,7 +556,8 @@ inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint6
     }
     double avg=r["CPUAvg"].get<double>();
     double tps=rate?r["RecvTimes"].get<double>()/(r["Duration"].get<double>()/1e9):r["TPS"].get<double>();
-    r[rate?"EchoEER":"EER"]=avg>0&&std::isfinite(tps)?tps/avg:0.0;
+    r[rate?"EchoEER":"EER"]=perUnit(tps,avg);
+    r["MEMEER"]=memEER(tps,r.contains("MEMAvg")?r["MEMAvg"].get<double>():0.0);
 }
 inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) {
     std::vector<double> cpu;
@@ -560,7 +578,7 @@ inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) 
     }
     applyResourceStats(r,cpu,mem,rate);
     if (cpu.empty()) {
-        std::cerr<<"server resource statistics unavailable, "<<(rate?"EchoEER":"EER")<<" reads 0: ";
+        std::cerr<<"server resource statistics unavailable, CPU EER and MEM EER read 0: ";
         if (!trouble.empty()) std::cerr<<trouble<<'\n';
         else std::cerr<<"nothing was sampled, so either the sampling never started or the phase was"
                         " shorter than the -pi sampling interval\n";

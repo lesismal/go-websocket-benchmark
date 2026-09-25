@@ -8,7 +8,8 @@ var (
 
 // ConnectionsReport is ranked by TPS (rank:"1"), the rate the server accepted
 // and completed handshakes at, which is what this benchmark measures. It has
-// no EER to break a tie with: the connection test samples no CPU.
+// no CPU EER or MEM EER to break a tie with: the connection test samples
+// neither CPU nor memory.
 type ConnectionsReport struct {
 	Framework   string `json:"Framework" md:"Framework"`
 	Lang        string `json:"Lang" md:"Lang"`

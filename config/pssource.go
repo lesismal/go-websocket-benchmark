@@ -11,7 +11,7 @@ import (
 	"github.com/lesismal/perf"
 )
 
-// Where a report's CPU and MEM columns - and so EER and EchoEER - come from.
+// Where a report's CPU and MEM columns - and so CPU EER and MEM EER - come from.
 //
 // There are two ways to sample a server, and the difference is which machine
 // does it. Asking the server over its /ps route is the only way when it is on

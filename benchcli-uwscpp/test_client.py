@@ -203,6 +203,7 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual((e['CPUMin'], e['CPUAvg'], e['CPUMax']), (10, 20, 30))
                 self.assertEqual((e['MEMMin'], e['MEMAvg'], e['MEMMax']), (2000, 2500, 3000))
                 self.assertAlmostEqual(e['EER'], e['TPS'] / 20)
+                self.assertAlmostEqual(e['MEMEER'], e['TPS'] / (2500 / (1024 * 1024)))
                 self.assertTrue(self.server.masked)
 
     def test_fragmented_messages_and_ping(self):
@@ -273,7 +274,8 @@ class ClientTests(unittest.TestCase):
                  'RecvTimes': packets, 'EchoEER': 1}))
         self.run_client('-r=true')
         lines = (directory / 'BenchPipeline.md').read_text(encoding='utf-8').splitlines()
-        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:5]], ['Framework', 'Lang', 'TPS [↓1]', 'EER [↓2]'])
+        self.assertEqual([cell.strip() for cell in lines[0].split('|')[1:6]],
+                         ['Framework', 'Lang', 'TPS [↓1]', 'CPU EER [↓2]', 'MEM EER [↓3]'])
         self.assertIn('| 3980939 100% |', lines[2])
         self.assertIn('| 1658797  41% |', lines[3])
 
@@ -379,16 +381,17 @@ class ClientTests(unittest.TestCase):
         directory = self.cwd / 'output/report'
         directory.mkdir(parents=True)
 
-        # BenchPipeline ranks by TPS, then EchoEER; RecvBytes runs the other way
-        # here, so a table ranked by it would come out reversed.
-        def write(scores, eer=None):
+        # BenchPipeline ranks by TPS, then EchoEER, then MEMEER; RecvBytes runs
+        # the other way here, so a table ranked by it would come out reversed.
+        def write(scores, eer=None, memeer=None):
             for framework, score in scores.items():
                 for kind in ['Connections', 'BenchEcho', 'BenchPipeline']:
                     (directory / f'{framework}-{kind}.json').write_text(json.dumps(
                         {'Framework': framework, 'BenchClient': 'benchcli-uwscpp',
                          'TPS': score, 'RecvTimes': score * 10, 'RecvBytes': 100 - score,
                          'EER': (eer or {}).get(framework, 0),
-                         'EchoEER': (eer or {}).get(framework, 0)}))
+                         'EchoEER': (eer or {}).get(framework, 0),
+                         'MEMEER': (memeer or {}).get(framework, 0)}))
 
         # Column 1 is Framework: the report's columns are its struct's fields in
         # benchcli-go/report, and Framework is the first of them.
@@ -409,9 +412,14 @@ class ClientTests(unittest.TestCase):
         write({'fasthttp': 0, 'gorilla': 0})
         self.assertEqual(order('-sort=result'), [['fasthttp', 'gorilla']] * 3)
 
-        # BenchEcho and BenchPipeline break a tie by EER; Connections, which has
+        # BenchEcho and BenchPipeline break a tie by CPU EER; Connections, which has
         # none, keeps the framework order.
         write({'fasthttp': 7, 'gorilla': 7}, eer={'fasthttp': 1, 'gorilla': 2})
+        self.assertEqual(order('-sort=result'),
+                         [['fasthttp', 'gorilla'], ['gorilla', 'fasthttp'], ['gorilla', 'fasthttp']])
+
+        # And a tie on both by MEM EER.
+        write({'fasthttp': 7, 'gorilla': 7}, eer={'fasthttp': 2, 'gorilla': 2}, memeer={'fasthttp': 1, 'gorilla': 3})
         self.assertEqual(order('-sort=result'),
                          [['fasthttp', 'gorilla'], ['gorilla', 'fasthttp'], ['gorilla', 'fasthttp']])
 
@@ -425,13 +433,18 @@ class ClientTests(unittest.TestCase):
                 self.assertIn(' 40 100% ', md)
                 self.assertIn(' 10  25% ', md)
 
-        # EER carries percentages of its own best, in BenchEcho and BenchPipeline.
-        write({'fasthttp': 10, 'gorilla': 40}, eer={'fasthttp': 250.5, 'gorilla': 62.5})
+        # CPU EER and MEM EER carry percentages of their own best, in BenchEcho
+        # and BenchPipeline. Their titles are wider than these cells, so the
+        # cells are centred under them rather than filling them.
+        write({'fasthttp': 10, 'gorilla': 40}, eer={'fasthttp': 250.5, 'gorilla': 62.5},
+              memeer={'fasthttp': 3, 'gorilla': 12})
         self.run_client('-r=true')
         for kind in ['BenchEcho', 'BenchPipeline']:
             md = (directory / f'{kind}.md').read_text()
-            self.assertIn('| 250.50 100% |', md)
-            self.assertIn('|  62.50  24% |', md)
+            self.assertIn(' 250.50 100% ', md)
+            self.assertIn('  62.50  24% ', md)
+            self.assertIn('  3.00  25% ', md)
+            self.assertIn(' 12.00 100% ', md)
         self.assertEqual((directory / 'Connections.md').read_text().count('%'), 2)
 
         # One of the EERs whose best*100/best floored to 99, which left its
@@ -443,12 +456,12 @@ class ClientTests(unittest.TestCase):
             self.assertIn('| 1395.73 100% |', md)
             self.assertIn('|  697.86  50% |', md)
 
-        # The rank columns' titles carry [↓1] and [↓2] in either order, and the
+        # The rank columns' titles carry [↓1], [↓2] and [↓3] in either order, and the
         # table stays in line: every line is as many characters wide.
         for arg in ['-sort=result', '-sort=framework']:
             self.run_client('-r=true', arg)
-            for kind, markers in [('Connections', [' TPS [↓1] ']), ('BenchEcho', [' TPS [↓1] ', ' EER [↓2] ']),
-                                  ('BenchPipeline', [' TPS [↓1] ', ' EER [↓2] '])]:
+            eer = [' TPS [↓1] ', ' CPU EER [↓2] ', ' MEM EER [↓3] ']
+            for kind, markers in [('Connections', [' TPS [↓1] ']), ('BenchEcho', eer), ('BenchPipeline', eer)]:
                 lines = (directory / f'{kind}.md').read_text(encoding='utf-8').splitlines()
                 for marker in markers:
                     self.assertIn(marker, lines[0])

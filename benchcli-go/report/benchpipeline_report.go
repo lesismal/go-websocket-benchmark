@@ -14,7 +14,9 @@ var (
 // back off the server per second: the rate benchmark writes at a rate the
 // clients set rather than to completion, so what the server answered under
 // that load is its result, the way TPS is in the other two. Rows with the same
-// TPS are ranked by EER (rank:"2"), the one that spent less CPU on it first.
+// TPS are ranked by CPU EER (rank:"2"), the one that spent less CPU on it
+// first, and then by MEM EER (rank:"3"), the one that held less memory for it
+// first.
 type BenchPipelineReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	Lang        string  `json:"Lang" md:"Lang"`
@@ -22,7 +24,8 @@ type BenchPipelineReport struct {
 	TaskPool    string  `json:"TaskPool" md:"Pool" summary:"Pool"`
 	Duration    int64   `json:"Duration" md:"Duration" fmt:"duration" summary:"Rate Duration"`
 	TPS         int64   `json:"TPS" md:"TPS" rank:"1"`
-	EchoEER     float64 `json:"EchoEER" md:"EER" rank:"2"`
+	CPUEER      float64 `json:"EchoEER" md:"CPU EER" rank:"2"`
+	MEMEER      float64 `json:"MEMEER" md:"MEM EER" rank:"3"`
 	SendTimes   int64   `json:"SendTimes" md:"Packet Sent"`
 	SendBytes   int64   `json:"SendBytes" md:"Bytes Sent" fmt:"mem"`
 	RecvTimes   int64   `json:"RecvTimes" md:"Packet Recv"`
@@ -95,5 +98,13 @@ func RateTPS(recvTimes, duration int64) float64 {
 func (r *BenchPipelineReport) fillTPS() {
 	if r.TPS == 0 && r.RecvTimes > 0 {
 		r.TPS = int64(math.Floor(RateTPS(r.RecvTimes, r.Duration)))
+	}
+}
+
+// fillMEMEER works MEM EER out for a report written before it had one, so that
+// an earlier run still ranks by it when its report is read again.
+func (r *BenchPipelineReport) fillMEMEER() {
+	if r.MEMEER == 0 {
+		r.MEMEER = MEMEER(RateTPS(r.RecvTimes, r.Duration), r.MEMRSSAvg)
 	}
 }

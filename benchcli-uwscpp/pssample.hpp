@@ -2,7 +2,7 @@
 // Sampling a server that runs on this machine, instead of asking it for the
 // samples it took of itself.
 //
-// The CPU and MEM columns - and so EER and EchoEER - used to come from one
+// The CPU and MEM columns - and so CPU EER and MEM EER - used to come from one
 // request to the server's /ps route, sent at the far end of a benchmark while
 // the server is still buried under the connections it has just finished
 // echoing to. That is exactly when a request is most likely to be reset or

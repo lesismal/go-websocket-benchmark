@@ -12,6 +12,7 @@ use serde_json::{Map, Value, json};
 use crate::http::{control_url, framework_task_pool, http};
 use crate::metadata::{frameworks, lang, schema, summary_order};
 use crate::options::{Options, SORT_RESULT};
+use crate::ps::mem_eer;
 
 pub type Report = Map<String, Value>;
 
@@ -289,6 +290,20 @@ pub fn fill_rate_tps(r: &mut Report) {
     r.insert("TPS".into(), json!(tps));
 }
 
+// A report written before MEM EER existed gets it here, so an earlier run still ranks by it.
+fn fill_mem_eer(r: &mut Report, kind: &str) {
+    let num = |r: &Report, k: &str| r.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    if num(r, "MEMEER") != 0.0 {
+        return;
+    }
+    let tps = if kind == "BenchPipeline" {
+        num(r, "RecvTimes") / (num(r, "Duration") / 1e9)
+    } else {
+        num(r, "TPS")
+    };
+    r.insert("MEMEER".into(), json!(mem_eer(tps, num(r, "MEMAvg"))));
+}
+
 fn read_reports(o: &Options, kind: &str) -> Result<Vec<Report>, String> {
     let mut rows = Vec::new();
     for f in frameworks() {
@@ -307,6 +322,9 @@ fn read_reports(o: &Options, kind: &str) -> Result<Vec<Report>, String> {
         }
         if kind == "BenchPipeline" {
             fill_rate_tps(&mut row);
+        }
+        if kind == "BenchEcho" || kind == "BenchPipeline" {
+            fill_mem_eer(&mut row, kind);
         }
         rows.push(row);
     }
