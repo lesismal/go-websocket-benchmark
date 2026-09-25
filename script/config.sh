@@ -198,7 +198,25 @@ taskpool_frameworks=(
 Connections=(5000 50000)
 BodySize=(512 1024)
 BenchTime=(2000000)
+# Seconds of quiet between two measurements; none after the last one.
 SleepTime=5
+
+# A single-node run starts each framework's server just before its turn and
+# stops it right after, so only the server being measured is ever up; see
+# script/serverctl.sh. The client starts ServerReadyDelay seconds after the
+# server is listening on all of its ports. A server that is not listening
+# within BENCH_SERVER_START_TIMEOUT seconds counts as failed to start, and one
+# still running BENCH_SERVER_STOP_TIMEOUT seconds after its SIGINT is killed.
+# One that fails is tried twice more, BENCH_SERVER_RETRY_DELAY seconds apart.
+#
+# Starting servers one at a time needs their ports kept out of the ephemeral
+# range, or a client's TIME_WAIT sockets can hold the next server's ports;
+# script/docker_benchmark.sh does this itself, and a Linux host is warned with
+# the sysctl that does it. See bench_server_reserved_ports in script/ports.sh.
+ServerReadyDelay=1
+BENCH_SERVER_START_TIMEOUT=${BENCH_SERVER_START_TIMEOUT:-60}
+BENCH_SERVER_STOP_TIMEOUT=${BENCH_SERVER_STOP_TIMEOUT:-30}
+BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 
 # Which frameworks a run measures, and the order the servers are started and
 # the clients run in. In framework-name order, like config.FrameworkList and

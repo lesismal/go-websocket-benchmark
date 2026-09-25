@@ -32,7 +32,10 @@ for arg in "$@"; do
     esac
 done
 
-if bench_runs_servers; then
+# A server node starts every server here and leaves them up for the client
+# node. A single-node run starts each one just before its turn instead, in
+# script/clients.sh, so that only the server being measured is ever up.
+if bench_runs_servers && ! bench_runs_clients; then
     . ./script/servers.sh
 
     echo $line
@@ -45,8 +48,6 @@ if ! bench_runs_clients; then
     echo $line
     return 0 2>/dev/null || exit 0
 fi
-
-sleep 3
 
 # A framework whose client failed must not cost the others their report: the
 # report step reads whatever JSON the run did write, so it runs either way, and

@@ -372,6 +372,10 @@ cannot be one node of a split run and says so if `BENCH_ROLE` asks it to be.
 
 ```sh
 sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+# Keep the servers' ports (config.Ports) out of that range: each server starts
+# just before its turn, and would fail to bind a port the client before it left
+# in TIME_WAIT. The run prints the exact list when they are not reserved.
+sysctl -w net.ipv4.ip_local_reserved_ports=10001-32151
 sysctl -w fs.file-max=2000500
 sysctl -w fs.nr_open=2000500
 sysctl -w net.nf_conntrack_max=2000500
