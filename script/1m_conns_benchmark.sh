@@ -22,7 +22,6 @@ frameworks=(
     "greatws_event"
     "greatws_event-inline"
     "nbio_nonblocking"
-    "nbio_nonblocking-inline"
     "uws_events"
 )
 

@@ -31,42 +31,39 @@ type InitArgs struct {
 // A name ending in InlineSuffix is not a framework of its own but the Go event
 // loop server it is named after, run with -taskpool=inline: see Inlines.
 const (
-	Fasthttp                 = "fasthttp"
-	Fib                      = "fib"
-	FibInline                = "fib-inline"
-	Fnet                     = "fnet"
-	FnetInline               = "fnet-inline"
-	Gobwas                   = "gobwas"
-	Gorilla                  = "gorilla"
-	Greatws                  = "greatws"
-	GreatwsInline            = "greatws-inline"
-	GreatwsEvent             = "greatws_event"
-	GreatwsEventInline       = "greatws_event-inline"
-	Gws                      = "gws"
-	GwsStd                   = "gws_std"
-	Hertz                    = "hertz"
-	HertzStd                 = "hertz_std"
-	NbioModBlocking          = "nbio_blocking"
-	NbioModMixed             = "nbio_mixed"
-	NbioModMixedInline       = "nbio_mixed-inline"
-	NbioModNonblocking       = "nbio_nonblocking"
-	NbioModNonblockingInline = "nbio_nonblocking-inline"
-	NbioStd                  = "nbio_std"
-	GoNettyWs                = "nettyws"
-	Nhooyr                   = "nhooyr"
-	Quickws                  = "quickws"
-	TokioTungstenite         = "tokio_tungstenite"
-	TokioTungsteniteInline   = "tokio_tungstenite-inline"
-	Uwebsockets              = "uwebsockets"
-	UwebsocketsInline        = "uwebsockets-inline"
-	UwsEvents                = "uws_events"
-	UwsStdio                 = "uws_std"
+	Fasthttp           = "fasthttp"
+	Fib                = "fib"
+	FibInline          = "fib-inline"
+	Fnet               = "fnet"
+	FnetInline         = "fnet-inline"
+	Gobwas             = "gobwas"
+	Gorilla            = "gorilla"
+	Greatws            = "greatws"
+	GreatwsInline      = "greatws-inline"
+	GreatwsEvent       = "greatws_event"
+	GreatwsEventInline = "greatws_event-inline"
+	Gws                = "gws"
+	GwsStd             = "gws_std"
+	Hertz              = "hertz"
+	HertzStd           = "hertz_std"
+	NbioModBlocking    = "nbio_blocking"
+	NbioModMixed       = "nbio_mixed"
+	NbioModMixedInline = "nbio_mixed-inline"
+	NbioModNonblocking = "nbio_nonblocking"
+	NbioStd            = "nbio_std"
+	GoNettyWs          = "nettyws"
+	Nhooyr             = "nhooyr"
+	Quickws            = "quickws"
+	TokioTungstenite   = "tokio_tungstenite"
+	Uwebsockets        = "uwebsockets"
+	UwsEvents          = "uws_events"
+	UwsStdio           = "uws_std"
 )
 
 // InlineSuffix turns a framework's name into the name of its inline entry.
 const InlineSuffix = "-inline"
 
-// Inlines maps every event loop server that takes a pool to its inline entry:
+// Inlines maps the event loop servers that take a pool to their inline entry:
 // the same server binary, run so that the callback answers on the poller that
 // read the frame, on ports of its own so that the two can be up at once. The
 // framework's own entry runs off the event loop, so that every one of these
@@ -75,58 +72,49 @@ const InlineSuffix = "-inline"
 // For the Go servers that is -taskpool=inline, from which the server takes the
 // entry's name, and so its ports: see frameworks.Name. Their own entry runs
 // whichever pool script/config.sh selects, which can no longer be inline.
-// uwebsockets and tokio_tungstenite take none of the Go pools: each is
-// -logicpool=false for its inline entry and its own logic thread pool for its
-// own, and picks its ports from that flag the same way.
 //
 // uws_std is not here, since it reads on a goroutine per connection rather
 // than in an event loop, and neither is uws_events: UIO runs every
 // connection's callbacks in a task off its event loops, and a UIO executor
 // must not run that task inline.
 var Inlines = map[string]string{
-	Fib:                FibInline,
-	Fnet:               FnetInline,
-	Greatws:            GreatwsInline,
-	GreatwsEvent:       GreatwsEventInline,
-	NbioModMixed:       NbioModMixedInline,
-	NbioModNonblocking: NbioModNonblockingInline,
-	TokioTungstenite:   TokioTungsteniteInline,
-	Uwebsockets:        UwebsocketsInline,
+	Fib:          FibInline,
+	Fnet:         FnetInline,
+	Greatws:      GreatwsInline,
+	GreatwsEvent: GreatwsEventInline,
+	NbioModMixed: NbioModMixedInline,
 }
 
 // An inline entry's ports are its framework's, 100 up: x101 to x150, and the
 // control port after them where the framework has one of its own.
 var Ports = map[string]string{
-	Fasthttp:                 "10001:10050",
-	Fib:                      "29001:29050",
-	FibInline:                "29101:29150",
-	Fnet:                     "30001:30050",
-	FnetInline:               "30101:30150",
-	Gobwas:                   "11001:11050",
-	Gorilla:                  "12001:12050",
-	Greatws:                  "24001:24050",
-	GreatwsInline:            "24101:24150",
-	GreatwsEvent:             "25001:25050",
-	GreatwsEventInline:       "25101:25150",
-	Gws:                      "13001:13050",
-	GwsStd:                   "14001:14050",
-	Hertz:                    "15001:15050",
-	HertzStd:                 "16001:16050",
-	NbioModBlocking:          "17001:17050",
-	NbioModMixed:             "18001:18050",
-	NbioModMixedInline:       "18101:18150",
-	NbioModNonblocking:       "19001:19050",
-	NbioModNonblockingInline: "19101:19150",
-	NbioStd:                  "20001:20050",
-	GoNettyWs:                "21001:21050",
-	Nhooyr:                   "22001:22050",
-	Quickws:                  "23001:23050",
-	TokioTungstenite:         "32001:32050",
-	TokioTungsteniteInline:   "32101:32150",
-	Uwebsockets:              "31001:31050",
-	UwebsocketsInline:        "31101:31150",
-	UwsEvents:                "28001:28050",
-	UwsStdio:                 "26001:26050",
+	Fasthttp:           "10001:10050",
+	Fib:                "29001:29050",
+	FibInline:          "29101:29150",
+	Fnet:               "30001:30050",
+	FnetInline:         "30101:30150",
+	Gobwas:             "11001:11050",
+	Gorilla:            "12001:12050",
+	Greatws:            "24001:24050",
+	GreatwsInline:      "24101:24150",
+	GreatwsEvent:       "25001:25050",
+	GreatwsEventInline: "25101:25150",
+	Gws:                "13001:13050",
+	GwsStd:             "14001:14050",
+	Hertz:              "15001:15050",
+	HertzStd:           "16001:16050",
+	NbioModBlocking:    "17001:17050",
+	NbioModMixed:       "18001:18050",
+	NbioModMixedInline: "18101:18150",
+	NbioModNonblocking: "19001:19050",
+	NbioStd:            "20001:20050",
+	GoNettyWs:          "21001:21050",
+	Nhooyr:             "22001:22050",
+	Quickws:            "23001:23050",
+	TokioTungstenite:   "32001:32050",
+	Uwebsockets:        "31001:31050",
+	UwsEvents:          "28001:28050",
+	UwsStdio:           "26001:26050",
 }
 
 // The languages a framework's server is written in, as the reports' Lang
@@ -140,36 +128,33 @@ const (
 // Langs is the language of every framework's server, in framework-name order
 // like Ports.
 var Langs = map[string]string{
-	Fasthttp:                 LangGo,
-	Fib:                      LangGo,
-	FibInline:                LangGo,
-	Fnet:                     LangGo,
-	FnetInline:               LangGo,
-	Gobwas:                   LangGo,
-	Gorilla:                  LangGo,
-	Greatws:                  LangGo,
-	GreatwsInline:            LangGo,
-	GreatwsEvent:             LangGo,
-	GreatwsEventInline:       LangGo,
-	Gws:                      LangGo,
-	GwsStd:                   LangGo,
-	Hertz:                    LangGo,
-	HertzStd:                 LangGo,
-	NbioModBlocking:          LangGo,
-	NbioModMixed:             LangGo,
-	NbioModMixedInline:       LangGo,
-	NbioModNonblocking:       LangGo,
-	NbioModNonblockingInline: LangGo,
-	NbioStd:                  LangGo,
-	GoNettyWs:                LangGo,
-	Nhooyr:                   LangGo,
-	Quickws:                  LangGo,
-	TokioTungstenite:         LangRust,
-	TokioTungsteniteInline:   LangRust,
-	Uwebsockets:              LangCPP,
-	UwebsocketsInline:        LangCPP,
-	UwsEvents:                LangGo,
-	UwsStdio:                 LangGo,
+	Fasthttp:           LangGo,
+	Fib:                LangGo,
+	FibInline:          LangGo,
+	Fnet:               LangGo,
+	FnetInline:         LangGo,
+	Gobwas:             LangGo,
+	Gorilla:            LangGo,
+	Greatws:            LangGo,
+	GreatwsInline:      LangGo,
+	GreatwsEvent:       LangGo,
+	GreatwsEventInline: LangGo,
+	Gws:                LangGo,
+	GwsStd:             LangGo,
+	Hertz:              LangGo,
+	HertzStd:           LangGo,
+	NbioModBlocking:    LangGo,
+	NbioModMixed:       LangGo,
+	NbioModMixedInline: LangGo,
+	NbioModNonblocking: LangGo,
+	NbioStd:            LangGo,
+	GoNettyWs:          LangGo,
+	Nhooyr:             LangGo,
+	Quickws:            LangGo,
+	TokioTungstenite:   LangRust,
+	Uwebsockets:        LangCPP,
+	UwsEvents:          LangGo,
+	UwsStdio:           LangGo,
 }
 
 // FrameworkLang is the language framework's server is written in, for the
@@ -216,15 +201,12 @@ var FrameworkList = []string{
 	NbioModMixed,
 	NbioModMixedInline,
 	NbioModNonblocking,
-	NbioModNonblockingInline,
 	NbioStd,
 	GoNettyWs,
 	Nhooyr,
 	Quickws,
 	TokioTungstenite,
-	TokioTungsteniteInline,
 	Uwebsockets,
-	UwebsocketsInline,
 	UwsEvents,
 	UwsStdio,
 }
@@ -452,11 +434,8 @@ var TaskPoolFrameworks = []string{
 	NbioModMixed,
 	NbioModMixedInline,
 	NbioModNonblocking,
-	NbioModNonblockingInline,
 	TokioTungstenite,
-	TokioTungsteniteInline,
 	Uwebsockets,
-	UwebsocketsInline,
 	UwsEvents,
 }
 

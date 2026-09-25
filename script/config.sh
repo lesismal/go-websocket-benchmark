@@ -68,18 +68,16 @@ esac
 #                 only once BENCH_TASKPOOL_QUEUE bounds its pending tasks
 #
 # default installs no pool; all the rest answer off the event loop.
-# None of this reaches the uwebsockets server, which has a logic thread pool
-# of its own; see BENCH_UWS_WORKERS_PER_CPU below.
+# None of this reaches the uwebsockets server, which echoes from its event
+# loops; see BENCH_UWS_LOOPS_PER_CPU below.
 #
 # inline - no pool, the callback answering on the I/O goroutine that read the
 # frame - is not one of the values. It is measured on every run instead: each
 # Go event loop server that takes a pool has a second entry, its name with
-# -inline after it (fib-inline, nbio_nonblocking-inline, ...), which is the
-# same server started with -taskpool=inline on ports of its own, while the
-# framework's own entry runs the pool selected here. uwebsockets has one too,
-# uwebsockets-inline, which echoes from its event loops while uwebsockets
-# answers on its logic thread pool. config.Inlines in config/config.go lists
-# them.
+# -inline after it (fib-inline, nbio_mixed-inline, ...), which is the same
+# server started with -taskpool=inline on ports of its own, while the
+# framework's own entry runs the pool selected here. config.Inlines in
+# config/config.go lists them.
 #
 # Whichever is selected, each report records the pool its server installed -
 # the Pool row of the report's Summary table - read from the server's own
@@ -98,36 +96,19 @@ BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
 BENCH_TASKPOOL_MAX=${BENCH_TASKPOOL_MAX:-0}
 BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 
-# uwebsockets only: how many threads its C++ server builds, as a multiplier of
-# the CPUs the server may actually run on (sched_getaffinity, so the taskset
-# mask script/env.sh pins it with counts, not the whole host). N here rather
-# than a thread count so that one setting means the same arrangement on a
-# 4-core laptop and a 64-core server: the count is round(N * cpus), and a
-# multiplier that rounds to nothing still gets one thread.
-#
-#   BENCH_UWS_WORKERS_PER_CPU  the logic thread pool - the workers that run the
-#                              message callback off the event loop. uwebsockets
-#                              always has it; uwebsockets-inline never does
-#   BENCH_UWS_LOOPS_PER_CPU    the uWS event loops, one thread each, which do
-#                              the poll, the read, the frame parse and the write
-#
-# 0 (the default for both) leaves the server its own sizing: one loop per CPU,
-# and, for uwebsockets' logic pool, one worker per four CPUs (at least one) on top of
-# them, so the pool adds threads rather than taking CPUs from the loops. Setting
-# one of the two changes that side only.
-#
-# Worth knowing before raising the pool: the workers here are OS threads on top
-# of the loop threads, not goroutines multiplexed onto the pollers' own threads
-# the way every Go pool in this benchmark is, and at 2, 3 and 5 server CPUs a
-# second worker came out slower every time, as did giving a loop up for the
-# pool (the table is in frameworks/uwebsockets/README.md). Both directions are
-# worth a run on a machine of a different size.
+# uwebsockets only: how many uWS event loops its C++ server builds, one thread
+# each, which do the poll, the read, the frame parse, the echo and the write.
+# A multiplier of the CPUs the server may actually run on (sched_getaffinity,
+# so the taskset mask script/env.sh pins it with counts, not the whole host).
+# N here rather than a thread count so that one setting means the same
+# arrangement on a 4-core laptop and a 64-core server: the count is
+# round(N * cpus), and a multiplier that rounds to nothing still gets one
+# thread. 0 (the default) leaves the server its own sizing: one loop per CPU.
 #
 # Override for one run with:
-#   BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
-BENCH_UWS_WORKERS_PER_CPU=${BENCH_UWS_WORKERS_PER_CPU:-0}
+#   BENCH_UWS_LOOPS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 BENCH_UWS_LOOPS_PER_CPU=${BENCH_UWS_LOOPS_PER_CPU:-0}
-for uws_thread_factor in "$BENCH_UWS_WORKERS_PER_CPU" "$BENCH_UWS_LOOPS_PER_CPU"; do
+for uws_thread_factor in "$BENCH_UWS_LOOPS_PER_CPU"; do
     case "$uws_thread_factor" in
         ''|*[!0-9.]*|*.*.*)
             echo "BENCH_UWS_*_PER_CPU must be a non-negative number, got: $uws_thread_factor" >&2
@@ -186,14 +167,13 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # program built for UIO's stdio backend, which has no executor: it accepts
 # the flags but installs no pool, so it is not passed them.
 #
-# tokio_tungstenite and uwebsockets, and their -inline entries, are listed for
-# their /taskpool route only: they are Rust and C++ servers, so none of the Go
-# pools can run under them, and script/servers.sh passes them their own flags
-# instead of the -taskpool ones (-logicpool, on for the framework and off for
-# its -inline entry, and for uwebsockets the BENCH_UWS_*_PER_CPU multipliers),
-# so BENCH_TASKPOOL* never changes what they run. Their Pool is "logicpool" and
-# "inline". See frameworks/tokio_tungstenite/README.md and
-# frameworks/uwebsockets/README.md.
+# tokio_tungstenite and uwebsockets are listed for their /taskpool route only:
+# they are Rust and C++ servers, so none of the Go pools can run under them,
+# and script/servers.sh passes them their own flags instead of the -taskpool
+# ones (-logicpool, on for tokio_tungstenite and off for uwebsockets, and for
+# uwebsockets BENCH_UWS_LOOPS_PER_CPU), so BENCH_TASKPOOL* never changes what
+# they run. Their Pool is "logicpool" and "inline". See
+# frameworks/tokio_tungstenite/README.md and frameworks/uwebsockets/README.md.
 #
 # The benchmark clients ask /taskpool for the report's Pool of exactly these,
 # from config.TaskPoolFrameworks in config/config.go, which is the same list;
@@ -210,11 +190,8 @@ taskpool_frameworks=(
     "nbio_mixed"
     "nbio_mixed-inline"
     "nbio_nonblocking"
-    "nbio_nonblocking-inline"
     "tokio_tungstenite"
-    "tokio_tungstenite-inline"
     "uwebsockets"
-    "uwebsockets-inline"
     "uws_events"
 )
 
@@ -247,15 +224,12 @@ frameworks=(
     "nbio_mixed"
     "nbio_mixed-inline"
     "nbio_nonblocking"
-    "nbio_nonblocking-inline"
     "nbio_std"
     "nettyws"
     "nhooyr"
     "quickws"
     "tokio_tungstenite"
-    "tokio_tungstenite-inline"
     "uwebsockets"
-    "uwebsockets-inline"
     "uws_events"
     "uws_std"
 )
