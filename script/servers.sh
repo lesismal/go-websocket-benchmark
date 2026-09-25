@@ -28,7 +28,15 @@ for f in ${frameworks[@]}; do
     else
         for tf in ${taskpool_frameworks[@]}; do
             if [ "$f" = "$tf" ]; then
-                taskpool_args="-taskpool=${BENCH_TASKPOOL} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
+                # An -inline entry is its framework's server run inline, which
+                # is also what gives it its own ports: the server takes its
+                # name from this flag (frameworks.Name). The framework's own
+                # entry runs BENCH_TASKPOOL, which config.sh keeps off inline.
+                pool=${BENCH_TASKPOOL}
+                case "$f" in
+                    *-inline) pool=inline ;;
+                esac
+                taskpool_args="-taskpool=${pool} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
                 break
             fi
         done

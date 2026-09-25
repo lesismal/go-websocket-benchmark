@@ -43,9 +43,10 @@ func main() {
 	})
 	upgrader.KeepaliveTime = 0
 
-	addrs, err := config.GetFrameworkServerAddrs(config.NbioModNonblocking)
+	name := frameworks.Name(config.NbioModNonblocking)
+	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModNonblocking, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
 	}
 	engine := startServers(addrs)
 

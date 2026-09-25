@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -44,12 +45,13 @@ const (
 func main() {
 	flag.Parse()
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Fib)
+	name := frameworks.Name(config.Fib)
+	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", config.Fib, err)
+		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", name, err)
 	}
-	server := startServer(addrs)
-	metricsServer := startMetricsServer()
+	server := startServer(name, addrs)
+	metricsServer := startMetricsServer(name)
 	// Sample the backpressure counters through the run as well as at the end:
 	// one total cannot say which phase the pauses belong to.
 	go func() {
@@ -86,7 +88,7 @@ func logStatus(status fib.Stats) {
 // tables alone held 50MB, since each table is indexed by descriptor and so
 // sized by the highest one the process had reached rather than by the
 // connections that server actually held.
-func startServer(addrs []string) *fib.Engine {
+func startServer(name string, addrs []string) *fib.Engine {
 	websocketHandler := websocket.NewHandler(websocket.HandlerFuncs{
 		Message: func(c *websocket.Connection, opcode websocket.Opcode, data []byte) {
 			if err := c.WriteMessage(opcode, data); err != nil {
@@ -110,7 +112,17 @@ func startServer(addrs []string) *fib.Engine {
 	// reached through the shared registry. Another -taskpool runs the
 	// engine on another framework's scheduler; -taskpool=default leaves
 	// fib to build its pool itself.
-	if pool := taskpool.FromFlags(); pool != nil {
+	pool := taskpool.FromFlags()
+	if name == config.FibInline {
+		// fib-inline spreads the connections over IO pollers, one per CPU,
+		// each of which runs its own connections' rounds: fib's own inline
+		// arrangement, which is what -taskpool=inline asks of it. It is left
+		// to build that inline pool itself rather than given the shared one,
+		// since only its own ModeInline pool takes the loop's inline path.
+		serverConfig.IOPollers = true
+		serverConfig.IOPollerCount = runtime.NumCPU()
+		logging.Printf("fib IO pollers: %d (NumCPU)", serverConfig.IOPollerCount)
+	} else if pool != nil {
 		serverConfig.SetTaskPool(taskpool.FibTaskPool{Pool: pool})
 	}
 
@@ -144,10 +156,10 @@ func (h *serverHandler) OnOpen(c *fib.Connection) {
 	h.Handler.OnOpen(c)
 }
 
-func startMetricsServer() *http.Server {
-	addr, err := config.GetFrameworkHTTPServerAddrs(config.Fib)
+func startMetricsServer(name string) *http.Server {
+	addr, err := config.GetFrameworkHTTPServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", config.Fib, err)
+		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", name, err)
 	}
 	mux := http.NewServeMux()
 	frameworks.HandleCommon(mux)

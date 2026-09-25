@@ -16,10 +16,15 @@ echo $line
 # framework list; see script/config.sh.
 frameworks=(
     "fnet"
+    "fnet-inline"
     "greatws"
+    "greatws-inline"
     "greatws_event"
+    "greatws_event-inline"
     "nbio_nonblocking"
+    "nbio_nonblocking-inline"
     "uws_events"
+    "uws_events-inline"
 )
 
 print_env

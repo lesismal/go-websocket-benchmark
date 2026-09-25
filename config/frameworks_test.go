@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+	"regexp"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -52,6 +55,89 @@ func TestFrameworkListCoversLangs(t *testing.T) {
 			t.Errorf("%v has no language", framework)
 		default:
 			t.Errorf("%v has language %q, which is none of the Lang constants", framework, lang)
+		}
+	}
+}
+
+// An inline entry is its framework's server under another name, so it has to
+// be everything the framework is to the clients - listed, reachable, asked for
+// its pool - on ports of its own.
+func TestInlinesAreFrameworksOfTheirOwn(t *testing.T) {
+	for framework, inline := range Inlines {
+		if inline != framework+InlineSuffix {
+			t.Errorf("%v's inline entry is %v, want %v", framework, inline, framework+InlineSuffix)
+		}
+		if Langs[framework] != LangGo || Langs[inline] != LangGo {
+			t.Errorf("%v and %v have to be Go servers, since they take the Go pools", framework, inline)
+		}
+		for _, name := range []string{framework, inline} {
+			if !slices.Contains(FrameworkList, name) {
+				t.Errorf("%v is not in FrameworkList", name)
+			}
+			if !FrameworkHasTaskPool(name) {
+				t.Errorf("%v is not in TaskPoolFrameworks", name)
+			}
+		}
+	}
+}
+
+// Two frameworks sharing a port could not both be up, and every server in a
+// run is started before the first client.
+func TestPortsDoNotOverlap(t *testing.T) {
+	owner := map[int]string{}
+	for _, framework := range FrameworkList {
+		ports, err := GetFrameworkBenchmarkPorts(framework)
+		if err != nil {
+			t.Fatalf("%v: %v", framework, err)
+		}
+		control, err := frameworkControlPort(framework)
+		if err != nil {
+			t.Fatalf("%v: %v", framework, err)
+		}
+		for _, port := range append(ports, control) {
+			if other, taken := owner[port]; taken && other != framework {
+				t.Errorf("port %d is both %v's and %v's", port, other, framework)
+			}
+			owner[port] = framework
+		}
+	}
+}
+
+// benchcli-rust and benchcli-uwscpp cannot call frameworkControlPort, so each
+// carries its own list of the frameworks whose control routes are on the port
+// after their benchmark ones. A list that drifted would send /init, /ps and
+// /taskpool to a port nothing answers on.
+func TestNativeClientsAgreeOnControlPorts(t *testing.T) {
+	var want []string
+	for _, framework := range FrameworkList {
+		ports, _ := GetFrameworkBenchmarkPorts(framework)
+		if control, _ := frameworkControlPort(framework); control != ports[len(ports)-1] {
+			want = append(want, framework)
+		}
+	}
+	for _, client := range []struct {
+		source string
+		list   *regexp.Regexp
+	}{
+		{"../benchcli-rust/src/http.rs", regexp.MustCompile(`matches!\(f, ((?:"[^"]+"(?: \| )?)+)\)`)},
+		{"../benchcli-uwscpp/report.hpp", regexp.MustCompile(`if \(((?:f=="[^"]+"(?: \|\| )?)+)\) \+\+port;`)},
+	} {
+		code, err := os.ReadFile(client.source)
+		if err != nil {
+			t.Fatalf("reading %s: %v", client.source, err)
+		}
+		match := client.list.FindSubmatch(code)
+		if match == nil {
+			t.Errorf("found no control port list in %s; has it moved?", client.source)
+			continue
+		}
+		var got []string
+		for _, name := range regexp.MustCompile(`"([^"]+)"`).FindAllSubmatch(match[1], -1) {
+			got = append(got, string(name[1]))
+		}
+		sort.Strings(got)
+		if !slices.Equal(got, want) {
+			t.Errorf("%s moves the control port of %v, config.frameworkControlPort of %v", client.source, got, want)
 		}
 	}
 }

@@ -193,7 +193,7 @@ pub fn http_retry(url: &str, body: Option<&str>, attempts: u32) -> Result<Vec<u8
 }
 
 // The base URL of a framework's control routes: the last of its benchmark ports, or the one
-// after it for the four frameworks that serve their control routes separately. Mirrors
+// after it for the frameworks that serve their control routes separately. Mirrors
 // config.FrameworkControlAddr.
 pub fn control_url(o: &Options) -> String {
     let mut host = o.get("ip").to_string();
@@ -202,7 +202,7 @@ pub fn control_url(o: &Options) -> String {
     }
     let f = o.get("f");
     let mut port = ports(f).1;
-    if matches!(f, "fib" | "gws" | "uws_events" | "uws_std") {
+    if matches!(f, "fib" | "fib-inline" | "gws" | "uws_events" | "uws_events-inline" | "uws_std") {
         port += 1;
     }
     format!("http://{host}:{port}")

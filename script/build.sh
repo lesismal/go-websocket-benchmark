@@ -18,12 +18,23 @@ build_benchmark() {
     if bench_runs_servers; then
         for f in "${frameworks[@]}"; do
             echo "build ${f} ..."
-            case "${f}" in
+            # An -inline entry is its framework's server under another name,
+            # started with -taskpool=inline: the same binary, so a copy of it
+            # when this run has already built it, and the framework's build
+            # when the run has only the -inline entry.
+            base=${f%-inline}
+            if [ "$base" != "$f" ] && [ -x "./output/bin/${base}.server" ]; then
+                cp "./output/bin/${base}.server" "./output/bin/${f}.server" || return 1
+                echo "build ${f} done"
+                echo
+                continue
+            fi
+            case "${base}" in
                 tokio_tungstenite) bash ./frameworks/tokio_tungstenite/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uwebsockets) bash ./frameworks/uwebsockets/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uws_events) go build -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;
                 uws_std) go build -tags=stdio -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;
-                *) go build -o "./output/bin/${f}.server" "./frameworks/${f}" || return 1 ;;
+                *) go build -o "./output/bin/${f}.server" "./frameworks/${base}" || return 1 ;;
             esac
             echo "build ${f} done"
             echo

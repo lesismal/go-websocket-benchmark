@@ -43,9 +43,10 @@ func main() {
 	upgrader.KeepaliveTime = 0
 	upgrader.BlockingModAsyncWrite = false
 
-	addrs, err := config.GetFrameworkServerAddrs(config.NbioModMixed)
+	name := frameworks.Name(config.NbioModMixed)
+	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModMixed, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
 	}
 	engine := startServers(addrs)
 
