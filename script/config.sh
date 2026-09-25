@@ -183,12 +183,14 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # flag they do not define. The -inline ones take -taskpool=inline whatever
 # BENCH_TASKPOOL says; see script/servers.sh.
 #
-# uwebsockets and uwebsockets-inline are listed for their /taskpool route only:
-# it is a C++ server, so none of the Go pools can run under it, and
-# script/servers.sh passes it its own flags (-logicpool, on for uwebsockets and
-# off for uwebsockets-inline, and the BENCH_UWS_*_PER_CPU multipliers) instead
-# of the -taskpool ones, so BENCH_TASKPOOL* never changes what it runs. Their
-# Pool is "logicpool" and "inline". See frameworks/uwebsockets/README.md.
+# tokio_tungstenite and uwebsockets, and their -inline entries, are listed for
+# their /taskpool route only: they are Rust and C++ servers, so none of the Go
+# pools can run under them, and script/servers.sh passes them their own flags
+# instead of the -taskpool ones (-logicpool, on for the framework and off for
+# its -inline entry, and for uwebsockets the BENCH_UWS_*_PER_CPU multipliers),
+# so BENCH_TASKPOOL* never changes what they run. Their Pool is "logicpool" and
+# "inline". See frameworks/tokio_tungstenite/README.md and
+# frameworks/uwebsockets/README.md.
 #
 # The benchmark clients ask /taskpool for the report's Pool of exactly these,
 # from config.TaskPoolFrameworks in config/config.go, which is the same list;
@@ -206,6 +208,8 @@ taskpool_frameworks=(
     "nbio_mixed-inline"
     "nbio_nonblocking"
     "nbio_nonblocking-inline"
+    "tokio_tungstenite"
+    "tokio_tungstenite-inline"
     "uwebsockets"
     "uwebsockets-inline"
     "uws_events"
@@ -248,6 +252,7 @@ frameworks=(
     "nhooyr"
     "quickws"
     "tokio_tungstenite"
+    "tokio_tungstenite-inline"
     "uwebsockets"
     "uwebsockets-inline"
     "uws_events"

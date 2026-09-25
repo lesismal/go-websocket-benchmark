@@ -1,5 +1,5 @@
 // The socket under every connection's WebSocketStream: a TcpStream whose reads go through one
-// large buffer per worker thread, the way uSockets reads through one receive buffer per loop, so
+// large buffer per loop thread, the way uSockets reads through one receive buffer per loop, so
 // that a connection holds no read buffer of its own while it has nothing to read.
 //
 // tungstenite keeps a read buffer per connection (read_buffer_size, 128KiB by default) and

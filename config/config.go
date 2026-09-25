@@ -56,6 +56,7 @@ const (
 	Nhooyr                   = "nhooyr"
 	Quickws                  = "quickws"
 	TokioTungstenite         = "tokio_tungstenite"
+	TokioTungsteniteInline   = "tokio_tungstenite-inline"
 	Uwebsockets              = "uwebsockets"
 	UwebsocketsInline        = "uwebsockets-inline"
 	UwsEvents                = "uws_events"
@@ -75,9 +76,9 @@ const InlineSuffix = "-inline"
 // For the Go servers that is -taskpool=inline, from which the server takes the
 // entry's name, and so its ports: see frameworks.Name. Their own entry runs
 // whichever pool script/config.sh selects, which can no longer be inline.
-// uwebsockets takes none of the Go pools: it is -logicpool=false for its
-// inline entry and its logic thread pool for its own, and the C++ server picks
-// its ports from that flag the same way.
+// uwebsockets and tokio_tungstenite take none of the Go pools: each is
+// -logicpool=false for its inline entry and its own logic thread pool for its
+// own, and picks its ports from that flag the same way.
 //
 // uws_std is not here, since it reads on a goroutine per connection rather
 // than in an event loop.
@@ -88,6 +89,7 @@ var Inlines = map[string]string{
 	GreatwsEvent:       GreatwsEventInline,
 	NbioModMixed:       NbioModMixedInline,
 	NbioModNonblocking: NbioModNonblockingInline,
+	TokioTungstenite:   TokioTungsteniteInline,
 	Uwebsockets:        UwebsocketsInline,
 	UwsEvents:          UwsEventsInline,
 }
@@ -120,6 +122,7 @@ var Ports = map[string]string{
 	Nhooyr:                   "22001:22050",
 	Quickws:                  "23001:23050",
 	TokioTungstenite:         "32001:32050",
+	TokioTungsteniteInline:   "32101:32150",
 	Uwebsockets:              "31001:31050",
 	UwebsocketsInline:        "31101:31150",
 	UwsEvents:                "28001:28050",
@@ -163,6 +166,7 @@ var Langs = map[string]string{
 	Nhooyr:                   LangGo,
 	Quickws:                  LangGo,
 	TokioTungstenite:         LangRust,
+	TokioTungsteniteInline:   LangRust,
 	Uwebsockets:              LangCPP,
 	UwebsocketsInline:        LangCPP,
 	UwsEvents:                LangGo,
@@ -220,6 +224,7 @@ var FrameworkList = []string{
 	Nhooyr,
 	Quickws,
 	TokioTungstenite,
+	TokioTungsteniteInline,
 	Uwebsockets,
 	UwebsocketsInline,
 	UwsEvents,
@@ -451,6 +456,8 @@ var TaskPoolFrameworks = []string{
 	NbioModMixedInline,
 	NbioModNonblocking,
 	NbioModNonblockingInline,
+	TokioTungstenite,
+	TokioTungsteniteInline,
 	Uwebsockets,
 	UwebsocketsInline,
 	UwsEvents,

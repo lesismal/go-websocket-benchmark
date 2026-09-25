@@ -1,17 +1,32 @@
 // Echo WebSocket server built on tokio-tungstenite (https://github.com/snapview/tokio-tungstenite),
-// the Tokio binding of tungstenite, Rust's most widely used WebSocket implementation. One
-// multi-threaded Tokio runtime with a worker thread per CPU the process may run on, one listener
-// per benchmark port, one task per connection - the Rust counterpart of a Go server's goroutine
-// per connection on GOMAXPROCS threads.
+// the Tokio binding of tungstenite, Rust's most widely used WebSocket implementation.
+//
+// # Event loops
+//
+// One current-thread Tokio runtime per CPU the process may run on, each on a thread of its own:
+// an event loop per thread, the way uWS and the Go event loop servers have one per poller. A
+// listener per benchmark port accepts on one of them, and every connection it accepts is handed
+// to the next loop round-robin, which registers its socket and serves it for the rest of its
+// life - there is no work stealing between the loops, so a connection's reads, its handshake and
+// its writes all happen on the one thread.
+//
+// # Logic thread pool
+//
+// -logicpool=true, the default, runs the message callback off the loops, on the pool in pool.rs:
+// the loop reads a batch, hands it to the connection's shard, and writes the answer the worker
+// sends back. That is the tokio_tungstenite entry. -logicpool=false answers on the loop that read
+// the frame, and is the tokio_tungstenite-inline entry: the same binary, which takes that entry's
+// ports (INLINE_PORT_START to INLINE_PORT_END) when the pool is off, so both are up in one run
+// the way the Go servers and their -inline entries are. -workers sizes the pool.
 //
 // The /init and /ps routes replicate just enough of frameworks.HandleCommon (see
 // frameworks/handlers.go) for the benchmark clients' resource reporting, the way the uwebsockets
 // server does: /init starts a background CPU%/RSS sampler and returns the PID, /ps returns the
 // samples as JSON. They are served on every benchmark port, so config.Ports' last port doubles as
 // the control port. A connection's request head is peeked at, not read, to tell the two apart,
-// so that an upgrade reaches tungstenite's handshake whole. There is no /taskpool: this server
-// takes no -taskpool flag, and the reports show "-" for it as they do for every framework
-// without a pool hook.
+// so that an upgrade reaches tungstenite's handshake whole. /taskpool answers the report's Pool:
+// "logicpool" with the pool on and "inline" without it, as the uwebsockets server does. This
+// server takes no -taskpool flag: none of the Go pools can run under it.
 //
 // # Echo
 //
@@ -22,24 +37,36 @@
 // would have been one apiece. uWS corks the sends a message callback makes the same way.
 use std::io;
 use std::net::SocketAddr;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::task::Poll;
 use std::time::{Duration, Instant};
 
 use futures_util::{FutureExt, SinkExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::runtime::Handle;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
+mod pool;
 mod stream;
 use stream::Stream;
 
-// Must match config.Ports[config.TokioTungstenite] in config/config.go; config/native_ports_test.go
-// holds the two to it.
+// Must match config.Ports[config.TokioTungstenite] in config/config.go, the ports with the logic
+// pool on; config/native_ports_test.go holds the two to it.
 const PORT_START: u16 = 32001;
 const PORT_END: u16 = 32050;
+// Must match config.Ports[config.TokioTungsteniteInline]: the ports with it off.
+const INLINE_PORT_START: u16 = 32101;
+const INLINE_PORT_END: u16 = 32150;
+
+// One CPU's worth of logic pool workers per this many, and at least one, when -workers does not
+// say: the uwebsockets server's default, which was the best of what that server measured, since
+// a worker only moves a batch and hands it back while a loop does the poll, the read, the parse
+// and the write.
+const CORES_PER_WORKER: usize = 4;
 
 // The longest request head read before giving up on a connection.
 const MAX_REQUEST_HEAD: usize = 8192;
@@ -48,6 +75,8 @@ struct Flags {
     nodelay: bool,
     reuseport: bool,
     threads: usize,
+    logic_pool: bool,
+    workers: usize,
     ignored: Vec<String>,
 }
 
@@ -61,6 +90,8 @@ fn parse_flags() -> Flags {
         nodelay: true,
         reuseport: true,
         threads: 0,
+        logic_pool: true,
+        workers: 0,
         ignored: Vec::new(),
     };
     for arg in std::env::args().skip(1) {
@@ -87,30 +118,55 @@ fn parse_flags() -> Flags {
                 Some(threads) => flags.threads = threads,
                 None => eprintln!("tokio_tungstenite: ignoring {arg}, want -threads=<count>"),
             },
+            "logicpool" => flags.logic_pool = as_bool(value),
+            "workers" => match value.and_then(|v| v.parse().ok()) {
+                Some(workers) => flags.workers = workers,
+                None => eprintln!("tokio_tungstenite: ignoring {arg}, want -workers=<count>"),
+            },
             _ => flags.ignored.push(arg),
         }
     }
     flags
 }
 
+// The loops' handles, in the order connections are handed out to them, and whether the logic
+// pool is on. Both are set once, before the first listener accepts.
+static LOOPS: OnceLock<Vec<Handle>> = OnceLock::new();
+static NEXT_LOOP: AtomicUsize = AtomicUsize::new(0);
+static LOGIC_POOL: AtomicBool = AtomicBool::new(true);
+
 fn main() {
     let flags = parse_flags();
 
     // available_parallelism reads the affinity mask (and a cgroup CPU quota), so it counts the
     // CPUs script/env.sh pins the server to rather than the whole host - the count GOMAXPROCS
-    // follows on the Go side, and the one Tokio sizes its workers by by default.
+    // follows on the Go side.
     let cpus = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1);
-    let threads = if flags.threads > 0 {
+    let loops = if flags.threads > 0 {
         flags.threads
     } else {
         cpus
     };
+    // The pool's workers sit on top of the loops rather than taking CPUs from them, as the
+    // uwebsockets server's do.
+    let workers = if !flags.logic_pool {
+        0
+    } else if flags.workers > 0 {
+        flags.workers
+    } else {
+        (cpus / CORES_PER_WORKER).max(1)
+    };
+    let (port_start, port_end) = if flags.logic_pool {
+        (PORT_START, PORT_END)
+    } else {
+        (INLINE_PORT_START, INLINE_PORT_END)
+    };
 
     eprintln!(
-        "tokio_tungstenite benchmark config: threads={threads} cpus={cpus} nodelay={} reuseport={} ports={PORT_START}-{PORT_END}",
-        flags.nodelay, flags.reuseport
+        "tokio_tungstenite benchmark config: loops={loops} workers={workers} cpus={cpus} logicpool={} nodelay={} reuseport={} ports={port_start}-{port_end}",
+        flags.logic_pool, flags.nodelay, flags.reuseport
     );
     if !flags.ignored.is_empty() {
         eprintln!(
@@ -119,28 +175,48 @@ fn main() {
         );
     }
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(threads)
-        .enable_all()
-        .build()
-        .expect("building the tokio runtime");
+    LOGIC_POOL.store(flags.logic_pool, Ordering::Relaxed);
+    if flags.logic_pool {
+        pool::start(workers);
+    }
 
-    runtime.block_on(async move {
-        let mut accept_loops = Vec::new();
-        for port in PORT_START..=PORT_END {
-            let listener = match listen(port, flags.reuseport) {
+    // Each loop is a current-thread runtime driven by a thread of its own, which it never leaves:
+    // anything spawned onto its handle, from whichever thread, runs there.
+    let mut threads = Vec::with_capacity(loops);
+    let mut handles = Vec::with_capacity(loops);
+    for i in 0..loops {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("building a tokio event loop");
+        handles.push(runtime.handle().clone());
+        threads.push(
+            std::thread::Builder::new()
+                .name(format!("loop-{i}"))
+                .spawn(move || runtime.block_on(std::future::pending::<()>()))
+                .expect("starting a tokio event loop"),
+        );
+    }
+    let loops = LOOPS.get_or_init(|| handles);
+
+    // The listeners are spread over the loops too, so that accepting is not one loop's work.
+    for port in port_start..=port_end {
+        let handle = &loops[usize::from(port - port_start) % loops.len()];
+        let listener = {
+            let _entered = handle.enter();
+            match listen(port, flags.reuseport) {
                 Ok(listener) => listener,
                 Err(err) => {
                     eprintln!("tokio_tungstenite: failed to listen on port {port}: {err}");
                     std::process::exit(1);
                 }
-            };
-            accept_loops.push(tokio::spawn(accept_loop(listener, flags.nodelay)));
-        }
-        for accept_loop in accept_loops {
-            let _ = accept_loop.await;
-        }
-    });
+            }
+        };
+        handle.spawn(accept_loop(listener, flags.nodelay));
+    }
+    for thread in threads {
+        let _ = thread.join();
+    }
 }
 
 fn listen(port: u16, reuseport: bool) -> io::Result<TcpListener> {
@@ -167,7 +243,19 @@ async fn accept_loop(listener: TcpListener, nodelay: bool) {
         match listener.accept().await {
             Ok((stream, _)) => {
                 let _ = stream.set_nodelay(nodelay);
-                tokio::spawn(handle_connection(stream));
+                // To the next loop, which registers the socket with its own reactor: a tokio
+                // TcpStream belongs to the runtime it was registered with, so it goes across as
+                // the std socket under it, which into_std leaves non-blocking.
+                let Ok(stream) = stream.into_std() else {
+                    continue;
+                };
+                let loops = LOOPS.get().expect("loops not started");
+                let target = &loops[NEXT_LOOP.fetch_add(1, Ordering::Relaxed) % loops.len()];
+                target.spawn(async move {
+                    if let Ok(stream) = TcpStream::from_std(stream) {
+                        handle_connection(stream).await;
+                    }
+                });
             }
             Err(err) => {
                 // Out of file descriptors, most likely. Back off rather than spin on it; the
@@ -253,7 +341,11 @@ async fn handle_connection(mut stream: TcpStream) {
             tokio_tungstenite::accept_async_with_config(Stream::new(stream), Some(ws_config()))
                 .await
         {
-            echo(ws).await;
+            if LOGIC_POOL.load(Ordering::Relaxed) {
+                echo_on_pool(ws).await;
+            } else {
+                echo(ws).await;
+            }
         }
         return;
     }
@@ -273,8 +365,7 @@ async fn handle_connection(mut stream: TcpStream) {
     let _ = stream.shutdown().await;
 }
 
-// The control routes. Anything else is a 404, which is also what config.GetFrameworkTaskPool and
-// benchcli-uwscpp read as "no pool" for /taskpool.
+// The control routes. Anything else is a 404.
 fn control(method: &str, path: &str, body: &[u8]) -> (&'static str, &'static str, String) {
     let path = path.split('?').next().unwrap_or(path);
     match (method, path) {
@@ -287,6 +378,17 @@ fn control(method: &str, path: &str, body: &[u8]) -> (&'static str, &'static str
             )
         }
         ("GET", "/ps") => ("200 OK", "application/json", PS_SAMPLER.ps_json()),
+        // The report's Pool, as config.GetFrameworkTaskPool reads it.
+        ("GET", "/taskpool") => (
+            "200 OK",
+            "text/plain; charset=utf-8",
+            if LOGIC_POOL.load(Ordering::Relaxed) {
+                "logicpool"
+            } else {
+                "inline"
+            }
+            .to_string(),
+        ),
         _ => (
             "404 Not Found",
             "text/plain; charset=utf-8",
@@ -339,6 +441,89 @@ async fn echo(mut ws: WebSocketStream<Stream>) {
         }
         if ws.flush().await.is_err() {
             return;
+        }
+    }
+}
+
+// The echo with the logic pool on: the loop reads a batch - every message already readable, as
+// echo takes them - and hands it to the connection's shard, and writes out whatever answers the
+// worker has sent back, in the order it sent them. Reading does not wait for the answers, so a
+// connection can have a batch on the pool while the next one arrives, as a uWS connection can.
+async fn echo_on_pool(mut ws: WebSocketStream<Stream>) {
+    enum Event {
+        Read(Option<Result<Message, tokio_tungstenite::tungstenite::Error>>),
+        Answer(Vec<Message>),
+    }
+    let shard = pool::shard();
+    let (reply, mut answers) = tokio::sync::mpsc::unbounded_channel::<Vec<Message>>();
+    loop {
+        // Answers first, so that a connection that keeps sending still has its echoes written.
+        let event = std::future::poll_fn(|cx| {
+            if let Poll::Ready(Some(answer)) = answers.poll_recv(cx) {
+                return Poll::Ready(Event::Answer(answer));
+            }
+            ws.poll_next_unpin(cx).map(Event::Read)
+        })
+        .await;
+        match event {
+            Event::Answer(answer) => {
+                for msg in answer {
+                    if ws.feed(msg).await.is_err() {
+                        return;
+                    }
+                }
+                // And the ones that are back already, in the same write.
+                while let Ok(answer) = answers.try_recv() {
+                    for msg in answer {
+                        if ws.feed(msg).await.is_err() {
+                            return;
+                        }
+                    }
+                }
+                if ws.flush().await.is_err() {
+                    return;
+                }
+            }
+            Event::Read(first) => {
+                let Some(Ok(mut msg)) = first else {
+                    let _ = ws.flush().await;
+                    return;
+                };
+                let mut batch = Vec::new();
+                let mut ended = false;
+                loop {
+                    if matches!(msg, Message::Text(_) | Message::Binary(_)) {
+                        batch.push(msg);
+                    }
+                    match ws.next().now_or_never() {
+                        Some(Some(Ok(next))) => msg = next,
+                        Some(Some(Err(_))) | Some(None) => {
+                            ended = true;
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+                if batch.is_empty() {
+                    // Pings and Closes only: tungstenite has queued their answers, which go out
+                    // now rather than waiting for an echo to carry them.
+                    if ws.flush().await.is_err() {
+                        return;
+                    }
+                } else if shard
+                    .send(pool::Job {
+                        messages: batch,
+                        reply: reply.clone(),
+                    })
+                    .is_err()
+                {
+                    return;
+                }
+                if ended {
+                    let _ = ws.flush().await;
+                    return;
+                }
+            }
         }
     }
 }

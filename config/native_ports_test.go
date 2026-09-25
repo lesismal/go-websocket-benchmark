@@ -25,6 +25,12 @@ func TestNativeServersListenOnTheirPorts(t *testing.T) {
 			last:      regexp.MustCompile(`const PORT_END: u16 = (\d+);`),
 		},
 		{
+			framework: TokioTungsteniteInline,
+			source:    "../frameworks/tokio_tungstenite/src/main.rs",
+			first:     regexp.MustCompile(`const INLINE_PORT_START: u16 = (\d+);`),
+			last:      regexp.MustCompile(`const INLINE_PORT_END: u16 = (\d+);`),
+		},
+		{
 			framework: Uwebsockets,
 			source:    "../frameworks/uwebsockets/server.cpp",
 			first:     regexp.MustCompile(`constexpr int kPortStart = (\d+);`),

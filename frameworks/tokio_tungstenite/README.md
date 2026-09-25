@@ -4,22 +4,41 @@ Echo WebSocket server built on [tokio-tungstenite](https://github.com/snapview/t
 0.30.0, the [Tokio](https://tokio.rs) binding of tungstenite, pinned from crates.io together with
 every crate under it by `Cargo.lock`.
 
-One multi-threaded Tokio runtime runs the whole server: a listener per benchmark port, each
-accepting on a task of its own, and a task per connection that does the handshake and then the
-echo. It is the Rust counterpart of a Go server's goroutine per connection on `GOMAXPROCS`
-threads, and Tokio's work-stealing scheduler is what spreads the connections over the workers,
-the way Go's scheduler spreads the goroutines. There is one worker thread per CPU the process
-may run on: `std::thread::available_parallelism` reads the affinity mask (and a cgroup CPU
-quota), so it counts the CPUs `script/env.sh` pins the server to rather than the whole host,
-which is also the count `GOMAXPROCS` follows. `-threads=N` overrides it; nothing in the
-scripts sets it. The startup line prints both:
+The server is a set of event loops: one current-thread Tokio runtime per CPU the process may
+run on, each driven by a thread of its own, the way uWS and the Go event loop servers have a loop
+per poller. A listener per benchmark port accepts on one of the loops, and hands every connection
+it accepts to the next loop round-robin, which registers the socket with its own reactor and
+serves it - the handshake, every read and every write - for the rest of its life. There is no
+work stealing between the loops. `std::thread::available_parallelism` reads the affinity mask
+(and a cgroup CPU quota), so the loops count the CPUs `script/env.sh` pins the server to rather
+than the whole host, which is also the count `GOMAXPROCS` follows. `-threads=N` overrides it;
+nothing in the scripts sets it. The startup line prints what was built:
 
 ```
-tokio_tungstenite benchmark config: threads=5 cpus=5 nodelay=true reuseport=true ports=32001-32050
+tokio_tungstenite benchmark config: loops=5 workers=1 cpus=5 logicpool=true nodelay=true reuseport=true ports=32001-32050
 ```
 
-`/init` and `/ps` replicate just enough of `frameworks.HandleCommon` (see
-`frameworks/handlers.go`) for the benchmark clients' CPU/RSS reporting, sampling
+## Logic thread pool
+
+`-logicpool=true`, the default, runs the message callback off the loops, on a pool of worker
+threads (`src/pool.rs`) built the way the `uwebsockets` server's logic pool is: the workers start
+up front, each with a queue of its own, and a connection always hands its batches to the same
+one, which keeps its messages in order. The loop reads a batch - every message already readable,
+as the echo below takes them - and queues it, and writes out the answers the worker sends back
+down the connection's own channel, several at once where several are back. Reading does not
+wait for an answer, so a connection can have a batch on the pool while the next one arrives.
+There is one worker per four CPUs, and at least one, on top of the loops rather than taken from
+them - the `uwebsockets` server's default, which is the best of what that server measured;
+`-workers=N` sets it. That is the `tokio_tungstenite` entry, and its Pool is `logicpool`.
+
+`-logicpool=false` answers on the loop that read the frame, and is the
+`tokio_tungstenite-inline` entry: the same binary, which takes that entry's ports (32101 to
+32150) when the pool is off, so that both are up in one run the way the Go servers and their
+`-inline` entries are. Its Pool is `inline`. `script/servers.sh` passes `-logicpool=true` to the
+one and `-logicpool=false` to the other, and neither takes the Go servers' `-taskpool` flags.
+
+`/init`, `/ps` and `/taskpool` replicate just enough of `frameworks.HandleCommon` (see
+`frameworks/handlers.go`) for the benchmark clients' CPU/RSS and pool reporting, sampling
 `/proc/self/stat` and `/proc/self/status` the way the `uwebsockets` server does. They are served
 on every benchmark port, so `config.Ports["tokio_tungstenite"]`'s last port doubles as the
 control port. A connection's request head is peeked at rather than read to tell the two apart:
@@ -54,10 +73,9 @@ Pings and Closes are answered by tungstenite itself.
 - `-nodelay` sets `TCP_NODELAY` on each accepted socket, and `-reuseport` `SO_REUSEPORT` on
   each listener, as those flags do for the Go servers; both default to true. The other flags
   `script/servers.sh` hands every server - `-b`, `-m` - are logged and ignored.
-- No `-taskpool` flag, so this server is not in `script/config.sh`'s `taskpool_frameworks`, has
-  no `/taskpool` route, and reports `-` for its Pool, as the Go frameworks without a pool hook
-  do. Where it answers from is the task that read the frame, which is what `-taskpool=inline`
-  means for a Go server.
+- No `-taskpool` flag: none of the Go pools can run under a Rust server. It is in
+  `script/config.sh`'s `taskpool_frameworks` for its `/taskpool` route, which answers
+  `logicpool` or `inline`; see Logic thread pool above.
 - Release profile: `opt-level = 3`, fat LTO, one codegen unit, `panic = "abort"`. The build
   targets the generic CPU of the host's architecture, the way the Go servers and the
   `uwebsockets` build do; `RUSTFLAGS="-C target-cpu=native"` in the environment of
@@ -77,7 +95,7 @@ is what those buffers hold on to by design.
 So the socket under each `WebSocketStream` is a wrapper (`src/stream.rs`) that does what uWS does
 with its buffers:
 
-- Reads go through one 512KiB buffer per worker thread, so one `recv` takes all a socket has,
+- Reads go through one 512KiB buffer per loop thread, so one `recv` takes all a socket has,
   and tungstenite, its read buffer set to 4KiB - the size its documentation suggests where there
   are many connections - reads from that 4KiB at a time. What it has not taken yet waits in a
   stash from a per-thread pool, which goes back as soon as it is empty.
