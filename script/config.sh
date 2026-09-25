@@ -138,9 +138,9 @@ done
 # rows and the same numbers; only the order differs:
 #
 #   result     (default) best first, ranked by the number each benchmark
-#              answers with: TPS in all three - for BenchRate the messages the
+#              answers with: TPS in all three - for BenchPipeline the messages the
 #              clients read back off the server per second - with EER breaking
-#              a tie in BenchEcho and BenchRate (Connections samples no CPU, so
+#              a tie in BenchEcho and BenchPipeline (Connections samples no CPU, so
 #              it has none). The rate test writes at a rate the clients set
 #              rather than to completion, so what came back under that load is
 #              its result there the way TPS is in the other two; Packet Sent is

@@ -83,7 +83,7 @@ Measured in Docker, server and client pinned to disjoint CPU sets the way `scrip
 them, `benchcli-uwscpp` echoing a 1KiB payload over 50000 connections at 10000 concurrency; TPS
 averaged over two to four runs:
 
-| server CPUs | loops+workers | BenchEcho TPS | BenchRate TPS | |
+| server CPUs | loops+workers | BenchEcho TPS | BenchPipeline TPS | |
 | --- | --- | --- | --- | --- |
 | 2 | 1+1 | 266k | 1.12M | the old default, `loops = cpus - workers` |
 | 2 | 2+1 | 323k | 1.43M | the default |

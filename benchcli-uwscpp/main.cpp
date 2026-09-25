@@ -163,10 +163,10 @@ int benchmark(const Options &o) {
         runner.shared.limiter.reset(o.integer("rl"));
         int seconds=o.integer("rd");if(!seconds)seconds=10;
         runner.shared.rateStart=nowNs();runner.shared.rateEnd=runner.shared.rateStart+int64_t(seconds)*1'000'000'000;
-        auto rateProfile=profile(o,"BenchRate",o.boolean("rp"),std::max(1,o.integer("rpd")));
-        std::cout<<"BenchRate: "<<seconds<<" seconds"<<std::endl;
+        auto rateProfile=profile(o,"BenchPipeline",o.boolean("rp"),std::max(1,o.integer("rpd")));
+        std::cout<<"BenchPipeline: "<<seconds<<" seconds"<<std::endl;
         runner.shared.stage.store(Rate,std::memory_order_release);runner.wait(Rate);
-        auto rate=emptyReport("BenchRate",o);
+        auto rate=emptyReport("BenchPipeline",o);
         int64_t sent=0,received=0,bytes=0;
         for (auto &w:runner.workers) {sent+=w->rateStats.sent;received+=w->rateStats.received;bytes+=w->rateStats.recvBytes;}
         rate["Duration"]=int64_t(seconds)*1'000'000'000;rate["Conns"]=dial.success;
@@ -179,7 +179,7 @@ int benchmark(const Options &o) {
         fillRateTPS(rate);
         resourceStats(rate,o,true,ps);
         if(rateProfile.valid())rateProfile.get();
-        saveReport(o,"BenchRate",rate);
+        saveReport(o,"BenchPipeline",rate);
     }
     return stats.failed || dial.failed ? 1:0;
 }

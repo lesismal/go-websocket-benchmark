@@ -265,14 +265,14 @@ The report tables are written best first. `-sort` takes the two orders:
 | `framework` | the order `config.FrameworkList` lists the frameworks in, which is what every report was written in before `-sort` existed |
 
 Which number `result` ranks by is the one each benchmark answers with: `TPS`
-in all three. In `BenchRate` that is `Packet Recv` per second of
+in all three. In `BenchPipeline` that is `Packet Recv` per second of
 `Rate Duration`, the messages the clients read back off the server per second:
 the rate test writes at a rate the clients set rather than to completion, so
 what the server got back under that load is its result there the way TPS is in
 the other two - `Packet Sent` is the load rather than the answer. `EER` is that
-`TPS` divided by `CPU Avg` in both `BenchEcho` and `BenchRate`. A `BenchRate`
+`TPS` divided by `CPU Avg` in both `BenchEcho` and `BenchPipeline`. A `BenchPipeline`
 report written before it recorded `TPS` gets it from `Packet Recv` and
-`Duration` when the report is read again. In `BenchEcho` and `BenchRate`, rows that tie
+`Duration` when the report is read again. In `BenchEcho` and `BenchPipeline`, rows that tie
 on that are ranked by `EER`, the one that spent less CPU on it first;
 `Connections` samples no CPU, so it has no `EER` to break a tie with.
 
@@ -463,7 +463,7 @@ results:
 | greatws_event    | 657385 | 1158.59 | 28.88us | 15.17ms | 190.30ms | 13.45ms | 16.33ms | 21.33ms | 22.78ms | 31.36ms  | 3.04s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 11.99   | 567.40  | 845.77  | 161.71M | 163.85M | 165.98M |
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
-20240403 16:31.05.064 [BenchRate] Report
+20240403 16:31.05.064 [BenchPipeline] Report
 
 | Framework        | Duration | EchoEER | Packet Sent | Bytes Sent | Packet Recv | Bytes Recv | Conns | SendRate | Payload | CPU Min | CPU Avg | CPU Max | MEM Min | MEM Avg | MEM Max |
 | ---------------- | -------- | ------- | ----------- | ---------- | ----------- | ---------- | ----- | -------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |

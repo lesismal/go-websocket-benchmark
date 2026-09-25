@@ -6,7 +6,7 @@
 // that is a recv per 4KiB: a Rate batch of ten 1KiB echoes takes three reads and the probe that
 // finds the socket empty, and at 50000 connections the client spent its CPU on recv - 2.6 frames
 // a call against benchcli-uwscpp's 13 - read slower than the server wrote, and left the server
-// holding the difference (fib's output queues reached 424MB of heap in BenchRate).
+// holding the difference (fib's output queues reached 424MB of heap in BenchPipeline).
 //
 // So a read here takes everything the socket has, up to SCRATCH, in one recv; when that comes
 // back short of the buffer, tokio takes the socket as drained and clears its readiness, so there

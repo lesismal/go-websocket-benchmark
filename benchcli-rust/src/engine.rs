@@ -11,7 +11,7 @@
 // WebSocketStream once tungstenite has flushed anything of its own (a pong), and drained there
 // while the connection goes on reading; see stream.rs. Framing each message through tungstenite
 // instead - a header, a fresh random mask, a copy and the masking of the copy, for over two
-// million frames a second in BenchRate - and awaiting each write whole kept this client's four
+// million frames a second in BenchPipeline - and awaiting each write whole kept this client's four
 // cores saturated while benchcli-uwscpp's used three, left a connection whose socket was full
 // unread until it drained, and so had it read a third less than benchcli-uwscpp did against the
 // same fib server, which held what the client was slow to read: about 1GB at 50000
