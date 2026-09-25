@@ -18,7 +18,18 @@ for f in ${frameworks[@]}; do
     echo
     # Only the servers that define the flags may be given them.
     taskpool_args=""
-    if [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
+    if [ "$f" = tokio_tungstenite ] || [ "$f" = tokio_tungstenite-inline ]; then
+        # tokio_tungstenite takes none of the Go pool flags either: it answers
+        # on its own logic thread pool, and its -inline entry - the same
+        # server, which takes that entry's ports when the pool is off - from
+        # its event loops. It ignores the flags it does not define, so it gets
+        # this one and nothing of the Go pools'.
+        logic_pool=true
+        if [ "$f" = tokio_tungstenite-inline ]; then
+            logic_pool=false
+        fi
+        taskpool_args="-logicpool=${logic_pool}"
+    elif [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
         # uwebsockets takes none of the Go pool flags: it answers on its logic
         # thread pool, and its -inline entry - the same server, which takes
         # that entry's ports when the pool is off - from its event loops. It

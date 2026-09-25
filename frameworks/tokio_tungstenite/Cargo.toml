@@ -7,7 +7,7 @@ publish = false
 # Pinned, with Cargo.lock beside it, so every run measures the same library; see README.md.
 [dependencies]
 tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
-tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "time"] }
+tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 httparse = "1"
 libc = "0.2"

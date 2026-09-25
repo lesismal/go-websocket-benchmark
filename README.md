@@ -74,9 +74,10 @@ server node needs besides Go:
 - `tokio_tungstenite` -
   [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite), Rust, on
   Tokio. Cargo 1.85 or newer; its first build downloads the crates its
-  `Cargo.lock` pins. It answers on the task that read the frame - Tokio's
-  counterpart of a Go server's `inline` - and takes no `-taskpool` flag, so its
-  `Pool` is `-`. See [its README](frameworks/tokio_tungstenite/README.md).
+  `Cargo.lock` pins. It runs a current-thread Tokio runtime per CPU as its event
+  loops and answers on a logic thread pool of its own, as `uwebsockets` does;
+  `tokio_tungstenite-inline` is the same server answering on its loops. It takes
+  no `-taskpool` flag. See [its README](frameworks/tokio_tungstenite/README.md).
 
 The Docker image installs both toolchains - the Rust one also builds
 `benchcli-rust` - and fetches every pinned source at build time, so the
@@ -196,8 +197,8 @@ route when it builds the report. It is what ran rather than what the run asked f
 server whose own scheduling is one of these pools shows that pool under
 `BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
 there. `-` is a framework with no pool hook at all, or one that installed
-none; `uwebsockets` reports `logicpool` and `uwebsockets-inline` reports
-`inline`.
+none; `uwebsockets` and `tokio_tungstenite` report `logicpool`, and their
+`-inline` entries `inline`.
 
 `EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
 server's CPU average, which the clients collect along with the memory columns.
