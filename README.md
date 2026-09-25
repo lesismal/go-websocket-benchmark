@@ -75,9 +75,8 @@ server node needs besides Go:
   [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite), Rust, on
   Tokio. Cargo 1.85 or newer; its first build downloads the crates its
   `Cargo.lock` pins. It runs a current-thread Tokio runtime per CPU as its event
-  loops and answers on a logic thread pool of its own, as `uwebsockets` does;
-  `tokio_tungstenite-inline` is the same server answering on its loops. It takes
-  no `-taskpool` flag. See [its README](frameworks/tokio_tungstenite/README.md).
+  loops and answers on a logic thread pool of its own. It takes no `-taskpool`
+  flag. See [its README](frameworks/tokio_tungstenite/README.md).
 
 The Docker image installs both toolchains - the Rust one also builds
 `benchcli-rust` - and fetches every pinned source at build time, so the
@@ -104,22 +103,19 @@ only under `default`.
 
 `inline` - no pool, the callback running on the I/O goroutine that read the
 frame - is not a `BENCH_TASKPOOL` value: every run measures it next to the
-selected pool instead. Each Go event loop server that takes a pool - `fib`,
-`fnet`, `greatws`, `greatws_event`, `nbio_mixed` and `nbio_nonblocking` - has
-a second entry named after it with `-inline` on the end,
-`fib-inline` and so on: the same server binary, started with
+selected pool instead. The Go event loop servers `fib`, `fnet`, `greatws`,
+`greatws_event` and `nbio_mixed` each have a second entry named after it with
+`-inline` on the end, `fib-inline` and so on: the same server binary, started with
 `-taskpool=inline` on ports of its own (the framework's, 100 up), so both are
 up in the same run and get a row each in the report. The framework's own entry
 runs `BENCH_TASKPOOL`. `fib-inline` also spreads its connections over fib's IO
 pollers, one per CPU (`runtime.NumCPU`, which counts the CPUs the server is
 pinned to), each running its own connections' rounds on fib's own inline pool.
-`nbio_nonblocking-inline` likewise runs one nbio poller per CPU, where nbhttp's
-default is a quarter of that.
 `config.Inlines` in [`config/config.go`](config/config.go)
 lists them. `uws_events` has none: UIO runs every connection's callbacks in a
 task off its event loops, and a UIO executor must not run that task inline.
 `uws_std` has none either, since it reads on a goroutine per connection rather
-than in an event loop.
+than in an event loop, and `nbio_nonblocking` has none in this benchmark.
 
 ```sh
 # Every framework that can, on nbio's pool
@@ -159,47 +155,31 @@ entries. `-taskpool=inline` is also what tells a server it is running as its
 `-inline` entry, and so which ports to take.
 
 `uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
-run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It has one
-thread pool of its own - its logic thread pool: workers started up front over
-sharded queues, refusing rather than waiting - and
-`uwebsockets` answers on it, off the event loop. Its `-inline` entry,
-`uwebsockets-inline`, is the same server with the pool off, echoing straight
-from the loop callback, on ports of its own (31101 to 31150): `-logicpool` on
-the server, which `script/servers.sh` sets to `true` for the one and `false`
-for the other, and which picks the ports. Its workers
-are OS threads on top of the loop threads, not goroutines sharing the pollers'
-`GOMAXPROCS` threads, so with the pool on every CPU keeps its own event loop and the
-pool adds one worker per four CPUs (at least one) on top: a loop given up to
-the pool measured as a 1/cpus share of the throughput lost, while the extra
-thread cost nothing measurable. The CPU count it divides is the one `sched_getaffinity`
-reports, since `script/env.sh` pins the server with `taskset` and
-`hardware_concurrency()` does not read the mask - sizing by that was costing
-this server about 61% of its throughput with the pool on.
+run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It echoes
+straight from the loop callback, uWS's own scheduling, with one event loop per
+CPU. The CPU count is the one `sched_getaffinity` reports, since
+`script/env.sh` pins the server with `taskset` and `hardware_concurrency()`
+does not read the mask.
 
-Both counts can be set as a multiplier of those CPUs instead of a thread count,
-which is the form that carries from one machine to the next:
-`BENCH_UWS_WORKERS_PER_CPU` for the pool and `BENCH_UWS_LOOPS_PER_CPU` for the
-loops (`-workerspercpu` and `-loopspercpu` on the server; `-workers` and `-loops`
-take absolute counts, and `-poolqueue` the pool's queue). 0, the default for both, keeps the sizing above,
-and each one sets its own side only.
+The loop count can be set as a multiplier of those CPUs instead of a thread
+count, which is the form that carries from one machine to the next:
+`BENCH_UWS_LOOPS_PER_CPU` (`-loopspercpu` on the server; `-loops` takes an
+absolute count). 0, the default, keeps one loop per CPU.
 
 ```sh
-# The logic pool with half as many workers as CPUs, on top of a loop per CPU
-BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+# Half as many event loops as CPUs
+BENCH_UWS_LOOPS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
-The default is the best of what was measured with 2, 3 and 5 server CPUs, so
-it is worth re-measuring on a bigger machine - though every measurement there
-that added a second worker came out slower, since a worker only copies a
-payload and defers it back while a loop does the poll, the read, the parse and
-the write. See
-[its README](frameworks/uwebsockets/README.md) for the numbers.
+The server also has a logic thread pool, off by default and never turned on
+by the scripts (`-logicpool=true` on the server); see
+[its README](frameworks/uwebsockets/README.md).
 
 Every report records the pool its server installed, shown as the `Pool` row of
 the Summary table, which each client reads from that server's own `/taskpool`
 route when it builds the report. `-` is a framework with no pool hook at all,
-`uws_std` among them, or one that installed none; `uwebsockets` and
-`tokio_tungstenite` report `logicpool`, and their `-inline` entries `inline`.
+`uws_std` among them, or one that installed none; `tokio_tungstenite` reports
+`logicpool` and `uwebsockets` `inline`.
 
 `CPU EER` is throughput per percent of a CPU core and `MEM EER` is throughput
 per MB (1024*1024 bytes, the `M` of the memory columns) of resident memory, so
@@ -241,10 +221,8 @@ Three things to keep in mind when reading a report:
   connection itself, and nbio, fnet and greatws each keep one per-connection
   queue and submit a drain only when none is in flight. See the `Ordering` section
   of [the package doc](taskpool/taskpool.go) for which mechanism each
-  framework uses. `uwebsockets` keeps a queue and a drain flag the same way,
-  and has one more step to order: uWS is single threaded per loop, so a worker
-  cannot write and hands the echo back through `uWS::Loop::defer`, whose queue
-  is FIFO.
+  framework uses. `uwebsockets` echoes from its event loops, so it has no pool
+  to order.
 - No pool refuses work unless it is sized to: `uws` does once
   `BENCH_TASKPOOL_QUEUE` bounds its pending tasks, and the others wait for
   room. fib and uws_events close the connections behind the work their pool

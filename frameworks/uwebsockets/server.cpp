@@ -10,19 +10,18 @@
 //
 // # Logic thread pool
 //
-// The message callback runs off the reactor: -logicpool=true, the default, hands each
-// connection's frames to a fixed pool of worker threads, leaving the loop threads with the
-// reads, the parse and the writes. -logicpool=false echoes straight from the loop callback -
-// uWS's own scheduling - and is what the uwebsockets-inline entry runs: the same binary, which
-// takes that entry's ports (kInlinePortStart to kInlinePortEnd) when the pool is off, so that
-// both are up in one run the way the Go servers and their -inline entries are.
+// -logicpool=false, the default, echoes straight from the loop callback - uWS's own
+// scheduling - and is what the uwebsockets entry runs. -logicpool=true runs the message
+// callback off the reactor instead: it hands each connection's frames to a fixed pool of worker
+// threads, leaving the loop threads with the reads, the parse and the writes. Both listen on
+// the same ports.
 //
 // This server's pool is its own setting, not the Go servers' goroutine pool: it does not read
 // -taskpool or the -tp* flags, so BENCH_TASKPOOL and its sizing in script/config.sh leave it
-// alone; script/servers.sh turns it on for uwebsockets and off for uwebsockets-inline. The
-// /taskpool route still answers, for the report's Pool: "logicpool" with the pool on, "inline"
-// without it. The pool is sized by its own flags too: -workers or -workerspercpu for the
-// threads (see planThreads) and -poolqueue for the queue.
+// alone, and script/servers.sh never turns it on. The /taskpool route still answers, for the
+// report's Pool: "logicpool" with the pool on, "inline" without it. The pool is sized by its
+// own flags too: -workers or -workerspercpu for the threads (see planThreads) and -poolqueue
+// for the queue.
 //
 // The pool keeps one connection's messages in order the way the Go frameworks do: a
 // connection carries a queue of frames and a drain flag, and a drain is submitted only when
@@ -65,13 +64,9 @@
 
 namespace {
 
-// Must match config.Ports[config.Uwebsockets] in config/config.go: the ports with the logic
-// pool on.
+// Must match config.Ports[config.Uwebsockets] in config/config.go.
 constexpr int kPortStart = 31001;
 constexpr int kPortEnd = 31050;
-// Must match config.Ports[config.UwebsocketsInline]: the ports with it off.
-constexpr int kInlinePortStart = 31101;
-constexpr int kInlinePortEnd = 31150;
 
 // The CPUs this process may actually run on, which is what the thread counts have to be sized
 // against: script/env.sh pins the server to about half the host's CPUs with taskset, and
@@ -641,7 +636,7 @@ struct ThreadPlan {
 // a pool of one thread for every loop would be a poor default for any callback heavier than an
 // echo, so a quarter of the CPUs is where it scales to. The multiplier that says the same thing
 // is -workerspercpu=0.25, give or take the rounding (this one divides down, the multiplier rounds
-// to nearest); script/config.sh has it as BENCH_UWS_WORKERS_PER_CPU.
+// to nearest).
 constexpr unsigned kCoresPerWorker = 4;
 
 // One thread count, from the two flags that can set it: the absolute one (-loops, -workers) if
@@ -719,11 +714,11 @@ int main(int argc, char **argv) {
 
     const unsigned cores = availableCPUs();
 
-    // On by default, and independent of the Go servers' -taskpool: see the Logic thread pool
-    // section at the top of this file. Off is the uwebsockets-inline entry, on ports of its own.
-    const bool logicPool = parseBoolFlag(argc, argv, "logicpool", true);
-    const int portStart = logicPool ? kPortStart : kInlinePortStart;
-    const int portEnd = logicPool ? kPortEnd : kInlinePortEnd;
+    // Off by default, and independent of the Go servers' -taskpool: see the Logic thread pool
+    // section at the top of this file.
+    const bool logicPool = parseBoolFlag(argc, argv, "logicpool", false);
+    const int portStart = kPortStart;
+    const int portEnd = kPortEnd;
     std::vector<int> ports;
     ports.reserve(portEnd - portStart + 1);
     for (int port = portStart; port <= portEnd; ++port) ports.push_back(port);

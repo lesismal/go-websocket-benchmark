@@ -15,9 +15,7 @@
 // -logicpool=true, the default, runs the message callback off the loops, on the pool in pool.rs:
 // the loop reads a batch, hands it to the connection's shard, and writes the answer the worker
 // sends back. That is the tokio_tungstenite entry. -logicpool=false answers on the loop that read
-// the frame, and is the tokio_tungstenite-inline entry: the same binary, which takes that entry's
-// ports (INLINE_PORT_START to INLINE_PORT_END) when the pool is off, so both are up in one run
-// the way the Go servers and their -inline entries are. -workers sizes the pool.
+// the frame instead, on the same ports. -workers sizes the pool.
 //
 // The /init and /ps routes replicate just enough of frameworks.HandleCommon (see
 // frameworks/handlers.go) for the benchmark clients' resource reporting, the way the uwebsockets
@@ -54,13 +52,10 @@ mod pool;
 mod stream;
 use stream::Stream;
 
-// Must match config.Ports[config.TokioTungstenite] in config/config.go, the ports with the logic
-// pool on; config/native_ports_test.go holds the two to it.
+// Must match config.Ports[config.TokioTungstenite] in config/config.go;
+// config/native_ports_test.go holds the two to it.
 const PORT_START: u16 = 32001;
 const PORT_END: u16 = 32050;
-// Must match config.Ports[config.TokioTungsteniteInline]: the ports with it off.
-const INLINE_PORT_START: u16 = 32101;
-const INLINE_PORT_END: u16 = 32150;
 
 // One CPU's worth of logic pool workers per this many, and at least one, when -workers does not
 // say: the uwebsockets server's default, which was the best of what that server measured, since
@@ -158,11 +153,7 @@ fn main() {
     } else {
         (cpus / CORES_PER_WORKER).max(1)
     };
-    let (port_start, port_end) = if flags.logic_pool {
-        (PORT_START, PORT_END)
-    } else {
-        (INLINE_PORT_START, INLINE_PORT_END)
-    };
+    let (port_start, port_end) = (PORT_START, PORT_END);
 
     eprintln!(
         "tokio_tungstenite benchmark config: loops={loops} workers={workers} cpus={cpus} logicpool={} nodelay={} reuseport={} ports={port_start}-{port_end}",

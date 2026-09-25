@@ -27,8 +27,8 @@ Environment overrides:
                            GO-WEBSOCKET-BENCHMARK; empty leaves it out)
   BENCH_REPORT_SORT        Report row order: result (default, best first) or
                            framework (see script/config.sh)
-  BENCH_UWS_WORKERS_PER_CPU uwebsockets' pool threads per CPU, and
-  BENCH_UWS_LOOPS_PER_CPU  its event loops per CPU (see script/config.sh)
+  BENCH_UWS_LOOPS_PER_CPU  uwebsockets' event loops per CPU (see
+                           script/config.sh)
   DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available)
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
@@ -234,9 +234,8 @@ run_args=(
     --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
     # And the Summary's Project row.
     --env "BENCH_PROJECT=$BENCH_PROJECT"
-    # And uwebsockets' thread multipliers, which size themselves against the
+    # And uwebsockets' loop multiplier, which sizes itself against the
     # container's CPUs rather than the host's.
-    --env "BENCH_UWS_WORKERS_PER_CPU=$BENCH_UWS_WORKERS_PER_CPU"
     --env "BENCH_UWS_LOOPS_PER_CPU=$BENCH_UWS_LOOPS_PER_CPU"
 )
 if [ -n "$run_frameworks" ]; then

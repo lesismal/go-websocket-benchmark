@@ -31,11 +31,9 @@ There is one worker per four CPUs, and at least one, on top of the loops rather 
 them - the `uwebsockets` server's default, which is the best of what that server measured;
 `-workers=N` sets it. That is the `tokio_tungstenite` entry, and its Pool is `logicpool`.
 
-`-logicpool=false` answers on the loop that read the frame, and is the
-`tokio_tungstenite-inline` entry: the same binary, which takes that entry's ports (32101 to
-32150) when the pool is off, so that both are up in one run the way the Go servers and their
-`-inline` entries are. Its Pool is `inline`. `script/servers.sh` passes `-logicpool=true` to the
-one and `-logicpool=false` to the other, and neither takes the Go servers' `-taskpool` flags.
+`-logicpool=false` answers on the loop that read the frame instead, on the same ports, and its
+Pool is `inline`. `script/servers.sh` passes `-logicpool=true`, and the server takes none of the
+Go servers' `-taskpool` flags.
 
 `/init`, `/ps` and `/taskpool` replicate just enough of `frameworks.HandleCommon` (see
 `frameworks/handlers.go`) for the benchmark clients' CPU/RSS and pool reporting, sampling

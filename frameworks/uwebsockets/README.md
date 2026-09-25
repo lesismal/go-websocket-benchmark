@@ -11,8 +11,7 @@ on uSockets' default `SO_REUSEPORT` behavior to spread accepted connections acro
 `/proc/self/stat` and `/proc/self/status` directly instead of linking `gopsutil`. They are
 all registered on every benchmark port rather than a separate pid port, so
 `config.Ports["uwebsockets"]`'s last port doubles as the control port (no entry needed in
-`config.InitAndGetFrameworkPid`'s pid-port-offset list). With the logic pool off the server
-takes `uwebsockets-inline`'s ports instead, 31101 to 31150; see below.
+`config.InitAndGetFrameworkPid`'s pid-port-offset list).
 
 ## Threads
 
@@ -27,25 +26,20 @@ same arrangement on machines of different sizes. The startup lines print both nu
 `script/servers.sh` copies the last of them to the benchmark console:
 
 ```
-uwebsockets benchmark config: loops=5 workers=1 threads=6 cpus=5 hardware_concurrency=10 ports=31001-31050
-uwebsockets threads: event loops=5, task pool workers=1, cpus=5
+uwebsockets benchmark config: loops=5 workers=0 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
+uwebsockets threads: event loops=5, task pool workers=0 (-logicpool=false answers on the event loops), cpus=5
 ```
 
-With `-logicpool=false` the same lines read `workers=0 threads=5 ... ports=31101-31150` and
-`task pool workers=0`.
+With `-logicpool=true` the same lines read `workers=1 threads=6` and `task pool workers=1`.
 
 ## Logic thread pool
 
 The message callback can run off the reactor, the way the Go servers run theirs on a pool (see
 [`taskpool`](../../taskpool)): a thread pool takes each connection's frames, and the loop
-threads keep the reads, the parse and the writes. It is **on by default** (`-logicpool=true`),
-and it is what the `uwebsockets` entry measures.
-
-`-logicpool=false` echoes straight from the loop callback instead, uWS's own scheduling, and is
-the `uwebsockets-inline` entry: the same binary, which takes that entry's ports (31101 to 31150,
-`kInlinePortStart` to `kInlinePortEnd`) when the pool is off, so that both are up in one run the
-way the Go servers and their `-inline` entries are. `script/servers.sh` passes `-logicpool=true`
-to the one and `-logicpool=false` to the other.
+threads keep the reads, the parse and the writes. It is **off by default** (`-logicpool=false`),
+which echoes straight from the loop callback instead, uWS's own scheduling, and that is what the
+`uwebsockets` entry measures: `script/servers.sh` passes `-logicpool=false`. `-logicpool=true`
+turns the pool on, on the same ports.
 
 This is the server's own switch, independent of the Go servers' pools: it does not read
 `-taskpool` or the `-tp*` flags, and `script/servers.sh` passes it none of them, so
@@ -63,14 +57,9 @@ rejects=true loops=5 cpus=5
 process may run on (`round(N * cpus)`, at least one thread), and `-poolqueue` the queued
 connections (65536 by default, as for the `uws` pool). All three only matter with the pool on.
 
-`script/config.sh` configures the two multipliers as `BENCH_UWS_WORKERS_PER_CPU` and
-`BENCH_UWS_LOOPS_PER_CPU`, and `script/servers.sh` passes them to this server alone - no Go
-server defines them. 0, the default for both, leaves the sizing below. Sweeping the pool is
-one variable:
-
-```sh
-BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
-```
+`script/config.sh` configures the loop multiplier as `BENCH_UWS_LOOPS_PER_CPU`, and
+`script/servers.sh` passes it to this server alone - no Go server defines it. 0, the default,
+leaves the sizing below. The pool's flags are for running the server by hand.
 
 The pool's workers are OS threads on top of the loop threads. The Go pools can be hundreds of
 goroutines because those multiplex onto the `GOMAXPROCS` threads their pollers already run on;
@@ -120,7 +109,7 @@ What remains is the handoff itself: at the same thread count the pool echoes at 
 the in-loop rate in that 2000-connection measurement (858k against 1,375k at four loops), because every batch pays a payload copy,
 a cross-thread queue and a `Loop::defer` for work that is otherwise a `memcpy`. That is the
 price of answering off the reactor, which is what the Go frameworks are being measured doing;
-`-logicpool=false`, the `uwebsockets-inline` entry, is the mode that does not pay it.
+`-logicpool=false`, the `uwebsockets` entry, is the mode that does not pay it.
 
 One thing that did not help, in case it looks obvious: batching the defers. Each finished batch
 defers its own send, so a burst across a thousand connections is a thousand `Loop::defer`

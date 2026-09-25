@@ -18,29 +18,17 @@ for f in ${frameworks[@]}; do
     echo
     # Only the servers that define the flags may be given them.
     taskpool_args=""
-    if [ "$f" = tokio_tungstenite ] || [ "$f" = tokio_tungstenite-inline ]; then
+    if [ "$f" = tokio_tungstenite ]; then
         # tokio_tungstenite takes none of the Go pool flags either: it answers
-        # on its own logic thread pool, and its -inline entry - the same
-        # server, which takes that entry's ports when the pool is off - from
-        # its event loops. It ignores the flags it does not define, so it gets
-        # this one and nothing of the Go pools'.
-        logic_pool=true
-        if [ "$f" = tokio_tungstenite-inline ]; then
-            logic_pool=false
-        fi
-        taskpool_args="-logicpool=${logic_pool}"
-    elif [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
-        # uwebsockets takes none of the Go pool flags: it answers on its logic
-        # thread pool, and its -inline entry - the same server, which takes
-        # that entry's ports when the pool is off - from its event loops. It
-        # sizes its threads against the CPUs it may run on with the two
-        # multipliers config.sh configures. Only that server defines these; the
+        # on its own logic thread pool. It ignores the flags it does not
+        # define, so it gets this one and nothing of the Go pools'.
+        taskpool_args="-logicpool=true"
+    elif [ "$f" = uwebsockets ]; then
+        # uwebsockets takes none of the Go pool flags: it answers from its
+        # event loops, which it sizes against the CPUs it may run on with the
+        # multiplier config.sh configures. Only that server defines these; the
         # Go ones would exit on a flag they do not have.
-        logic_pool=true
-        if [ "$f" = uwebsockets-inline ]; then
-            logic_pool=false
-        fi
-        taskpool_args="-logicpool=${logic_pool} -workerspercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
+        taskpool_args="-logicpool=false -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
     else
         for tf in ${taskpool_frameworks[@]}; do
             if [ "$f" = "$tf" ]; then
@@ -58,10 +46,10 @@ for f in ${frameworks[@]}; do
         done
     fi
     ./script/server.sh $f $server_flags $taskpool_args
-    # uwebsockets sizes its event loops and its task pool itself, against the
-    # CPUs it was given, so say what it built: the multipliers env.sh prints
-    # are what was asked for, 0 for the server's own sizing.
-    if [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
+    # uwebsockets sizes its event loops itself, against the CPUs it was given,
+    # so say what it built: the multiplier env.sh prints is what was asked
+    # for, 0 for the server's own sizing.
+    if [ "$f" = uwebsockets ]; then
         uws_log="./output/log/${preffix}${f}${suffix}.log"
         uws_threads=""
         for ((i = 0; i < 50; i++)); do

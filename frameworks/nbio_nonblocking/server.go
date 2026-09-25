@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"runtime/debug"
 	"time"
 
@@ -71,14 +70,6 @@ func startServers(name string, addrs []string) *nbhttp.Engine {
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
 	}
-	if name == config.NbioModNonblockingInline {
-		// Inline, each poller answers the connections it reads rather than
-		// handing them on, so the pollers do all of the work: one per CPU
-		// rather than nbhttp's default of a quarter of that.
-		engineConfig.NPoller = runtime.NumCPU()
-		logging.Printf("nbio pollers: %d (NumCPU)", engineConfig.NPoller)
-	}
-
 	// nbio runs the reading callbacks on a task pool of its own sizing.
 	// -taskpool hands that work to one of the shared pools instead, so that
 	// nbio can be measured on another framework's scheduler.
