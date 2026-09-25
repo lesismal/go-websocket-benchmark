@@ -18,13 +18,18 @@ for f in ${frameworks[@]}; do
     echo
     # Only the servers that define the flags may be given them.
     taskpool_args=""
-    if [ "$f" = uwebsockets ]; then
-        # uwebsockets takes none of the Go pool flags: its logic thread pool is
-        # its own switch, off unless BENCH_UWS_LOGIC_POOL says otherwise, and it
+    if [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
+        # uwebsockets takes none of the Go pool flags: it answers on its logic
+        # thread pool, and its -inline entry - the same server, which takes
+        # that entry's ports when the pool is off - from its event loops. It
         # sizes its threads against the CPUs it may run on with the two
         # multipliers config.sh configures. Only that server defines these; the
         # Go ones would exit on a flag they do not have.
-        taskpool_args="-logicpool=${BENCH_UWS_LOGIC_POOL} -workerspercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
+        logic_pool=true
+        if [ "$f" = uwebsockets-inline ]; then
+            logic_pool=false
+        fi
+        taskpool_args="-logicpool=${logic_pool} -workerspercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
     else
         for tf in ${taskpool_frameworks[@]}; do
             if [ "$f" = "$tf" ]; then
@@ -45,7 +50,7 @@ for f in ${frameworks[@]}; do
     # uwebsockets sizes its event loops and its task pool itself, against the
     # CPUs it was given, so say what it built: the multipliers env.sh prints
     # are what was asked for, 0 for the server's own sizing.
-    if [ "$f" = uwebsockets ]; then
+    if [ "$f" = uwebsockets ] || [ "$f" = uwebsockets-inline ]; then
         uws_log="./output/log/${preffix}${f}${suffix}.log"
         uws_threads=""
         for ((i = 0; i < 50; i++)); do

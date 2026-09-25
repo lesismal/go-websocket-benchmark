@@ -67,16 +67,18 @@ esac
 #                 one that refuses work rather than waiting for room
 #
 # default installs no pool; all the rest answer off the event loop.
-# None of this reaches the uwebsockets server, which has its own switch,
-# BENCH_UWS_LOGIC_POOL below.
+# None of this reaches the uwebsockets server, which has a logic thread pool
+# of its own; see BENCH_UWS_WORKERS_PER_CPU below.
 #
 # inline - no pool, the callback answering on the I/O goroutine that read the
 # frame - is not one of the values. It is measured on every run instead: each
 # Go event loop server that takes a pool has a second entry, its name with
 # -inline after it (fib-inline, nbio_nonblocking-inline, ...), which is the
 # same server started with -taskpool=inline on ports of its own, while the
-# framework's own entry runs the pool selected here. config.Inlines in
-# config/config.go lists them.
+# framework's own entry runs the pool selected here. uwebsockets has one too,
+# uwebsockets-inline, which echoes from its event loops while uwebsockets
+# answers on its logic thread pool. config.Inlines in config/config.go lists
+# them.
 #
 # Whichever is selected, each report records the pool its server installed -
 # the Pool row of the report's Summary table - read from the server's own
@@ -103,13 +105,13 @@ BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 # multiplier that rounds to nothing still gets one thread.
 #
 #   BENCH_UWS_WORKERS_PER_CPU  the logic thread pool - the workers that run the
-#                              message callback off the event loop, when
-#                              BENCH_UWS_LOGIC_POOL below turns it on
+#                              message callback off the event loop. uwebsockets
+#                              always has it; uwebsockets-inline never does
 #   BENCH_UWS_LOOPS_PER_CPU    the uWS event loops, one thread each, which do
 #                              the poll, the read, the frame parse and the write
 #
 # 0 (the default for both) leaves the server its own sizing: one loop per CPU,
-# and, with the logic pool on, one worker per four CPUs (at least one) on top of
+# and, for uwebsockets' logic pool, one worker per four CPUs (at least one) on top of
 # them, so the pool adds threads rather than taking CPUs from the loops. Setting
 # one of the two changes that side only.
 #
@@ -121,7 +123,7 @@ BENCH_TASKPOOL_QUEUE=${BENCH_TASKPOOL_QUEUE:-0}
 # worth a run on a machine of a different size.
 #
 # Override for one run with:
-#   BENCH_UWS_LOGIC_POOL=true BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+#   BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 BENCH_UWS_WORKERS_PER_CPU=${BENCH_UWS_WORKERS_PER_CPU:-0}
 BENCH_UWS_LOOPS_PER_CPU=${BENCH_UWS_LOOPS_PER_CPU:-0}
 for uws_thread_factor in "$BENCH_UWS_WORKERS_PER_CPU" "$BENCH_UWS_LOOPS_PER_CPU"; do
@@ -131,20 +133,6 @@ for uws_thread_factor in "$BENCH_UWS_WORKERS_PER_CPU" "$BENCH_UWS_LOOPS_PER_CPU"
             return 1 ;;
     esac
 done
-
-# uwebsockets only: whether its C++ server runs the message callback on the
-# logic thread pool above (true) or echoes straight from the event loop (false,
-# the default). Its own switch, not a BENCH_TASKPOOL mode: that variable and
-# BENCH_TASKPOOL_MIN/_MAX/_QUEUE are for the Go servers and never reach this
-# one. The report's Pool row shows "logicpool" for it when this is on.
-#
-# Override for one run with:
-#   BENCH_UWS_LOGIC_POOL=true BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
-BENCH_UWS_LOGIC_POOL=${BENCH_UWS_LOGIC_POOL:-false}
-case "$BENCH_UWS_LOGIC_POOL" in
-    true|false) ;;
-    *) echo "Unsupported BENCH_UWS_LOGIC_POOL: $BENCH_UWS_LOGIC_POOL (want true or false)" >&2; return 1 ;;
-esac
 
 # The order the report tables put their rows in. Both orders carry the same
 # rows and the same numbers; only the order differs:
@@ -195,12 +183,12 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # flag they do not define. The -inline ones take -taskpool=inline whatever
 # BENCH_TASKPOOL says; see script/servers.sh.
 #
-# uwebsockets is listed for its /taskpool route only: it is a C++ server, so
-# none of the Go pools can run under it, and script/servers.sh passes it its own
-# flags (BENCH_UWS_LOGIC_POOL and the BENCH_UWS_*_PER_CPU multipliers) instead
-# of the -taskpool ones, so BENCH_TASKPOOL* never changes what it runs. Its Pool
-# is "logicpool" with its logic thread pool on and "-" without it. See
-# frameworks/uwebsockets/README.md.
+# uwebsockets and uwebsockets-inline are listed for their /taskpool route only:
+# it is a C++ server, so none of the Go pools can run under it, and
+# script/servers.sh passes it its own flags (-logicpool, on for uwebsockets and
+# off for uwebsockets-inline, and the BENCH_UWS_*_PER_CPU multipliers) instead
+# of the -taskpool ones, so BENCH_TASKPOOL* never changes what it runs. Their
+# Pool is "logicpool" and "inline". See frameworks/uwebsockets/README.md.
 #
 # The benchmark clients ask /taskpool for the report's Pool of exactly these,
 # from config.TaskPoolFrameworks in config/config.go, which is the same list;
@@ -219,6 +207,7 @@ taskpool_frameworks=(
     "nbio_nonblocking"
     "nbio_nonblocking-inline"
     "uwebsockets"
+    "uwebsockets-inline"
     "uws_events"
     "uws_events-inline"
     "uws_std"
@@ -260,6 +249,7 @@ frameworks=(
     "quickws"
     "tokio_tungstenite"
     "uwebsockets"
+    "uwebsockets-inline"
     "uws_events"
     "uws_events-inline"
     "uws_std"

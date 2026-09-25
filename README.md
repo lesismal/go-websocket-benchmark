@@ -156,10 +156,12 @@ entries. `-taskpool=inline` is also what tells a server it is running as its
 `uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
 run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It has one
 thread pool of its own - its logic thread pool, built the way the `uws` pool
-is: workers up front over sharded queues, refusing rather than waiting - with
-a switch of its own, `BENCH_UWS_LOGIC_POOL` (`-logicpool` on the server).
-`false`, the default, echoes straight from the loop callback; `true` hands the
-callback to the pool, off the event loop. Its workers
+is: workers up front over sharded queues, refusing rather than waiting - and
+`uwebsockets` answers on it, off the event loop. Its `-inline` entry,
+`uwebsockets-inline`, is the same server with the pool off, echoing straight
+from the loop callback, on ports of its own (31101 to 31150): `-logicpool` on
+the server, which `script/servers.sh` sets to `true` for the one and `false`
+for the other, and which picks the ports. Its workers
 are OS threads on top of the loop threads, not goroutines sharing the pollers'
 `GOMAXPROCS` threads, so with the pool on every CPU keeps its own event loop and the
 pool adds one worker per four CPUs (at least one) on top: a loop given up to
@@ -177,8 +179,8 @@ take absolute counts, and `-poolqueue` the pool's queue). 0, the default for bot
 and each one sets its own side only.
 
 ```sh
-# The logic pool on, with half as many workers as CPUs, on top of a loop per CPU
-BENCH_UWS_LOGIC_POOL=true BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
+# The logic pool with half as many workers as CPUs, on top of a loop per CPU
+BENCH_UWS_WORKERS_PER_CPU=0.5 BENCH_FRAMEWORKS=uwebsockets bash script/benchmark.sh
 ```
 
 The default is the best of what was measured with 2, 3 and 5 server CPUs, so
@@ -194,8 +196,8 @@ route when it builds the report. It is what ran rather than what the run asked f
 server whose own scheduling is one of these pools shows that pool under
 `BENCH_TASKPOOL=default` rather than `default` - `uws_events` reports `uws`
 there. `-` is a framework with no pool hook at all, or one that installed
-none; `uwebsockets` reports `logicpool` with its logic thread pool on and `-`
-without it.
+none; `uwebsockets` reports `logicpool` and `uwebsockets-inline` reports
+`inline`.
 
 `EER` and `EchoEER` are throughput per percent of a CPU core, so they need the
 server's CPU average, which the clients collect along with the memory columns.

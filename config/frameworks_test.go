@@ -67,8 +67,8 @@ func TestInlinesAreFrameworksOfTheirOwn(t *testing.T) {
 		if inline != framework+InlineSuffix {
 			t.Errorf("%v's inline entry is %v, want %v", framework, inline, framework+InlineSuffix)
 		}
-		if Langs[framework] != LangGo || Langs[inline] != LangGo {
-			t.Errorf("%v and %v have to be Go servers, since they take the Go pools", framework, inline)
+		if Langs[inline] != Langs[framework] {
+			t.Errorf("%v is %v, but its framework %v is %v: they have to be one server", inline, Langs[inline], framework, Langs[framework])
 		}
 		for _, name := range []string{framework, inline} {
 			if !slices.Contains(FrameworkList, name) {
