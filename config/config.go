@@ -60,7 +60,6 @@ const (
 	Uwebsockets              = "uwebsockets"
 	UwebsocketsInline        = "uwebsockets-inline"
 	UwsEvents                = "uws_events"
-	UwsEventsInline          = "uws_events-inline"
 	UwsStdio                 = "uws_std"
 )
 
@@ -81,7 +80,9 @@ const InlineSuffix = "-inline"
 // own, and picks its ports from that flag the same way.
 //
 // uws_std is not here, since it reads on a goroutine per connection rather
-// than in an event loop.
+// than in an event loop, and neither is uws_events: UIO runs every
+// connection's callbacks in a task off its event loops, and a UIO executor
+// must not run that task inline.
 var Inlines = map[string]string{
 	Fib:                FibInline,
 	Fnet:               FnetInline,
@@ -91,7 +92,6 @@ var Inlines = map[string]string{
 	NbioModNonblocking: NbioModNonblockingInline,
 	TokioTungstenite:   TokioTungsteniteInline,
 	Uwebsockets:        UwebsocketsInline,
-	UwsEvents:          UwsEventsInline,
 }
 
 // An inline entry's ports are its framework's, 100 up: x101 to x150, and the
@@ -126,7 +126,6 @@ var Ports = map[string]string{
 	Uwebsockets:              "31001:31050",
 	UwebsocketsInline:        "31101:31150",
 	UwsEvents:                "28001:28050",
-	UwsEventsInline:          "28101:28150",
 	UwsStdio:                 "26001:26050",
 }
 
@@ -170,7 +169,6 @@ var Langs = map[string]string{
 	Uwebsockets:              LangCPP,
 	UwebsocketsInline:        LangCPP,
 	UwsEvents:                LangGo,
-	UwsEventsInline:          LangGo,
 	UwsStdio:                 LangGo,
 }
 
@@ -228,7 +226,6 @@ var FrameworkList = []string{
 	Uwebsockets,
 	UwebsocketsInline,
 	UwsEvents,
-	UwsEventsInline,
 	UwsStdio,
 }
 
@@ -369,7 +366,7 @@ func frameworkControlPort(framework string) (int, error) {
 	}
 	port := ports[len(ports)-1]
 	switch framework {
-	case Fib, FibInline, Gws, UwsEvents, UwsEventsInline, UwsStdio:
+	case Fib, FibInline, Gws, UwsEvents, UwsStdio:
 		port++
 	}
 	return port, nil
@@ -461,8 +458,6 @@ var TaskPoolFrameworks = []string{
 	Uwebsockets,
 	UwebsocketsInline,
 	UwsEvents,
-	UwsEventsInline,
-	UwsStdio,
 }
 
 // FrameworkHasTaskPool reports whether framework's server takes a pool, and so

@@ -51,6 +51,12 @@ func main() {
 	if *readBufferSize <= 0 {
 		logging.Fatalf("read buffer size must be positive: %d", *readBufferSize)
 	}
+	// UIO runs every connection's callbacks in a task off its event loops, and
+	// a UIO executor must not run that task inline, so uws_events has no -inline
+	// entry. Checked before frameworks.Name, which would only say that.
+	if supportsExecutor && taskpool.FlagConfig().Name == taskpool.Inline {
+		logging.Fatalf("%v cannot run -taskpool=%v: UIO executors must dispatch asynchronously", frameworkName, taskpool.Inline)
+	}
 	name := frameworks.Name(frameworkName)
 	addrs, err := config.GetFrameworkServerAddrs(name)
 	if err != nil {
@@ -65,10 +71,16 @@ func main() {
 		Pollers:       runtime.NumCPU(),
 		MaxBufferSize: maxBufferSize,
 	}
-	// uws has always run its callbacks on the sharded executor that is now
-	// the shared pool named "uws", so that is what -taskpool=default means
-	// here rather than no pool at all.
-	server.Executor = taskpool.UwsExecutor{Pool: taskpool.FromFlagsDefault(taskpool.Uws)}
+	// UIO runs each connection's I/O as one task. An explicit benchmark pool
+	// runs those tasks in place of UIO's own scheduler; -taskpool=default keeps
+	// UIO's taskgo scheduler, which runs about one worker per P and adds
+	// workers, up to 512*GOMAXPROCS, while callbacks block. The stdio backend
+	// reads and writes on goroutines of its own and takes no executor.
+	if supportsExecutor {
+		if pool := taskpool.FromFlags(); pool != nil {
+			server.Events.Executor = taskpool.UwsExecutor{Pool: pool}
+		}
+	}
 	logging.Printf(
 		"uws benchmark config: pollers=%d GOMAXPROCS=%d NumCPU=%d",
 		server.Events.Pollers, runtime.GOMAXPROCS(0), runtime.NumCPU(),

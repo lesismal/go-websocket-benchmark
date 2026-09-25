@@ -202,7 +202,7 @@ pub fn control_url(o: &Options) -> String {
     }
     let f = o.get("f");
     let mut port = ports(f).1;
-    if matches!(f, "fib" | "fib-inline" | "gws" | "uws_events" | "uws_events-inline" | "uws_std") {
+    if matches!(f, "fib" | "fib-inline" | "gws" | "uws_events" | "uws_std") {
         port += 1;
     }
     format!("http://{host}:{port}")

@@ -84,8 +84,6 @@ github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa02
 github.com/klauspost/cpuid/v2 v2.2.9 h1:66ze0taIn2H33fBvCkXuv9BmCwDfafmiIVpKV9kKGuY=
 github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK4QwQ3WMXF8=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
-github.com/lesismal/fib v0.0.0-20260925053615-180b6d22a084 h1:GoDtv4j/fOiWfOMTWMCAuf+6HmBRL9E88oV+veTCSM4=
-github.com/lesismal/fib v0.0.0-20260925053615-180b6d22a084/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
 github.com/lesismal/fib v0.0.0-20260925095153-09627c55b7d0 h1:INpoQ+KM6gjmQ2GsL/OIa5hyjJXwrAMIA4aY+9nJYlA=
 github.com/lesismal/fib v0.0.0-20260925095153-09627c55b7d0/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
 github.com/lesismal/llib v1.2.4 h1:O9ih7VDnOB6KOP3r64DAJpMyMJ/bCKbzYI80VoXEV28=
@@ -96,6 +94,8 @@ github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c h1:cB/Kbeew70XRJAgfR
 github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c/go.mod h1:Re4gjh2ATiXLaIOGygcsWYlA2NnWPCCGppJ4GQCVpLw=
 github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQscQm2s=
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
+github.com/limpo1989/taskgo v1.5.0 h1:xczgiyKl20SyWJ5OwH6CcYFMPliCTMUnRWXciRhegLc=
+github.com/limpo1989/taskgo v1.5.0/go.mod h1:x3mZYu4EyiAGBqy/qENxNKr78yLgHfjPg58RJRXklmY=
 github.com/linfeip/fnet v0.0.0-20260922112700-236750508401 h1:v6BEgg34rUxwgSCda1fPZ8P8JCanE+tMtRakKtfts0w=
 github.com/linfeip/fnet v0.0.0-20260922112700-236750508401/go.mod h1:IDogd58kd3aEYB+YyyH56hOZ6fI/NjoHjQXXJyzETzw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
@@ -138,8 +138,8 @@ github.com/tklauser/numcpus v0.4.0 h1:E53Dm1HjH1/R2/aoCtXtPgzmElmn51aOkhCFSuZq//
 github.com/tklauser/numcpus v0.4.0/go.mod h1:1+UI3pD8NW14VMwdgJNJ1ESk2UnwhAnz5hMwiKKqXCQ=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
-github.com/urpc/uio v1.3.0 h1:7ay/dzstwnj6ak9dxLiwPtKQFBc7oe9kj4xUBK3tXzg=
-github.com/urpc/uio v1.3.0/go.mod h1:GCPlVeiap9rUguHODO/SNTz75rsj8Pj33PQzUQTavzs=
+github.com/urpc/uio v1.4.0 h1:A1/2q3M//Ishn9oES/ViY9246yZWB1BtF72PgzDHknI=
+github.com/urpc/uio v1.4.0/go.mod h1:eB7erq8DRM5gxHuLZbte10WtxLwEDlDO2Tbguzl8qLE=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.58.0 h1:GGB2dWxSbEprU9j0iMJHgdKYJVDyjrOwF9RE59PbRuE=

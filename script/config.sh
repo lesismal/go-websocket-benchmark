@@ -63,8 +63,9 @@ esac
 #   fnet          fnet.WorkerPool, sharded and elastic: workers spawn on
 #                 demand and retire when idle
 #   greatws       greatws's stream2 business pool
-#   uws           the sharded channel executor uws runs on here, and the only
-#                 one that refuses work rather than waiting for room
+#   uws           github.com/limpo1989/taskgo, the pool UIO runs uws's
+#                 connections on, set up as UIO sets it up; it refuses work
+#                 only once BENCH_TASKPOOL_QUEUE bounds its pending tasks
 #
 # default installs no pool; all the rest answer off the event loop.
 # None of this reaches the uwebsockets server, which has a logic thread pool
@@ -181,7 +182,9 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # The servers that take the -taskpool flags, in framework-name order like every
 # other framework list here. The rest have no pool to swap and would exit on a
 # flag they do not define. The -inline ones take -taskpool=inline whatever
-# BENCH_TASKPOOL says; see script/servers.sh.
+# BENCH_TASKPOOL says; see script/servers.sh. uws_std is the uws_events
+# program built for UIO's stdio backend, which has no executor: it accepts
+# the flags but installs no pool, so it is not passed them.
 #
 # tokio_tungstenite and uwebsockets, and their -inline entries, are listed for
 # their /taskpool route only: they are Rust and C++ servers, so none of the Go
@@ -213,8 +216,6 @@ taskpool_frameworks=(
     "uwebsockets"
     "uwebsockets-inline"
     "uws_events"
-    "uws_events-inline"
-    "uws_std"
 )
 
 Connections=(5000 50000)
@@ -256,7 +257,6 @@ frameworks=(
     "uwebsockets"
     "uwebsockets-inline"
     "uws_events"
-    "uws_events-inline"
     "uws_std"
 )
 
