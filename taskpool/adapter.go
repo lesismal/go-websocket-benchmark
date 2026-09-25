@@ -2,6 +2,7 @@ package taskpool
 
 import (
 	fibpool "github.com/lesismal/fib/taskpool"
+	"github.com/urpc/uio"
 )
 
 // FibTaskPool adapts a Pool to the interface github.com/lesismal/fib takes
@@ -24,11 +25,25 @@ func (a FibTaskPool) GoTasks(tasks []fibpool.Task) int {
 	return len(tasks)
 }
 
-// UwsExecutor adapts a Pool to the uws.Executor interface, which uws uses to
-// run its callbacks off the event loop.
+// UwsExecutor adapts a Pool to uio.Executor, which UIO uses to run each
+// connection's I/O task off its event loops.
+//
+// UIO closes the connection behind a task the executor refuses, so a pool
+// whose Rejects reports true drops connections under load, as it does under
+// fib. A batch stops at the first refusal: UIO takes the accepted prefix and
+// closes the connections behind the rest.
 type UwsExecutor struct{ Pool Pool }
 
-func (e UwsExecutor) Submit(f func()) bool { return e.Pool.Go(f) }
+func (e UwsExecutor) Submit(task uio.IOTask) bool { return e.Pool.Go(task.RunTask) }
+
+func (e UwsExecutor) SubmitBatch(tasks []uio.IOTask) int {
+	for i, task := range tasks {
+		if !e.Pool.Go(task.RunTask) {
+			return i
+		}
+	}
+	return len(tasks)
+}
 
 // NbioExecute adapts a Pool to nbhttp.Config.ServerExecutor.
 //

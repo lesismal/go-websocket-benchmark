@@ -6,6 +6,7 @@ import (
 
 	"github.com/antlabs/greatws/task/driver"
 	fibpool "github.com/lesismal/fib/taskpool"
+	"github.com/urpc/uio"
 )
 
 func TestFibTaskPoolReportsTheAcceptedPrefix(t *testing.T) {
@@ -47,18 +48,29 @@ func TestNbioExecuteRunsWhatThePoolRefuses(t *testing.T) {
 	}
 }
 
+// taskFunc is a uio.IOTask that runs a func.
+type taskFunc func()
+
+func (f taskFunc) RunTask() { f() }
+
 func TestUwsExecutorPassesTheRefusalThrough(t *testing.T) {
-	// uws turns a false into application backpressure, so the adapter must
-	// not paper over it.
+	// UIO closes the connection behind a task its executor refuses, so the
+	// adapter must not paper over a refusal.
 	refusing := UwsExecutor{Pool: refusingPool{}}
-	if refusing.Submit(func() {}) {
+	if refusing.Submit(taskFunc(func() {})) {
 		t.Error("Submit reported that a refusing pool took the task")
 	}
+	if n := refusing.SubmitBatch([]uio.IOTask{taskFunc(func() {}), taskFunc(func() {})}); n != 0 {
+		t.Errorf("SubmitBatch reported %d tasks taken by a refusing pool", n)
+	}
 	var done sync.WaitGroup
-	done.Add(1)
+	done.Add(3)
 	live := UwsExecutor{Pool: newTestPool(t, Goroutine)}
-	if !live.Submit(done.Done) {
+	if !live.Submit(taskFunc(done.Done)) {
 		t.Fatal("Submit declined work a live pool should have taken")
+	}
+	if n := live.SubmitBatch([]uio.IOTask{taskFunc(done.Done), taskFunc(done.Done)}); n != 2 {
+		t.Fatalf("SubmitBatch took %d of 2 tasks a live pool should have taken", n)
 	}
 	waitOrFail(t, &done, "uws task did not run")
 }

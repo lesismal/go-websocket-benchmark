@@ -24,7 +24,6 @@ frameworks=(
     "nbio_nonblocking"
     "nbio_nonblocking-inline"
     "uws_events"
-    "uws_events-inline"
 )
 
 print_env
