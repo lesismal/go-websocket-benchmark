@@ -132,6 +132,15 @@ inline bool shownField(const json &field,const Options &o) {
 inline bool tableColumn(const json &field,const Options &o) {
     return shownField(field,o) && field["summary"].get<std::string>().empty();
 }
+// clientName mirrors report.clientName: the Client row reads language-framework, as
+// report.ClientNames maps the three clients; the JSON keeps the full name.
+inline std::string clientName(std::string s) {
+    if (s=="benchcli-go") return "go-nbio";
+    if (s=="benchcli-rust") return "rust-tokio_tungstenite";
+    if (s=="benchcli-uwscpp") return "cpp-uwebsockets";
+    if (s.rfind("benchcli-",0)==0) s.erase(0,9);
+    return s;
+}
 inline std::string formatField(const json &r,const json &field) {
     std::string key=field["key"], fmt=field["fmt"];
     // Missing - a report written before the field existed - reads as Go's zero value.
@@ -139,8 +148,7 @@ inline std::string formatField(const json &r,const json &field) {
     const auto &value=r[key];
     if (value.is_string()) {
         auto s=value.get<std::string>();
-        // The Client column reads "go" or "uwscpp"; the JSON keeps the full name.
-        if (fmt=="client" && s.rfind("benchcli-",0)==0) s.erase(0,9);
+        if (fmt=="client") return clientName(s);
         return s;
     }
     double n=value.get<double>();

@@ -105,7 +105,7 @@ The flags are `benchcli-go`'s, with its defaults, as `-flag=value`, `-flag value
 `-io-timeout` (the longest an echo response is waited for, 30s by default). Everything
 `benchcli-uwscpp`'s README says under its flags and its native-client differences holds here -
 `-ps`, `-sort`, `-project`, `-m` (an address-space ceiling on Linux, sampled peak RSS on macOS), profile
-timing, the exit codes - and the reports' `Client` reads `rust`.
+timing, the exit codes - and the reports' `Client` reads `rust-tokio_tungstenite`.
 
 ## Tests
 

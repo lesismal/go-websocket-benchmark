@@ -50,11 +50,24 @@ func tableColumn(field reflect.StructField, enableTPN bool) bool {
 	return enableTPN || field.Tag.Get("tpn") == ""
 }
 
-// clientName is how the Client column shows the client that measured a row:
-// "go", "uwscpp" or "rust". The JSON keeps the full name, "benchcli-go",
-// "benchcli-uwscpp" or "benchcli-rust", which is the directory it was built
-// from.
+// ClientNames is how the Summary and the console show the client that
+// measured a row, as "<language>-<framework>": its language as the Lang
+// column writes it and the WebSocket framework it runs on. The JSON keeps the
+// full name, the directory it was built from. benchcli-uwscpp and
+// benchcli-rust map the same names to the same words.
+var ClientNames = map[string]string{
+	"benchcli-go":     "go-nbio",
+	"benchcli-rust":   "rust-tokio_tungstenite",
+	"benchcli-uwscpp": "cpp-uwebsockets",
+}
+
+// clientName is how the Client row shows the client named name: its
+// ClientNames entry, or, for a client not listed there, the name without its
+// "benchcli-" prefix.
 func clientName(name string) string {
+	if display, ok := ClientNames[name]; ok {
+		return display
+	}
 	return strings.TrimPrefix(name, "benchcli-")
 }
 

@@ -21,7 +21,7 @@ type SummaryParameter struct {
 // read this list for the same order and the same words.
 var SummaryParameters = []SummaryParameter{
 	{"Project", "what this run benchmarks (-project)"},
-	{"Client", "benchmark client: rust, uwscpp or go"},
+	{"Client", "benchmark client, as language-framework: cpp-uwebsockets, rust-tokio_tungstenite or go-nbio"},
 	{"Pool", "task pool, used by Go event-loop frameworks only"},
 	{"Conns", "connections each benchmark runs over"},
 	{"Payload", "message size in bytes"},

@@ -174,8 +174,8 @@ func rowOrder(table string, want ...string) bool {
 
 // TestHiddenColumnsStayInTheJSON holds the tables and the console to the
 // shorter set of columns, and the JSON to all of them: TP50, TP75, TP90,
-// CPU Min and MEM Min are md:"-", the Client column drops the "benchcli-"
-// prefix, and BenchRate's EchoEER is headed EER.
+// CPU Min and MEM Min are md:"-", the Client row reads language-framework
+// rather than "benchcli-...", and BenchRate's EchoEER is headed EER.
 func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 	Init(true)
 	hidden := []string{"TP50", "TP75", "TP90", "CPU Min", "MEM Min", "benchcli-", "EchoEER"}
@@ -204,7 +204,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchRate table:\n%s", table)
 	}
-	if summary := Summary("", []Report{echo}, []Report{rate}); !strings.Contains(summary, "uwscpp (gorilla); go (gorilla)") {
+	if summary := Summary("", []Report{echo}, []Report{rate}); !strings.Contains(summary, "cpp-uwebsockets (gorilla); go-nbio (gorilla)") {
 		t.Errorf("Summary does not show the clients without their prefix:\n%s", summary)
 	}
 
@@ -314,7 +314,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		&BenchRateReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
 	}
 	summary := Summary("", conns, echo, rate)
-	rows := []string{"Client", "uwscpp", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
+	rows := []string{"Client", "cpp-uwebsockets", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
 		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200", "Rate Pipeline", "10",
 		"messages merged into one write in BenchRate (-rpl)"}
@@ -340,9 +340,9 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 	// Three columns, left-aligned: every cell a space, its text, then only
 	// spaces.
 	lines := strings.Split(strings.TrimSuffix(summary, "\n"), "\n")
-	if !strings.HasPrefix(lines[0], "| Parameter        | Value        | Description ") ||
-		!strings.HasPrefix(lines[1], "| ---              | ---          | ---  ") ||
-		!strings.HasPrefix(lines[3], "| Pool             | fib_adaptive | task pool, used by Go event-loop frameworks only ") {
+	if !strings.HasPrefix(lines[0], "| Parameter        | Value           | Description ") ||
+		!strings.HasPrefix(lines[1], "| ---              | ---             | ---  ") ||
+		!strings.HasPrefix(lines[3], "| Pool             | fib_adaptive    | task pool, used by Go event-loop frameworks only ") {
 		t.Errorf("Summary is not three left-aligned columns:\n%s", summary)
 	}
 	for _, line := range lines {

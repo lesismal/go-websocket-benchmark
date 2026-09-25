@@ -270,7 +270,9 @@ them and written to `Summary.md` next to them, left-aligned, with a
 ran, e.g. `fib_adaptive`: only the Go event-loop frameworks install one, as its
 description says, and the rest are left out. Any other parameter the frameworks
 disagree on lists each value with the frameworks that had it, e.g.
-`20000 (fib, fnet); 19998 (fasthttp)`. The JSON files still carry every
+`20000 (fib, fnet); 19998 (fasthttp)`. `Client` reads as
+language-framework: `cpp-uwebsockets`, `rust-tokio_tungstenite` or `go-nbio`
+(the JSON keeps `benchcli-uwscpp`, `benchcli-rust` or `benchcli-go`). The JSON files still carry every
 field, and so does the block each benchmark prints to the console as it
 finishes.
 
