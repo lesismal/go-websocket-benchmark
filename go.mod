@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
-	github.com/lesismal/fib/go v0.0.0-20260920104419-967d934a0d8d
+	github.com/lesismal/fib v0.0.0-20260925053615-180b6d22a084
 	github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
@@ -44,7 +44,6 @@ require (
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
-	github.com/lesismal/fib v0.0.0-20260925033058-dddc36535bae // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect

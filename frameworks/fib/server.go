@@ -15,8 +15,8 @@ import (
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/taskpool"
 
-	fib "github.com/lesismal/fib/go"
-	"github.com/lesismal/fib/go/websocket"
+	fib "github.com/lesismal/fib"
+	"github.com/lesismal/fib/websocket"
 )
 
 var (

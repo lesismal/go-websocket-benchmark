@@ -1,10 +1,10 @@
 package taskpool
 
 import (
-	fibpool "github.com/lesismal/fib/go/taskpool"
+	fibpool "github.com/lesismal/fib/taskpool"
 )
 
-// FibTaskPool adapts a Pool to the interface github.com/lesismal/fib/go takes
+// FibTaskPool adapts a Pool to the interface github.com/lesismal/fib takes
 // in Config.SetTaskPool.
 //
 // fib closes the connections behind the tasks its pool declines, so a pool

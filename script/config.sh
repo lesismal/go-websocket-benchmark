@@ -55,7 +55,7 @@ esac
 #   inline        no pool: the callback runs on the I/O goroutine that read
 #                 the frame, so the answer is written from the event loop
 #   go            one goroutine per task, bounded by nothing
-#   fib_adaptive  github.com/lesismal/fib/go/taskpool in adaptive mode, which
+#   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
 #                 is fib's own default and this benchmark's
 #   fib_cond      the same pool in cond mode: a fixed population of parked
 #                 goroutines

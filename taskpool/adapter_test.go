@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/antlabs/greatws/task/driver"
-	fibpool "github.com/lesismal/fib/go/taskpool"
+	fibpool "github.com/lesismal/fib/taskpool"
 )
 
 func TestFibTaskPoolReportsTheAcceptedPrefix(t *testing.T) {
