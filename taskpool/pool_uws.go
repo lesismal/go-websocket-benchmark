@@ -1,81 +1,55 @@
 package taskpool
 
 import (
+	"context"
 	"runtime"
-	"sync/atomic"
+	"time"
+
+	"github.com/limpo1989/taskgo"
 )
 
-// The sizing uws has run with in this benchmark since its executor was added.
+// UIO's own sizing: a ceiling of 512 workers per P, which taskgo reaches only
+// while tasks block, and idle workers kept long enough to reuse their stacks.
 const (
-	uwsWorkers = 256
-	uwsPending = 65536
+	uwsWorkersPerP = 512
+	uwsMaxIdle     = 30 * time.Second
 )
 
 func init() {
 	Register(Uws, func(config Config) (Pool, error) {
-		return newUwsPool(
-			orDefault(config.MaxWorkers, uwsWorkers),
-			orDefault(config.QueueSize, uwsPending),
-		), nil
+		return newUwsPool(config), nil
 	})
 }
 
-// uwsPool is the sharded channel executor uws runs on in this benchmark,
-// moved here so the other frameworks can be measured on it too.
+// uwsPool is github.com/limpo1989/taskgo, the pool UIO runs its connection
+// tasks on, set up the way UIO sets it up. taskgo keeps about one worker per P
+// running and adds workers, up to MaxWorkers, only while tasks block; an idle
+// worker stays parked for 30 seconds so the next task reuses its grown stack.
 //
-// Its workers are started up front and spread over one channel per shard, so
-// that submissions from different pollers rarely contend for the same queue.
-// Alone among the pools here it refuses work rather than waiting: a shard
-// whose channel is full reports false, which is how uws surfaces application
-// backpressure instead of letting a slow handler back up into the poller.
+// QueueSize, when set, bounds the tasks submitted but not yet finished
+// (taskgo's WithMaxPending), and a submission past it is refused. UIO leaves
+// that unbounded, and so does the default here, so the pool refuses nothing
+// unless it is asked to. taskgo has no worker floor, so MinWorkers is ignored.
 type uwsPool struct {
-	shards  []chan func()
-	next    atomic.Uint64
-	workers int
+	queue   *taskgo.Queue
+	rejects bool
 }
 
-func newUwsPool(workers, pending int) *uwsPool {
-	shardCount := min(runtime.GOMAXPROCS(0), max(workers/8, 1), pending)
-	pool := &uwsPool{shards: make([]chan func(), shardCount), workers: workers}
-	for index := range pool.shards {
-		queue := make(chan func(), share(pending, shardCount, index))
-		pool.shards[index] = queue
-		for range share(workers, shardCount, index) {
-			go func() {
-				for task := range queue {
-					call(task)
-				}
-			}()
-		}
+func newUwsPool(config Config) *uwsPool {
+	options := []taskgo.Option{
+		taskgo.WithConcurrency(orDefault(config.MaxWorkers, uwsWorkersPerP*runtime.GOMAXPROCS(0))),
+		taskgo.WithMaxIdle(uwsMaxIdle),
+		taskgo.WithPanicHandler(logPanic),
 	}
-	return pool
-}
-
-// share splits total over shards and hands shard index its part, giving the
-// remainder to the lowest-numbered shards.
-func share(total, shards, index int) int {
-	part := total / shards
-	if index < total%shards {
-		part++
+	if config.QueueSize > 0 {
+		options = append(options, taskgo.WithMaxPending(config.QueueSize))
 	}
-	return part
+	return &uwsPool{queue: taskgo.New(options...), rejects: config.QueueSize > 0}
 }
 
-func (p *uwsPool) Go(f func()) bool {
-	index := (p.next.Add(1) - 1) % uint64(len(p.shards))
-	select {
-	case p.shards[index] <- f:
-		return true
-	default:
-		return false
-	}
-}
+func (p *uwsPool) Go(f func()) bool { return p.queue.Submit(f) }
 
-func (p *uwsPool) Workers() int  { return p.workers }
-func (p *uwsPool) Rejects() bool { return true }
-
-func (p *uwsPool) Stop() {
-	for _, queue := range p.shards {
-		close(queue)
-	}
-}
+// Workers is -1: taskgo does not report how many workers it runs.
+func (p *uwsPool) Workers() int  { return -1 }
+func (p *uwsPool) Rejects() bool { return p.rejects }
+func (p *uwsPool) Stop()         { _ = p.queue.Stop(context.Background()) }

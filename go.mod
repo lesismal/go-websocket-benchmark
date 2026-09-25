@@ -17,10 +17,11 @@ require (
 	github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
+	github.com/limpo1989/taskgo v1.5.0
 	github.com/linfeip/fnet v0.0.0-20260922112700-236750508401
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/urpc/uio v1.3.0
+	github.com/urpc/uio v1.4.0
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
 )
