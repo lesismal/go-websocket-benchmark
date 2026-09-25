@@ -143,8 +143,8 @@ func summaryString(values []summaryValue) string {
 // poolSummary is the Pool row: the pools the servers installed, without the
 // frameworks, which would make the row as long as the run. Only the Go
 // event-loop frameworks install one - the rest report "-" and are left out,
-// which the row's description says - and uwebsockets' "(pool)" or "(loop)",
-// which side of its loop the echo ran on, is dropped as well:
+// which the row's description says - plus uwebsockets' "logicpool" when its
+// own logic thread pool is on. A "(...)" suffix on a value is dropped:
 //
 //	fib_adaptive
 func poolSummary(values []summaryValue) string {

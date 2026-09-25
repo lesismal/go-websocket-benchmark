@@ -329,7 +329,7 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
 }
 struct SummaryValue { std::string value; std::vector<std::string> frameworks; };
 // poolSummary mirrors report.poolSummary: the pools that ran, once each, without the
-// frameworks, the "-" of those that installed none, or uwebsockets' "(pool)"/"(loop)".
+// frameworks, the "-" of those that installed none, or a value's "(...)" suffix.
 inline std::string poolSummary(const std::vector<SummaryValue> &values) {
     std::vector<std::string> pools;
     for (const auto &v:values) {

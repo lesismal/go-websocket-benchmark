@@ -304,7 +304,7 @@ fn read_reports(o: &Options, kind: &str) -> Result<Vec<Report>, String> {
 }
 
 // report.poolSummary: the pools that ran, once each, without the frameworks, the "-" of those
-// that installed none, or uwebsockets' "(pool)"/"(loop)".
+// that installed none, or a value's "(...)" suffix.
 fn pool_summary(values: &[(String, Vec<String>)]) -> String {
     let mut pools: Vec<String> = Vec::new();
     for (value, _) in values {

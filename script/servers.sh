@@ -18,17 +18,20 @@ for f in ${frameworks[@]}; do
     echo
     # Only the servers that define the flags may be given them.
     taskpool_args=""
-    for tf in ${taskpool_frameworks[@]}; do
-        if [ "$f" = "$tf" ]; then
-            taskpool_args="-taskpool=${BENCH_TASKPOOL} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
-            break
-        fi
-    done
-    # uwebsockets sizes its threads against the CPUs it may run on, and takes
-    # the two multipliers config.sh configures that with. Only that server
-    # defines them; the Go ones would exit on a flag they do not have.
     if [ "$f" = uwebsockets ]; then
-        taskpool_args="${taskpool_args} -tpmaxpercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
+        # uwebsockets takes none of the Go pool flags: its logic thread pool is
+        # its own switch, off unless BENCH_UWS_LOGIC_POOL says otherwise, and it
+        # sizes its threads against the CPUs it may run on with the two
+        # multipliers config.sh configures. Only that server defines these; the
+        # Go ones would exit on a flag they do not have.
+        taskpool_args="-logicpool=${BENCH_UWS_LOGIC_POOL} -workerspercpu=${BENCH_UWS_WORKERS_PER_CPU} -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
+    else
+        for tf in ${taskpool_frameworks[@]}; do
+            if [ "$f" = "$tf" ]; then
+                taskpool_args="-taskpool=${BENCH_TASKPOOL} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
+                break
+            fi
+        done
     fi
     ./script/server.sh $f $server_flags $taskpool_args
     # uwebsockets sizes its event loops and its task pool itself, against the

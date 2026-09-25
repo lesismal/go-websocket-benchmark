@@ -523,7 +523,7 @@ func TestRateTPSIsPacketsPerSecond(t *testing.T) {
 }
 
 // TestPoolSummaryNamesOnlyThePools keeps the Pool row short: the pools that
-// ran, once each, without the frameworks or uwebsockets' side of its loop, and
+// ran, once each, without the frameworks or a value's "(...)" suffix, and
 // "-" when no server installed one.
 func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
 	for _, c := range []struct {
