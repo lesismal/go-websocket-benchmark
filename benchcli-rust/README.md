@@ -118,7 +118,7 @@ python3 benchcli-uwscpp/test_client.py benchcli-rust/target/release/benchcli-rus
 The unit tests cover the upgrade answer, the duration flags, the HTTP responses the control
 requests read, and the tables against what `benchcli-go` writes for the same cells.
 `benchcli-uwscpp/test_client.py` is the end-to-end suite both native clients run: it takes the
-binary to test, stands up a WebSocket fixture on the gorilla ports (127.0.0.1:12001-12050, so no
+binary to test, stands up a WebSocket fixture on the gorilla ports (127.0.0.1:15601-15650, so no
 gorilla server may be running) and covers upgrades, retries and timeouts, masking, payload
 lengths, fragmented messages with pings, corruption and disconnects, throttling, batching, server
 statistics, profile files, report aggregation and argument errors.

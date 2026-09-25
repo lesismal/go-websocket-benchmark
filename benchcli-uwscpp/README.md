@@ -120,7 +120,7 @@ parameters (`summary:"<name>"` fields) in front of the three.
 
 ## Tests
 
-The Python fixture binds the Gorilla test port range (127.0.0.1:12001–12050).
+The Python fixture binds the Gorilla test port range (127.0.0.1:15601–15650).
 Run with no other Gorilla benchmark server listening on those ports. `test_client.py` takes
 the binary to test, and `benchcli-rust` runs the same suite:
 

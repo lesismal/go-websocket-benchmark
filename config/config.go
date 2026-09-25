@@ -85,36 +85,51 @@ var Inlines = map[string]string{
 	NbioModMixed: NbioModMixedInline,
 }
 
-// An inline entry's ports are its framework's, 100 up: x101 to x150, and the
-// control port after them where the framework has one of its own.
+// Each framework's 50 ports, one block of 100 each from 15000 up, in the
+// framework-name order of the list above: 15001 to 15050, 15101 to 15150 and
+// so on, with the control port at x51 where the framework has one of its own.
+// A new framework takes the next free block at the end rather than its
+// place in name order, so that no other framework's ports move.
+//
+// Kept together and small so that as few ports as possible are taken from the
+// clients: every server's ports are reserved from the ephemeral range - see
+// script/ports.sh - and 15001 to 17651 sits below the default ephemeral range
+// of Linux (32768 and up) and of macOS and Windows (49152 and up). Fifty
+// ports each because one client address holds at most one connection per
+// ephemeral port to each server port: a million connections need 16 server
+// ports under the 1024 65535 range the README recommends, and 36 under
+// Linux's default.
+//
+// An inline entry is listed straight after its framework, so its ports are
+// the framework's, 100 up.
 var Ports = map[string]string{
-	Fasthttp:           "10001:10050",
-	Fib:                "29001:29050",
-	FibInline:          "29101:29150",
-	Fnet:               "30001:30050",
-	FnetInline:         "30101:30150",
-	Gobwas:             "11001:11050",
-	Gorilla:            "12001:12050",
-	Greatws:            "24001:24050",
-	GreatwsInline:      "24101:24150",
-	GreatwsEvent:       "25001:25050",
-	GreatwsEventInline: "25101:25150",
-	Gws:                "13001:13050",
-	GwsStd:             "14001:14050",
-	Hertz:              "15001:15050",
-	HertzStd:           "16001:16050",
-	NbioModBlocking:    "17001:17050",
-	NbioModMixed:       "18001:18050",
-	NbioModMixedInline: "18101:18150",
-	NbioModNonblocking: "19001:19050",
-	NbioStd:            "20001:20050",
-	GoNettyWs:          "21001:21050",
-	Nhooyr:             "22001:22050",
-	Quickws:            "23001:23050",
-	TokioTungstenite:   "32001:32050",
-	Uwebsockets:        "31001:31050",
-	UwsEvents:          "28001:28050",
-	UwsStdio:           "26001:26050",
+	Fasthttp:           "15001:15050",
+	Fib:                "15101:15150",
+	FibInline:          "15201:15250",
+	Fnet:               "15301:15350",
+	FnetInline:         "15401:15450",
+	Gobwas:             "15501:15550",
+	Gorilla:            "15601:15650",
+	Greatws:            "15701:15750",
+	GreatwsInline:      "15801:15850",
+	GreatwsEvent:       "15901:15950",
+	GreatwsEventInline: "16001:16050",
+	Gws:                "16101:16150",
+	GwsStd:             "16201:16250",
+	Hertz:              "16301:16350",
+	HertzStd:           "16401:16450",
+	NbioModBlocking:    "16501:16550",
+	NbioModMixed:       "16601:16650",
+	NbioModMixedInline: "16701:16750",
+	NbioModNonblocking: "16801:16850",
+	NbioStd:            "16901:16950",
+	GoNettyWs:          "17001:17050",
+	Nhooyr:             "17101:17150",
+	Quickws:            "17201:17250",
+	TokioTungstenite:   "17301:17350",
+	Uwebsockets:        "17401:17450",
+	UwsEvents:          "17501:17550",
+	UwsStdio:           "17601:17650",
 }
 
 // The languages a framework's server is written in, as the reports' Lang
@@ -252,7 +267,7 @@ func GetFrameworkHTTPServerAddrs(framework string) (string, error) {
 // urlHost brackets a bare IPv6 literal so that it can carry a port in a URL,
 // the way benchcli-uwscpp's controlURL does. BENCH_SERVER_HOST may be an
 // address or a hostname, and an IPv6 address without this comes out as
-// ws://fe80::1:12001/ws, which parses as neither host nor port.
+// ws://fe80::1:15601/ws, which parses as neither host nor port.
 func urlHost(ip string) string {
 	if strings.Contains(ip, ":") && !strings.HasPrefix(ip, "[") {
 		return "[" + ip + "]"
