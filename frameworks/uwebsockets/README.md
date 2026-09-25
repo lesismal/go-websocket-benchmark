@@ -26,7 +26,7 @@ same arrangement on machines of different sizes. The startup lines print both nu
 `script/servers.sh` copies the last of them to the benchmark console:
 
 ```
-uwebsockets benchmark config: loops=5 workers=0 threads=5 cpus=5 hardware_concurrency=10 ports=31001-31050
+uwebsockets benchmark config: loops=5 workers=0 threads=5 cpus=5 hardware_concurrency=10 ports=17401-17450
 uwebsockets threads: event loops=5, task pool workers=0 (-logicpool=false answers on the event loops), cpus=5
 ```
 

@@ -15,7 +15,7 @@ than the whole host, which is also the count `GOMAXPROCS` follows. `-threads=N` 
 nothing in the scripts sets it. The startup line prints what was built:
 
 ```
-tokio_tungstenite benchmark config: loops=5 workers=1 cpus=5 logicpool=true nodelay=true reuseport=true ports=32001-32050
+tokio_tungstenite benchmark config: loops=5 workers=1 cpus=5 logicpool=true nodelay=true reuseport=true ports=17301-17350
 ```
 
 ## Logic thread pool

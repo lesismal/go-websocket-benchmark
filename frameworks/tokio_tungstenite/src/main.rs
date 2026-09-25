@@ -54,8 +54,8 @@ use stream::Stream;
 
 // Must match config.Ports[config.TokioTungstenite] in config/config.go;
 // config/native_ports_test.go holds the two to it.
-const PORT_START: u16 = 32001;
-const PORT_END: u16 = 32050;
+const PORT_START: u16 = 17301;
+const PORT_END: u16 = 17350;
 
 // One CPU's worth of logic pool workers per this many, and at least one, when -workers does not
 // say: the uwebsockets server's default, which was the best of what that server measured, since

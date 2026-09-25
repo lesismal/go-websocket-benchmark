@@ -65,8 +65,8 @@
 namespace {
 
 // Must match config.Ports[config.Uwebsockets] in config/config.go.
-constexpr int kPortStart = 31001;
-constexpr int kPortEnd = 31050;
+constexpr int kPortStart = 17401;
+constexpr int kPortEnd = 17450;
 
 // The CPUs this process may actually run on, which is what the thread counts have to be sized
 // against: script/env.sh pins the server to about half the host's CPUs with taskset, and

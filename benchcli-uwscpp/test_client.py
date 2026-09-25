@@ -45,7 +45,7 @@ class Fixture:
         async def start():
             self.servers = []
             # gorilla's ports, and uwebsockets' for a framework with no pprof routes.
-            for port in [*range(12001, 12051), *range(31001, 31051)]:
+            for port in [*range(15601, 15651), *range(17401, 17451)]:
                 self.servers.append(await asyncio.start_server(self.handle, '127.0.0.1', port))
         try:
             self.loop.run_until_complete(start())
