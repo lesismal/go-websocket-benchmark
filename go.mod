@@ -44,7 +44,7 @@ require (
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
-	github.com/lesismal/fib v0.0.0-20260924170512-0aa91bf1785f // indirect
+	github.com/lesismal/fib v0.0.0-20260925033058-dddc36535bae // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
