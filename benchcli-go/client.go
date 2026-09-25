@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"go-websocket-benchmark/benchcli-go/benchecho"
-	"go-websocket-benchmark/benchcli-go/benchrate"
+	"go-websocket-benchmark/benchcli-go/benchpipeline"
 	"go-websocket-benchmark/benchcli-go/connections"
 	"go-websocket-benchmark/benchcli-go/report"
 	"go-websocket-benchmark/config"
@@ -34,10 +34,10 @@ var (
 	dialRetries       = flag.Int("dr", 5, "client: dial retry times")
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client; dial retry interval")
 
-	// BenchEcho && BenchRate
-	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchrate`)
+	// BenchEcho && BenchPipeline
+	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchpipeline`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
-	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchrate, 1000 ms by default`)
+	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchpipeline, 1000 ms by default`)
 	psMode     = flag.String("ps", config.PSModeAuto, `benchmark: where the server's CPU and MEM samples come from: `+
 		`"auto" samples the server here when it runs on this machine and asks it over HTTP when it does not, `+
 		`"local" always samples here, "remote" always asks`)
@@ -50,16 +50,16 @@ var (
 	echoPprof         = flag.Bool("ep", false, `benchecho: generate pprof report`)
 	echoPprofDuration = flag.Int("epd", 5, `benchecho: pprof duration`)
 
-	// BenchRate
-	rateEnabled       = flag.Bool("rate", false, `benchrate: whether run benchrate`)
-	rateConcurrency   = flag.Int("rc", 10000, "benchrate: concurrency: how many goroutines used to do the echo test")
-	rateDuration      = flag.Int("rd", 10, `benchrate: how long to spend to do the test`)
-	rateSendRate      = flag.Int("rr", 200, "benchrate: how many request message can be sent to 1 conn every second")
-	rateBatchSize     = flag.Int("rbs", 1024*16, "benchrate: how many bytes can be written to 1 conn every time")
-	ratePipeline      = flag.Int("rpl", 0, "benchrate: how many messages are merged into one write to 1 conn; 0 fits as many as -rbs bytes hold")
-	rateSendLimit     = flag.Int("rl", 0, `benchrate: message sending limitation per second`)
-	ratePprof         = flag.Bool("rp", false, `benchrate: generate pprof report`)
-	ratePprofDuration = flag.Int("rpd", 5, `benchrate: pprof duration`)
+	// BenchPipeline
+	rateEnabled       = flag.Bool("rate", false, `benchpipeline: whether run benchpipeline`)
+	rateConcurrency   = flag.Int("rc", 10000, "benchpipeline: concurrency: how many goroutines used to do the echo test")
+	rateDuration      = flag.Int("rd", 10, `benchpipeline: how long to spend to do the test`)
+	rateSendRate      = flag.Int("rr", 200, "benchpipeline: how many request message can be sent to 1 conn every second")
+	rateBatchSize     = flag.Int("rbs", 1024*16, "benchpipeline: how many bytes can be written to 1 conn every time")
+	ratePipeline      = flag.Int("rpl", 0, "benchpipeline: how many messages are merged into one write to 1 conn; 0 fits as many as -rbs bytes hold")
+	rateSendLimit     = flag.Int("rl", 0, `benchpipeline: message sending limitation per second`)
+	ratePprof         = flag.Bool("rp", false, `benchpipeline: generate pprof report`)
+	ratePprofDuration = flag.Int("rpd", 5, `benchpipeline: pprof duration`)
 
 	// for report generation
 	genReport  = flag.Bool("r", false, `make report`)
@@ -177,7 +177,7 @@ func main() {
 	logging.Print(logging.ShortLine)
 
 	if *rateEnabled {
-		br := benchrate.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
+		br := benchpipeline.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
 		br.PsSource = psSetup.Source
 		br.Concurrency = *rateConcurrency
 		br.Duration = time.Second * time.Duration(*rateDuration)
@@ -191,13 +191,13 @@ func main() {
 				time.AfterFunc(time.Second*2, func() {
 					cpu, err := httpGet(cpuProfileUrlRate)
 					if err != nil {
-						fmt.Printf("BenchRate: [pprof cpu] httpGet failed: %v\n", err)
+						fmt.Printf("BenchPipeline: [pprof cpu] httpGet failed: %v\n", err)
 						return
 					}
 
 					mem, err := httpGet(memProfileUrl)
 					if err != nil {
-						fmt.Printf("BenchRate: [pprof mem] httpGet failed: %v\n", err)
+						fmt.Printf("BenchPipeline: [pprof mem] httpGet failed: %v\n", err)
 						return
 					}
 					br.SetPprofData(cpu, mem)
@@ -234,7 +234,7 @@ func generateReports() {
 		{"Summary", report.GenerateSummary(*project, *preffix, *suffix)},
 		{"Connections", report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 		{"BenchEcho", report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
-		{"BenchRate", report.GenerateBenchRateReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
+		{"BenchPipeline", report.GenerateBenchPipelineReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 	}
 	for _, section := range sections {
 		filename := report.Filename(section.name, *preffix, *suffix+".md")

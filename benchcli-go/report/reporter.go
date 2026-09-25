@@ -26,7 +26,7 @@ type Report interface {
 // The orders a report table can be written in, as -sort takes them.
 const (
 	// SortResult puts the best result first: TPS for Connections, and TPS
-	// then EER for BenchEcho and BenchRate, whose TPS is the packets the
+	// then EER for BenchEcho and BenchPipeline, whose TPS is the packets the
 	// clients read back off the server per second. The fields tagged rank:"1", rank:"2" and so on are
 	// what it compares, in that order. Rows that tie on all of them keep the
 	// framework order between them, so a run is reproducible rather than
@@ -321,8 +321,8 @@ func GenerateBenchEchoReports(preffix, suffix string, enableTPN bool, order stri
 	return GenerateReports(preffix, suffix, enableTPN, order, create, filter)
 }
 
-func GenerateBenchRateReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
-	return Markdown(ReadBenchRateReports(preffix, suffix), enableTPN, order, filter)
+func GenerateBenchPipelineReports(preffix, suffix string, enableTPN bool, order string, filter func(string) bool) string {
+	return Markdown(ReadBenchPipelineReports(preffix, suffix), enableTPN, order, filter)
 }
 
 func ReadConnectionsReports(preffix, suffix string) []Report {
@@ -339,13 +339,13 @@ func ReadBenchEchoReports(preffix, suffix string) []Report {
 	return ReadReports(preffix, suffix, create)
 }
 
-func ReadBenchRateReports(preffix, suffix string) []Report {
+func ReadBenchPipelineReports(preffix, suffix string) []Report {
 	create := func(framework string) Report {
-		return &BenchRateReport{Framework: framework, Lang: config.FrameworkLang(framework)}
+		return &BenchPipelineReport{Framework: framework, Lang: config.FrameworkLang(framework)}
 	}
 	reports := ReadReports(preffix, suffix, create)
 	for _, r := range reports {
-		r.(*BenchRateReport).fillTPS()
+		r.(*BenchPipelineReport).fillTPS()
 	}
 	return reports
 }
@@ -354,7 +354,7 @@ func ReadBenchRateReports(preffix, suffix string) []Report {
 // are from, headed by project; see Summary.
 func GenerateSummary(project, preffix, suffix string) string {
 	return Summary(project, ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
-		ReadBenchRateReports(preffix, suffix))
+		ReadBenchPipelineReports(preffix, suffix))
 }
 
 // ReadReports reads the report every framework has in files, in

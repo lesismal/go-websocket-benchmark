@@ -22,7 +22,7 @@ so that the two native clients put the same load on a server:
 - **BenchEcho**: `min(connections * 5, 2000000)` round trips of warmup, then exactly `-en`, with
   at most `-ec` outstanding at once, rotating through the idle connections. A response that takes
   longer than `-io-timeout` closes its connection and counts as failed.
-- **BenchRate**: the live connections divided into `-rc` groups, each sent a batch of `Pipeline`
+- **BenchPipeline**: the live connections divided into `-rc` groups, each sent a batch of `Pipeline`
   frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold, written
   as one - with a connection skipped while its last batch is still being written or five batches
   are unanswered.
@@ -52,7 +52,7 @@ client's four cores saturated while `benchcli-uwscpp` used three. A connection w
 full was not read until it drained, so the server's echoes piled up in the server. Against fib
 at 50000 connections, 3 server CPUs and 4 client CPUs in Docker, averaged over three runs:
 
-| | BenchEcho TPS | BenchRate TPS | fib MEM Max in BenchRate | client CPU | client RSS |
+| | BenchEcho TPS | BenchPipeline TPS | fib MEM Max in BenchPipeline | client CPU | client RSS |
 | --- | --- | --- | --- | --- | --- |
 | before | 426k | 2.15M | 1.06G | 396% | 1.75GB |
 | now | 440k | 3.15M | 93M | 353% | 1.02GB |
@@ -60,7 +60,7 @@ at 50000 connections, 3 server CPUs and 4 client CPUs in Docker, averaged over t
 
 The old client's memory also lost a run against `tokio_tungstenite`, whose server then held
 about 8.8G at 50000 connections: in a 12.48GB container the kernel killed the client or the
-server in BenchRate. The client now finishes it at about 800MB (and the server holds under 1G;
+server in BenchPipeline. The client now finishes it at about 800MB (and the server holds under 1G;
 see [its README](../frameworks/tokio_tungstenite/README.md)). The one thing done here (`src/upgrade.rs`) is checking that answer:
 tungstenite's client handshake takes the `Connection` header for a single value and fails a
 server that answers `Connection: keep-alive, Upgrade`, which RFC 6455 allows, and a benchmark

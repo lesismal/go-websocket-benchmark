@@ -39,7 +39,7 @@ func Init(enableTPN bool) {
 	}
 	ConnectionsReportMarkdownHeaders = headers(reflect.TypeOf(ConnectionsReport{}))
 	BenchEchoReportMarkdownHeaders = headers(reflect.TypeOf(BenchEchoReport{}))
-	BenchRateReportMarkdownHeaders = headers(reflect.TypeOf(BenchRateReport{}))
+	BenchPipelineReportMarkdownHeaders = headers(reflect.TypeOf(BenchPipelineReport{}))
 }
 
 // tableColumn is whether field is a column of its report's table.

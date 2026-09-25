@@ -7,15 +7,15 @@ import (
 )
 
 var (
-	BenchRateReportMarkdownHeaders = []string{}
+	BenchPipelineReportMarkdownHeaders = []string{}
 )
 
-// BenchRateReport is ranked by TPS (rank:"1"), the messages the clients read
+// BenchPipelineReport is ranked by TPS (rank:"1"), the messages the clients read
 // back off the server per second: the rate benchmark writes at a rate the
 // clients set rather than to completion, so what the server answered under
 // that load is its result, the way TPS is in the other two. Rows with the same
 // TPS are ranked by EER (rank:"2"), the one that spent less CPU on it first.
-type BenchRateReport struct {
+type BenchPipelineReport struct {
 	Framework   string  `json:"Framework" md:"Framework"`
 	Lang        string  `json:"Lang" md:"Lang"`
 	BenchClient string  `json:"BenchClient" md:"Client" fmt:"client" summary:"Client"`
@@ -32,7 +32,7 @@ type BenchRateReport struct {
 	SendRate    int     `json:"SendRate" md:"SendRate" summary:"Rate SendRate"`
 	Pipeline    int     `json:"Pipeline" md:"Pipeline" summary:"Rate Pipeline"`
 	Payload     int     `json:"Payload" md:"Payload" summary:"Payload"`
-	// RatePprof is BenchEchoReport.EchoPprof for BenchRate (-rp).
+	// RatePprof is BenchEchoReport.EchoPprof for BenchPipeline (-rp).
 	RatePprof string `json:"RatePprof" md:"Pprof" summary:"Rate Pprof"`
 	// GoMin       int     `json:"GoMin" md:"Go Min" fmt:"go"`
 	// GoAvg       int     `json:"GoAvg" md:"Go Avg" fmt:"go"`
@@ -47,36 +47,36 @@ type BenchRateReport struct {
 	pprofDataMEM []byte  `json:"-" md:"-" fmt:"-"`
 }
 
-func (r *BenchRateReport) Type() string {
-	return "BenchRate"
+func (r *BenchPipelineReport) Type() string {
+	return "BenchPipeline"
 }
 
-func (r *BenchRateReport) Name() string {
-	return fmt.Sprintf("%s-BenchRate", r.Framework)
+func (r *BenchPipelineReport) Name() string {
+	return fmt.Sprintf("%s-BenchPipeline", r.Framework)
 }
 
-func (r *BenchRateReport) Headers() []string {
-	return BenchRateReportMarkdownHeaders
+func (r *BenchPipelineReport) Headers() []string {
+	return BenchPipelineReportMarkdownHeaders
 }
 
-func (r *BenchRateReport) Fields(enableTPN bool) []string {
+func (r *BenchPipelineReport) Fields(enableTPN bool) []string {
 	return ObjFieldValues(r, enableTPN)
 }
 
-func (r *BenchRateReport) SetPprofData(cpu, mem []byte) {
+func (r *BenchPipelineReport) SetPprofData(cpu, mem []byte) {
 	r.pprofDataCPU = cpu
 	r.pprofDataMEM = mem
 }
 
-func (r *BenchRateReport) PprofCPU() []byte {
+func (r *BenchPipelineReport) PprofCPU() []byte {
 	return r.pprofDataCPU
 }
 
-func (r *BenchRateReport) PprofMEM() []byte {
+func (r *BenchPipelineReport) PprofMEM() []byte {
 	return r.pprofDataMEM
 }
 
-func (r *BenchRateReport) String(enableTPN bool) string {
+func (r *BenchPipelineReport) String(enableTPN bool) string {
 	return ObjString(r, enableTPN)
 }
 
@@ -92,7 +92,7 @@ func RateTPS(recvTimes, duration int64) float64 {
 
 // fillTPS works TPS out for a report written before it had one, so that an
 // earlier run still ranks by it when its report is read again.
-func (r *BenchRateReport) fillTPS() {
+func (r *BenchPipelineReport) fillTPS() {
 	if r.TPS == 0 && r.RecvTimes > 0 {
 		r.TPS = int64(math.Floor(RateTPS(r.RecvTimes, r.Duration)))
 	}

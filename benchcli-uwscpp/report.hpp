@@ -262,7 +262,7 @@ inline std::string markdownTable(std::vector<std::string> title,std::vector<std:
 }
 // rankKeys is what -sort=result ranks a report by, most significant first: the fields
 // tagged rank:"1", rank:"2" and so on in benchcli-go/report, as RankKeys reads them there.
-// That is TPS for Connections, and TPS then EER for BenchEcho and BenchRate, whose TPS is
+// That is TPS for Connections, and TPS then EER for BenchEcho and BenchPipeline, whose TPS is
 // the packets the clients read back off the server per second.
 inline std::vector<json> rankFields(const std::string &kind) {
     std::vector<json> fields;
@@ -310,7 +310,7 @@ inline void withPercent(std::vector<std::vector<std::string>> &rows,size_t col,c
         rows[i][col]=std::string(valueLen-rows[i][col].size(),' ')+rows[i][col]+" "+
                      std::string(percentLen-percents[i].size(),' ')+percents[i];
 }
-// fillRateTPS mirrors BenchRateReport.fillTPS and benchrate.Report: a rate run's TPS is the
+// fillRateTPS mirrors BenchPipelineReport.fillTPS and benchpipeline.Report: a rate run's TPS is the
 // packets the clients read back per second of its duration, floored. A report written before
 // it had one gets it here, so that an earlier run still ranks by it when it is read again.
 inline void fillRateTPS(json &r) {
@@ -331,7 +331,7 @@ inline std::vector<json> readReports(const Options &o,const std::string &kind) {
         auto &row=rows.back();
         if (!row.contains("Lang") || !row["Lang"].is_string() || row["Lang"].get<std::string>().empty())
             row["Lang"]=frameworkLang(f.get<std::string>());
-        if (kind=="BenchRate") fillRateTPS(row);
+        if (kind=="BenchPipeline") fillRateTPS(row);
     }
     return rows;
 }
@@ -367,7 +367,7 @@ inline std::string summaryTable(const Options &o) {
     using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
     std::vector<std::string> names;
-    for (auto kind:{"Connections","BenchEcho","BenchRate"})
+    for (auto kind:{"Connections","BenchEcho","BenchPipeline"})
         for (const auto &r:readReports(o,kind)) {
             std::string framework=r.value("Framework","");
             for (const auto &field:metadata["schemas"][kind]) {
@@ -418,7 +418,7 @@ inline void generateReports(const Options &o) {
     auto summary=summaryTable(o);
     writeFile(filename(o,"Summary",".md"),summary);
     std::cout<<consoleSection(o.get("preffix")+"Summary"+o.get("suffix"),summary);
-    for (auto kind:{"Connections","BenchEcho","BenchRate"}) {
+    for (auto kind:{"Connections","BenchEcho","BenchPipeline"}) {
         auto rows=readReports(o,kind);
         // The rows are read in metadata["frameworks"] order, which is
         // config.FrameworkList's, so -sort=framework is already what they are

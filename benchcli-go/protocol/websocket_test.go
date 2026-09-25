@@ -2,7 +2,7 @@ package protocol
 
 import "testing"
 
-// TestPipeline holds BenchRate's messages per write to its rules: -rpl when
+// TestPipeline holds BenchPipeline's messages per write to its rules: -rpl when
 // set, else what -rbs holds, at least one, at most -rr and -rl, and a divisor
 // of -rr so every write is the same size.
 func TestPipeline(t *testing.T) {
