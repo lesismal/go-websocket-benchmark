@@ -57,6 +57,7 @@ const (
 	Quickws                  = "quickws"
 	TokioTungstenite         = "tokio_tungstenite"
 	Uwebsockets              = "uwebsockets"
+	UwebsocketsInline        = "uwebsockets-inline"
 	UwsEvents                = "uws_events"
 	UwsEventsInline          = "uws_events-inline"
 	UwsStdio                 = "uws_std"
@@ -65,18 +66,21 @@ const (
 // InlineSuffix turns a framework's name into the name of its inline entry.
 const InlineSuffix = "-inline"
 
-// Inlines maps every Go event loop server that takes a pool to its inline
-// entry: the same server binary, run with -taskpool=inline so that the
-// callback answers on the poller that read the frame, on ports of its own so
-// that the two can be up at once. The server itself takes the entry's name,
-// and so its ports, from that flag: see frameworks.Name. The framework's own
-// entry runs whichever pool script/config.sh selects, which can no longer be
-// inline, so that every one of these frameworks is measured both ways in one
-// run.
+// Inlines maps every event loop server that takes a pool to its inline entry:
+// the same server binary, run so that the callback answers on the poller that
+// read the frame, on ports of its own so that the two can be up at once. The
+// framework's own entry runs off the event loop, so that every one of these
+// frameworks is measured both ways in one run.
+//
+// For the Go servers that is -taskpool=inline, from which the server takes the
+// entry's name, and so its ports: see frameworks.Name. Their own entry runs
+// whichever pool script/config.sh selects, which can no longer be inline.
+// uwebsockets takes none of the Go pools: it is -logicpool=false for its
+// inline entry and its logic thread pool for its own, and the C++ server picks
+// its ports from that flag the same way.
 //
 // uws_std is not here, since it reads on a goroutine per connection rather
-// than in an event loop, and neither is uwebsockets, which takes none of the
-// Go pools.
+// than in an event loop.
 var Inlines = map[string]string{
 	Fib:                FibInline,
 	Fnet:               FnetInline,
@@ -84,6 +88,7 @@ var Inlines = map[string]string{
 	GreatwsEvent:       GreatwsEventInline,
 	NbioModMixed:       NbioModMixedInline,
 	NbioModNonblocking: NbioModNonblockingInline,
+	Uwebsockets:        UwebsocketsInline,
 	UwsEvents:          UwsEventsInline,
 }
 
@@ -116,6 +121,7 @@ var Ports = map[string]string{
 	Quickws:                  "23001:23050",
 	TokioTungstenite:         "32001:32050",
 	Uwebsockets:              "31001:31050",
+	UwebsocketsInline:        "31101:31150",
 	UwsEvents:                "28001:28050",
 	UwsEventsInline:          "28101:28150",
 	UwsStdio:                 "26001:26050",
@@ -158,6 +164,7 @@ var Langs = map[string]string{
 	Quickws:                  LangGo,
 	TokioTungstenite:         LangRust,
 	Uwebsockets:              LangCPP,
+	UwebsocketsInline:        LangCPP,
 	UwsEvents:                LangGo,
 	UwsEventsInline:          LangGo,
 	UwsStdio:                 LangGo,
@@ -214,6 +221,7 @@ var FrameworkList = []string{
 	Quickws,
 	TokioTungstenite,
 	Uwebsockets,
+	UwebsocketsInline,
 	UwsEvents,
 	UwsEventsInline,
 	UwsStdio,
@@ -444,6 +452,7 @@ var TaskPoolFrameworks = []string{
 	NbioModNonblocking,
 	NbioModNonblockingInline,
 	Uwebsockets,
+	UwebsocketsInline,
 	UwsEvents,
 	UwsEventsInline,
 	UwsStdio,

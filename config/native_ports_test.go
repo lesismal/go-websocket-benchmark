@@ -30,6 +30,12 @@ func TestNativeServersListenOnTheirPorts(t *testing.T) {
 			first:     regexp.MustCompile(`constexpr int kPortStart = (\d+);`),
 			last:      regexp.MustCompile(`constexpr int kPortEnd = (\d+);`),
 		},
+		{
+			framework: UwebsocketsInline,
+			source:    "../frameworks/uwebsockets/server.cpp",
+			first:     regexp.MustCompile(`constexpr int kInlinePortStart = (\d+);`),
+			last:      regexp.MustCompile(`constexpr int kInlinePortEnd = (\d+);`),
+		},
 	}
 	for _, server := range servers {
 		code, err := os.ReadFile(server.source)

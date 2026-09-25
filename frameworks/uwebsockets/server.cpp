@@ -10,17 +10,19 @@
 //
 // # Logic thread pool
 //
-// The message callback can run off the reactor: -logicpool=true hands each connection's frames
-// to a fixed pool of worker threads, leaving the loop threads with the reads, the parse and the
-// writes. It is off by default, which echoes straight from the loop callback - uWS's own
-// scheduling.
+// The message callback runs off the reactor: -logicpool=true, the default, hands each
+// connection's frames to a fixed pool of worker threads, leaving the loop threads with the
+// reads, the parse and the writes. -logicpool=false echoes straight from the loop callback -
+// uWS's own scheduling - and is what the uwebsockets-inline entry runs: the same binary, which
+// takes that entry's ports (kInlinePortStart to kInlinePortEnd) when the pool is off, so that
+// both are up in one run the way the Go servers and their -inline entries are.
 //
 // This server's pool is its own setting, not the Go servers' goroutine pool: it does not read
 // -taskpool or the -tp* flags, so BENCH_TASKPOOL and its sizing in script/config.sh leave it
-// alone, and BENCH_UWS_LOGIC_POOL is what turns it on. The /taskpool route still answers, for
-// the report's Pool: "logicpool" with the pool on, "-" (no pool) without it. The pool is sized
-// by its own flags too: -workers or -workerspercpu for the threads (see planThreads) and
-// -poolqueue for the queue.
+// alone; script/servers.sh turns it on for uwebsockets and off for uwebsockets-inline. The
+// /taskpool route still answers, for the report's Pool: "logicpool" with the pool on, "inline"
+// without it. The pool is sized by its own flags too: -workers or -workerspercpu for the
+// threads (see planThreads) and -poolqueue for the queue.
 //
 // The pool keeps one connection's messages in order the way the Go frameworks do: a
 // connection carries a queue of frames and a drain flag, and a drain is submitted only when
@@ -63,9 +65,13 @@
 
 namespace {
 
-// Must match config.Ports[config.Uwebsockets] in config/config.go.
+// Must match config.Ports[config.Uwebsockets] in config/config.go: the ports with the logic
+// pool on.
 constexpr int kPortStart = 31001;
 constexpr int kPortEnd = 31050;
+// Must match config.Ports[config.UwebsocketsInline]: the ports with it off.
+constexpr int kInlinePortStart = 31101;
+constexpr int kInlinePortEnd = 31150;
 
 // The CPUs this process may actually run on, which is what the thread counts have to be sized
 // against: script/env.sh pins the server to about half the host's CPUs with taskset, and
@@ -287,9 +293,9 @@ private:
 std::unique_ptr<TaskPool> g_pool;
 
 // What /taskpool answers, for the Pool row of the reports: "logicpool" with the pool on, and
-// config.TaskPoolNone without it. Written once, before the loops start. See
-// config.GetFrameworkTaskPool.
-std::string g_taskPoolReport = "-";
+// "inline" without it, the name the Go servers' -inline entries report for the same
+// arrangement. Written once, before the loops start. See config.GetFrameworkTaskPool.
+std::string g_taskPoolReport = "inline";
 
 std::atomic<bool> g_warnedRefusal{false};
 
@@ -680,7 +686,7 @@ ThreadPlan planThreads(int argc, char **argv, bool logicPool, unsigned cores) {
 // that a report can be read back against the scheduling that produced it.
 void installTaskPool(int argc, char **argv, bool logicPool, const ThreadPlan &plan) {
     if (!logicPool) {
-        g_taskPoolReport = "-";
+        g_taskPoolReport = "inline";
         std::fprintf(stderr,
                      "uwebsockets logicpool: off -> event loop (the echo is written from the loop "
                      "callback, which is uWS's own scheduling) loops=%u cpus=%u\n",
@@ -711,21 +717,23 @@ int main(int argc, char **argv) {
                       "way to disable it; -nodelay=false is ignored\n");
     }
 
-    std::vector<int> ports;
-    ports.reserve(kPortEnd - kPortStart + 1);
-    for (int port = kPortStart; port <= kPortEnd; ++port) ports.push_back(port);
-
     const unsigned cores = availableCPUs();
 
-    // Off by default, and independent of the Go servers' -taskpool: see the Logic thread pool
-    // section at the top of this file.
-    const bool logicPool = parseBoolFlag(argc, argv, "logicpool", false);
+    // On by default, and independent of the Go servers' -taskpool: see the Logic thread pool
+    // section at the top of this file. Off is the uwebsockets-inline entry, on ports of its own.
+    const bool logicPool = parseBoolFlag(argc, argv, "logicpool", true);
+    const int portStart = logicPool ? kPortStart : kInlinePortStart;
+    const int portEnd = logicPool ? kPortEnd : kInlinePortEnd;
+    std::vector<int> ports;
+    ports.reserve(portEnd - portStart + 1);
+    for (int port = portStart; port <= portEnd; ++port) ports.push_back(port);
+
     const ThreadPlan plan = planThreads(argc, argv, logicPool, cores);
     std::fprintf(stderr,
                  "uwebsockets benchmark config: loops=%u workers=%u threads=%u cpus=%u "
                  "hardware_concurrency=%u ports=%d-%d\n",
                  plan.loops, plan.workers, plan.loops + plan.workers, cores,
-                 std::thread::hardware_concurrency(), kPortStart, kPortEnd);
+                 std::thread::hardware_concurrency(), portStart, portEnd);
 
     installTaskPool(argc, argv, logicPool, plan);
     // The two counts on a line of their own, the one script/servers.sh copies to the benchmark
