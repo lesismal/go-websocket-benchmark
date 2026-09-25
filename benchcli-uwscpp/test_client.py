@@ -475,7 +475,7 @@ class ClientTests(unittest.TestCase):
             for cell in line.strip('|').split('|'):
                 self.assertTrue(cell.startswith(' ') and not cell.startswith('  '), (cell, summary))
         rows = [[cell.strip() for cell in line.split('|')[1:3]] for line in lines[2:]]
-        self.assertEqual(rows, [['Project', 'GO-WEBSOCKET-BENCHMARK'], ['Client', 'uwscpp'], ['Pool', 'nbio'],
+        self.assertEqual(rows, [['Project', 'GO-WEBSOCKET-BENCHMARK'], ['Client', 'cpp-uwebsockets'], ['Pool', 'nbio'],
                                 ['Conns', '100'], ['Payload', '64'], ['Dial Concurrency', '20'],
                                 ['Echo Concurrency', '50'], ['Echo Total', '1000']])
         self.assertEqual(lines[2].split('|')[3].strip(), 'what this run benchmarks (-project)')

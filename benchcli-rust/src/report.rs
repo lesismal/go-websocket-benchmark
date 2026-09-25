@@ -67,6 +67,17 @@ fn table_column(field: &Value, tpn: bool) -> bool {
     shown_field(field, tpn) && field["summary"].as_str().unwrap().is_empty()
 }
 
+// report.clientName: the Client row reads language-framework, as report.ClientNames maps
+// the three clients; the JSON keeps the full name.
+fn client_name(s: &str) -> String {
+    match s {
+        "benchcli-go" => "go-nbio".into(),
+        "benchcli-rust" => "rust-tokio_tungstenite".into(),
+        "benchcli-uwscpp" => "cpp-uwebsockets".into(),
+        _ => s.strip_prefix("benchcli-").unwrap_or(s).to_string(),
+    }
+}
+
 fn format_field(r: &Report, field: &Value) -> String {
     let key = field["key"].as_str().unwrap();
     let fmt = field["fmt"].as_str().unwrap();
@@ -79,9 +90,8 @@ fn format_field(r: &Report, field: &Value) -> String {
         };
     };
     if let Some(s) = value.as_str() {
-        // The Client column reads "go", "uwscpp" or "rust"; the JSON keeps the full name.
         return if fmt == "client" {
-            s.strip_prefix("benchcli-").unwrap_or(s).to_string()
+            client_name(s)
         } else {
             s.to_string()
         };
