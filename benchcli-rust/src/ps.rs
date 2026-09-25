@@ -1,4 +1,4 @@
-// Where a report's CPU and MEM columns - and so EER and EchoEER - come from.
+// Where a report's CPU and MEM columns - and so CPU EER and MEM EER - come from.
 //
 // Asking the server over its /ps route is the only way when it is on another machine, and it
 // is also a request that has to arrive while the server is buried under the connections it has
@@ -392,7 +392,7 @@ pub fn setup_ps(o: &Options) -> PsSetup {
     ps
 }
 
-// Fills the CPU, MEM and EER columns from a set of samples, whoever took them. Min and Avg skip
+// Fills the CPU, MEM, CPU EER and MEM EER columns from a set of samples, whoever took them. Min and Avg skip
 // the first sample, and MEM sorts before it does, the way github.com/lesismal/perf's PSCounter
 // computes the same columns.
 fn apply_resource_stats(r: &mut Map<String, Value>, cpu: &[f64], mem: &mut [u64], rate: bool) {
@@ -428,12 +428,27 @@ fn apply_resource_stats(r: &mut Map<String, Value>, cpu: &[f64], mem: &mut [u64]
     } else {
         num(r, "TPS")
     };
-    let eer = if avg > 0.0 && tps.is_finite() {
-        tps / avg
+    r.insert(
+        (if rate { "EchoEER" } else { "EER" }).into(),
+        json!(per_unit(tps, avg)),
+    );
+    r.insert("MEMEER".into(), json!(mem_eer(tps, num(r, "MEMAvg"))));
+}
+
+// throughput / unit, or 0 when there is nothing to divide by, as report.EER has it.
+fn per_unit(throughput: f64, unit: f64) -> f64 {
+    let eer = throughput / unit;
+    if unit > 0.0 && eer.is_finite() {
+        eer
     } else {
         0.0
-    };
-    r.insert((if rate { "EchoEER" } else { "EER" }).into(), json!(eer));
+    }
+}
+
+// MEM EER, report.MEMEER: the throughput a server got for each MB (1024*1024 bytes, the M of
+// the MEM columns) of the memory it held on average.
+pub fn mem_eer(throughput: f64, mem_avg: f64) -> f64 {
+    per_unit(throughput, mem_avg / (1024.0 * 1024.0))
 }
 
 pub fn resource_stats(r: &mut Map<String, Value>, o: &Options, rate: bool, ps: &PsSetup) {
@@ -466,14 +481,15 @@ pub fn resource_stats(r: &mut Map<String, Value>, o: &Options, rate: bool, ps: &
     }
     apply_resource_stats(r, &cpu, &mut mem, rate);
     if cpu.is_empty() {
-        let column = if rate { "EchoEER" } else { "EER" };
         if trouble.is_empty() {
             eprintln!(
-                "server resource statistics unavailable, {column} reads 0: nothing was sampled, so either the \
-                 sampling never started or the phase was shorter than the -pi sampling interval"
+                "server resource statistics unavailable, CPU EER and MEM EER read 0: nothing was sampled, so \
+                 either the sampling never started or the phase was shorter than the -pi sampling interval"
             );
         } else {
-            eprintln!("server resource statistics unavailable, {column} reads 0: {trouble}");
+            eprintln!(
+                "server resource statistics unavailable, CPU EER and MEM EER read 0: {trouble}"
+            );
         }
     }
 }
