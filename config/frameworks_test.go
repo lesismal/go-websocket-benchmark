@@ -59,28 +59,6 @@ func TestFrameworkListCoversLangs(t *testing.T) {
 	}
 }
 
-// An inline entry is its framework's server under another name, so it has to
-// be everything the framework is to the clients - listed, reachable, asked for
-// its pool - on ports of its own.
-func TestInlinesAreFrameworksOfTheirOwn(t *testing.T) {
-	for framework, inline := range Inlines {
-		if inline != framework+InlineSuffix {
-			t.Errorf("%v's inline entry is %v, want %v", framework, inline, framework+InlineSuffix)
-		}
-		if Langs[inline] != Langs[framework] {
-			t.Errorf("%v is %v, but its framework %v is %v: they have to be one server", inline, Langs[inline], framework, Langs[framework])
-		}
-		for _, name := range []string{framework, inline} {
-			if !slices.Contains(FrameworkList, name) {
-				t.Errorf("%v is not in FrameworkList", name)
-			}
-			if !FrameworkHasTaskPool(name) {
-				t.Errorf("%v is not in TaskPoolFrameworks", name)
-			}
-		}
-	}
-}
-
 // Two frameworks sharing a port could not both be up, and every server in a
 // run is started before the first client.
 func TestPortsDoNotOverlap(t *testing.T) {

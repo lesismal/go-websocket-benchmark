@@ -61,9 +61,8 @@ func main() {
 	} else {
 		// This server's point is that the callbacks run on the event loop,
 		// which greatws calls its "io" task mode. Only -taskpool=default
-		// reaches it now that the flag defaults to a pool; -taskpool=inline,
-		// which is what the greatws_event-inline entry runs, is the same
-		// arrangement reached through the shared registry.
+		// reaches it now that the flag defaults to a pool; -taskpool=inline
+		// is the same arrangement reached through the shared registry.
 		opt = append(opt, greatws.WithServerCallbackInEventLoop())
 	}
 
@@ -72,10 +71,9 @@ func main() {
 	}
 	upgrader = greatws.NewUpgrade(opt...)
 
-	name := frameworks.Name(config.GreatwsEvent)
-	addrs, err := config.GetFrameworkServerAddrs(name)
+	addrs, err := config.GetFrameworkServerAddrs(config.GreatwsEvent)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.GreatwsEvent, err)
 	}
 
 	lns := h.startServers(addrs)

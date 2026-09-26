@@ -62,7 +62,7 @@ Examples:
     bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
   DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
     bash script/docker_benchmark.sh
-  BENCH_FRAMEWORKS=fib,fib-inline DOCKER_BENCH_MEMORY=24g \
+  BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
     bash script/docker_1m_conns_benchmark.sh
 EOF
 }
