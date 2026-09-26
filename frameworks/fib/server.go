@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"go-websocket-benchmark/config"
@@ -135,18 +134,16 @@ func startServer(addrs []string) *fib.Engine {
 	return server
 }
 
+// serverHandler sets TCP_NODELAY to -nodelay on each connection before the
+// handler sees it, whichever way -nodelay points: fib turns the option on for
+// every TCP connection it accepts, so -nodelay=false needs a call too.
 type serverHandler struct {
 	fib.Handler
 	nodelay bool
 }
 
 func (h *serverHandler) OnOpen(c *fib.Connection) {
-	if h.nodelay {
-		if err := syscall.SetsockoptInt(c.FD(), syscall.IPPROTO_TCP, syscall.TCP_NODELAY, 1); err != nil {
-			c.Close()
-			return
-		}
-	}
+	c.SetNoDelay(h.nodelay)
 	h.Handler.OnOpen(c)
 }
 
