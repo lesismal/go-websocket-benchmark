@@ -3,6 +3,7 @@ package connections
 import (
 	"context"
 	"fmt"
+	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -30,6 +31,8 @@ type Connections struct {
 	RetryTimes     int
 	EnalbeTPN      bool
 	Percents       []int
+	// NoDelay is the TCP_NODELAY every connection is set to once dialed.
+	NoDelay bool
 
 	// Caculations
 	Success uint32
@@ -230,6 +233,9 @@ begin:
 			}
 			conn, _, err := dialer.Dial(addr, nil)
 			if err == nil {
+				if tc, ok := conn.UnderlyingConn().(*net.TCPConn); ok {
+					_ = tc.SetNoDelay(cs.NoDelay)
+				}
 				conn.SetReadDeadline(time.Time{})
 				atomic.AddUint32(&cs.Success, 1)
 				cs.mux.Lock()

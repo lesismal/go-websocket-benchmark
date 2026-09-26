@@ -5,8 +5,9 @@
 // The /init and /ps routes replicate just enough of frameworks.HandleCommon (see
 // frameworks/handlers.go) for the benchmark clients' resource reporting: /init starts a
 // background CPU%/RSS sampler and returns the PID, /ps returns the samples as JSON. uSockets
-// always enables TCP_NODELAY on accepted sockets and does not expose a way to turn it off, so
-// -nodelay=false cannot be honored here (unlike the Go frameworks in this repo).
+// enables TCP_NODELAY on every socket it accepts and has no option for it, so each upgraded
+// connection has it set again to -nodelay in its open handler, the way the Go servers set it
+// on theirs.
 //
 // # Logic thread pool
 //
@@ -44,6 +45,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <csignal>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
@@ -57,6 +59,9 @@
 #include <utility>
 #include <vector>
 
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <sched.h>
@@ -502,6 +507,18 @@ long long parsePsIntervalNanos(const std::string &body) {
 }
 
 
+// -nodelay, set once in main before any loop starts.
+bool g_nodelay = true;
+
+// Sets TCP_NODELAY to -nodelay on an upgraded connection's socket. Setting it to 1 repeats
+// what uSockets did at accept, and is done anyway so that both values take the same path.
+template <typename WebSocket>
+void applyNoDelay(WebSocket *ws) {
+    const int fd = static_cast<int>(reinterpret_cast<intptr_t>(ws->getNativeHandle()));
+    const int value = g_nodelay ? 1 : 0;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &value, sizeof(value));
+}
+
 void runWorker(const std::vector<int> &ports) {
     uWS::App app;
 
@@ -514,7 +531,7 @@ void runWorker(const std::vector<int> &ports) {
         .resetIdleTimeoutOnSend = false,
         .sendPingsAutomatically = false,
         .upgrade = nullptr,
-        .open = [](auto * /*ws*/) {},
+        .open = [](auto *ws) { applyNoDelay(ws); },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, false);
         },
@@ -527,6 +544,7 @@ void runWorker(const std::vector<int> &ports) {
 
     if (g_pool) {
         behavior.open = [](auto *ws) {
+            applyNoDelay(ws);
             auto state = std::make_shared<ConnState>();
             state->ws = ws;
             state->loop = uWS::Loop::get();
@@ -705,12 +723,7 @@ void installTaskPool(int argc, char **argv, bool logicPool, const ThreadPlan &pl
 int main(int argc, char **argv) {
     std::signal(SIGINT, [](int) { std::_Exit(0); });
 
-    bool nodelay = parseBoolFlag(argc, argv, "nodelay", true);
-    if (!nodelay) {
-        std::fprintf(stderr,
-                      "uwebsockets: uSockets always enables TCP_NODELAY and does not expose a "
-                      "way to disable it; -nodelay=false is ignored\n");
-    }
+    g_nodelay = parseBoolFlag(argc, argv, "nodelay", true);
 
     const unsigned cores = availableCPUs();
 

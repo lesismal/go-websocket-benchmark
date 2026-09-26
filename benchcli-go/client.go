@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	_ = flag.Bool("nodelay", true, `tcp nodelay`)
+	nodelay = flag.Bool("nodelay", true, `tcp nodelay`)
 
 	// Client Proc
 	memLimit = flag.Int64("m", 1024*1024*1024*4, `memory limit`)
@@ -106,6 +106,7 @@ func main() {
 	cs.RetryTimes = *dialRetries
 	cs.RetryInterval = *dialRetryInterval
 	cs.EnalbeTPN = *enableTPN
+	cs.NoDelay = *nodelay
 	cs.Run()
 	defer cs.Stop()
 	csReport := cs.Report()

@@ -28,10 +28,10 @@ var (
 
 type echoHandler struct{}
 
+// OnOpen sets TCP_NODELAY to -nodelay whichever way it points, like the
+// rest of the servers, rather than counting on UIO's own default of 1.
 func (echoHandler) OnOpen(conn *uws.Conn) {
-	if !*nodelay {
-		conn.SetNoDelay(false)
-	}
+	_ = conn.SetNoDelay(*nodelay)
 }
 
 func (echoHandler) OnMessage(conn *uws.Conn, message uws.Message) {

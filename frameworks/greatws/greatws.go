@@ -60,6 +60,10 @@ func main() {
 		opt = append(opt, greatws.WithServerCustomTaskMode(taskMode))
 	}
 
+	// greatws v0.2.2 stores this option but never applies it; the
+	// server's ConnState below is what sets TCP_NODELAY. It is still
+	// passed so that a greatws which starts applying it agrees with that
+	// rather than putting its own default back.
 	if !*nodelay {
 		opt = append(opt, greatws.WithServerTCPDelay())
 	}
@@ -89,6 +93,14 @@ func (h *Handler) startServers(addrs []string) []net.Listener {
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,
+			// greatws takes the socket over by duplicating the hijacked
+			// conn's fd, so setting it on that conn sets it on the socket
+			// greatws serves.
+			ConnState: func(c net.Conn, state http.ConnState) {
+				if state == http.StateHijacked {
+					frameworks.SetNoDelay(c, *nodelay)
+				}
+			},
 		}
 		ln, err := frameworks.Listen("tcp", addr)
 		if err != nil {
