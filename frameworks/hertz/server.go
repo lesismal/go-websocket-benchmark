@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	hertznetpoll "github.com/cloudwego/hertz/pkg/network/netpoll"
 	"github.com/hertz-contrib/pprof"
 	"github.com/hertz-contrib/websocket"
 	"github.com/lesismal/perf"
@@ -63,7 +65,8 @@ func main() {
 func startServers(addrs []string) []*server.Hertz {
 	srvs := make([]*server.Hertz, 0, len(addrs))
 	for _, addr := range addrs {
-		srv := server.New(server.WithHostPorts(addr))
+		srv := server.New(server.WithHostPorts(addr),
+			server.WithOnAccept(onAccept))
 		pprof.Register(srv)
 		srvs = append(srvs, srv)
 		go func() {
@@ -114,9 +117,21 @@ func startServers(addrs []string) []*server.Hertz {
 	return srvs
 }
 
+// onAccept sets TCP_NODELAY on every accepted connection. It is done here
+// rather than on the upgraded websocket.Conn: the conn that one hands back is
+// hertz's wrapper, which exposes nothing to set it through. Under the default
+// netpoll transport the socket is the netpoll connection the wrapper embeds,
+// which netpoll has already set TCP_NODELAY=1 on by the time this runs.
+func onAccept(conn net.Conn) context.Context {
+	if hc, ok := conn.(*hertznetpoll.Conn); ok {
+		conn = hc.Conn
+	}
+	frameworks.SetNoDelay(conn, *nodelay)
+	return context.Background()
+}
+
 func onWebsocket(c context.Context, ctx *app.RequestContext) {
 	upgradeErr := upgrader.Upgrade(ctx, func(c *websocket.Conn) {
-		frameworks.SetNoDelay(c.NetConn(), *nodelay)
 		c.SetReadDeadline(time.Time{})
 		defer c.Close()
 

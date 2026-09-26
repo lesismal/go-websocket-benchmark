@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"time"
 
 	"go-websocket-benchmark/config"
@@ -85,6 +87,27 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	frameworks.SetNoDelay(c.NetConn(), *nodelay)
+	setNoDelay(c.NetConn(), *nodelay)
 	c.SetReadDeadline(time.Time{})
+}
+
+// setNoDelay sets TCP_NODELAY on an fnet connection. fnet accepts sockets
+// itself and sets TCP_NODELAY=1 on them, but its VirtualConn keeps the fd
+// unexported and offers no SetNoDelay, so the fd is read through reflection
+// (a read of an unexported int field, which reflect allows). An fnet that
+// renames or retypes the field stops the server here rather than leaving
+// -nodelay=false silently ignored.
+func setNoDelay(c net.Conn, nodelay bool) {
+	vc, ok := c.(*fnet.VirtualConn)
+	if !ok {
+		frameworks.SetNoDelay(c, nodelay)
+		return
+	}
+	fd := reflect.ValueOf(vc).Elem().FieldByName("fd")
+	if fd.Kind() != reflect.Int {
+		logging.Fatalf("fnet.VirtualConn has no int fd field; cannot set TCP_NODELAY")
+	}
+	if fd.Int() > 0 {
+		_ = frameworks.SetNoDelayFD(int(fd.Int()), nodelay)
+	}
 }

@@ -159,9 +159,9 @@ hundred at a million. Worth remembering when comparing the memory column between
 
 ## Caveats
 
-- uSockets always enables `TCP_NODELAY` on accepted sockets and does not expose a way to
-  disable it, so `-nodelay=false` is accepted (for CLI compatibility with the other
-  frameworks) but has no effect; the server logs a note when it's passed.
+- uSockets enables `TCP_NODELAY` on every socket it accepts and has no option for it, so the
+  server sets it again to `-nodelay` on each upgraded connection's socket in the WebSocket open
+  handler, where the Go servers set theirs; `-nodelay=false` works as it does for them.
 - `/debug/pprof/*` isn't implemented (there's no Go runtime to profile), so
   `-ep=true`/`-rp=true` pprof capture is skipped for this framework.
 

@@ -92,6 +92,12 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	frameworks.SetNoDelay(c.Conn, *nodelay)
+	// A conn nbhttp's engine accepted is its *nbhttp.Conn, which has no
+	// SetNoDelay of its own: set it on the socket's conn inside.
+	conn := c.Conn
+	if hc, ok := conn.(*nbhttp.Conn); ok {
+		conn = hc.Conn
+	}
+	frameworks.SetNoDelay(conn, *nodelay)
 	c.SetReadDeadline(time.Time{})
 }

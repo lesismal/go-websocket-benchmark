@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -65,7 +66,8 @@ func startServers(addrs []string) []*server.Hertz {
 	srvs := make([]*server.Hertz, 0, len(addrs))
 	for _, addr := range addrs {
 		srv := server.New(server.WithHostPorts(addr),
-			server.WithTransport(standard.NewTransporter))
+			server.WithTransport(standard.NewTransporter),
+			server.WithOnAccept(onAccept))
 		pprof.Register(srv)
 		srvs = append(srvs, srv)
 		go func() {
@@ -116,9 +118,16 @@ func startServers(addrs []string) []*server.Hertz {
 	return srvs
 }
 
+// onAccept sets TCP_NODELAY on every accepted connection. It is done here
+// rather than on the upgraded websocket.Conn: the conn that one hands back is
+// hertz's standard.Conn, which keeps the *net.TCPConn to itself.
+func onAccept(conn net.Conn) context.Context {
+	frameworks.SetNoDelay(conn, *nodelay)
+	return context.Background()
+}
+
 func onWebsocket(c context.Context, ctx *app.RequestContext) {
 	upgradeErr := upgrader.Upgrade(ctx, func(c *websocket.Conn) {
-		frameworks.SetNoDelay(c.NetConn(), *nodelay)
 		c.SetReadDeadline(time.Time{})
 		defer c.Close()
 
