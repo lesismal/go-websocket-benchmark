@@ -71,7 +71,7 @@ ends of the million connections are in the one container, so give it the memory
 for them:
 
 ```sh
-BENCH_FRAMEWORKS=fib,fib-inline DOCKER_BENCH_MEMORY=24g \
+BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
 bash script/docker_1m_conns_benchmark.sh
 ```
 
@@ -109,25 +109,9 @@ pools.
 hook on the one pool, and `BENCH_TASKPOOL=default` asks for the scheduling each
 framework ships with instead. Two servers lose their distinguishing feature to
 that default and are worth setting explicitly: `greatws_event` runs its
-callbacks in the event loop only under `default` (its `-inline` entry below is
-the same arrangement), and `uws_events` runs on UIO's own taskgo scheduler
+callbacks in the event loop only under `default` (or `inline`, which is the
+same arrangement), and `uws_events` runs on UIO's own taskgo scheduler
 only under `default`.
-
-`inline` - no pool, the callback running on the I/O goroutine that read the
-frame - is not a `BENCH_TASKPOOL` value: every run measures it next to the
-selected pool instead. The Go event loop servers `fib`, `fnet`, `greatws`,
-`greatws_event` and `nbio_mixed` each have a second entry named after it with
-`-inline` on the end, `fib-inline` and so on: the same server binary, started with
-`-taskpool=inline` on ports of its own (the framework's, 100 up), so both are
-up in the same run and get a row each in the report. The framework's own entry
-runs `BENCH_TASKPOOL`. `fib-inline` also spreads its connections over fib's IO
-pollers, one per CPU (`runtime.NumCPU`, which counts the CPUs the server is
-pinned to), each running its own connections' rounds on fib's own inline pool.
-`config.Inlines` in [`config/config.go`](config/config.go)
-lists them. `uws_events` has none: UIO runs every connection's callbacks in a
-task off its event loops, and a UIO executor must not run that task inline.
-`uws_std` has none either, since it reads on a goroutine per connection rather
-than in an event loop, and `nbio_nonblocking` has none in this benchmark.
 
 ```sh
 # Every framework that can, on nbio's pool
@@ -141,6 +125,7 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `BENCH_TASKPOOL` | pool |
 | --- | --- |
 | `default` | each framework's own scheduling; not a pool, and no longer what a run without the variable measures |
+| `inline` | no pool: the callback runs on the I/O goroutine that read the frame; `uws_events` refuses it, since a UIO executor must not run its connections' task inline |
 | `go` | one goroutine per task, bounded by nothing |
 | `fib_adaptive`, `fib_cond`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its three modes (`fib_adaptive` is fib's own default, and this benchmark's) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
@@ -162,9 +147,7 @@ use them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
 built for UIO's stdio backend, which has no executor, so it accepts them but
 installs no pool. The rest have no
 pool to swap and exit on a flag they do not define, which is why
-`script/servers.sh` passes these only to the seven, and their `-inline`
-entries. `-taskpool=inline` is also what tells a server it is running as its
-`-inline` entry, and so which ports to take.
+`script/servers.sh` passes these only to the seven.
 
 `uwebsockets` is the odd one: it is a C++ server, so none of the Go pools can
 run under it, and `BENCH_TASKPOOL` and its sizing never reach it. It echoes

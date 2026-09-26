@@ -49,10 +49,9 @@ func main() {
 		upgrader.WorkerPool = taskpool.FnetWorkerPool(pool)
 	}
 
-	name := frameworks.Name(config.Fnet)
-	addrs, err := config.GetFrameworkServerAddrs(name)
+	addrs, err := config.GetFrameworkServerAddrs(config.Fnet)
 	if err != nil {
-		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", name, err)
+		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", config.Fnet, err)
 	}
 	server := startServer(addrs)
 

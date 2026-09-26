@@ -67,7 +67,7 @@ inline std::string controlURL(const Options &o) {
     if (host.find(':')!=std::string::npos && host[0]!='[') host="["+host+"]";
     auto f=o.get("f");
     int port=metadata["ports"][f][1];
-    if (f=="fib" || f=="fib-inline" || f=="gws" || f=="uws_events" || f=="uws_std") ++port;
+    if (f=="fib" || f=="gws" || f=="uws_events" || f=="uws_std") ++port;
     return "http://"+host+":"+std::to_string(port);
 }
 // The pool the server installed, for the report's Pool column. "-" covers a server that

@@ -288,7 +288,7 @@ private:
 std::unique_ptr<TaskPool> g_pool;
 
 // What /taskpool answers, for the Pool row of the reports: "logicpool" with the pool on, and
-// "inline" without it, the name the Go servers' -inline entries report for the same
+// "inline" without it, the name a Go server run -taskpool=inline reports for the same
 // arrangement. Written once, before the loops start. See config.GetFrameworkTaskPool.
 std::string g_taskPoolReport = "inline";
 

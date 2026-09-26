@@ -144,8 +144,8 @@ func summaryString(values []summaryValue) string {
 // frameworks, which would make the row as long as the run. Only the Go
 // event-loop frameworks install one - the rest report "-" and are left out,
 // which the row's description says - plus tokio_tungstenite's "logicpool",
-// its own logic thread pool, and "inline" for uwebsockets, as for the Go
-// -inline entries. A "(...)" suffix on a value is dropped:
+// its own logic thread pool, and "inline" for uwebsockets, as for a Go
+// server run -taskpool=inline. A "(...)" suffix on a value is dropped:
 //
 //	fib_adaptive
 func poolSummary(values []summaryValue) string {

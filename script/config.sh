@@ -52,6 +52,10 @@ esac
 #                 run without this variable measures. greatws_event answers
 #                 in its poller under this one value; the rest run the pool
 #                 they ship with
+#   inline        no pool: the callback runs on the I/O goroutine that read
+#                 the frame, so the answer is written from the event loop.
+#                 uws_events refuses it: a UIO executor must not run its
+#                 connections' task inline
 #   go            one goroutine per task, bounded by nothing
 #   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
 #                 is fib's own default and this benchmark's
@@ -67,17 +71,9 @@ esac
 #                 connections on, set up as UIO sets it up; it refuses work
 #                 only once BENCH_TASKPOOL_QUEUE bounds its pending tasks
 #
-# default installs no pool; all the rest answer off the event loop.
+# default and inline install no pool; all the rest answer off the event loop.
 # None of this reaches the uwebsockets server, which echoes from its event
 # loops; see BENCH_UWS_LOOPS_PER_CPU below.
-#
-# inline - no pool, the callback answering on the I/O goroutine that read the
-# frame - is not one of the values. It is measured on every run instead: each
-# Go event loop server that takes a pool has a second entry, its name with
-# -inline after it (fib-inline, nbio_mixed-inline, ...), which is the same
-# server started with -taskpool=inline on ports of its own, while the
-# framework's own entry runs the pool selected here. config.Inlines in
-# config/config.go lists them.
 #
 # Whichever is selected, each report records the pool its server installed -
 # the Pool row of the report's Summary table - read from the server's own
@@ -86,10 +82,6 @@ esac
 #
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
 BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
-if [ "$BENCH_TASKPOOL" = inline ]; then
-    echo "Unsupported BENCH_TASKPOOL: inline; the -inline frameworks run it, next to the pool this selects" >&2
-    return 1
-fi
 # Pool sizing. 0 leaves each pool its own default, which is the sizing the
 # framework it came from runs it at.
 BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}
@@ -162,10 +154,9 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 
 # The servers that take the -taskpool flags, in framework-name order like every
 # other framework list here. The rest have no pool to swap and would exit on a
-# flag they do not define. The -inline ones take -taskpool=inline whatever
-# BENCH_TASKPOOL says; see script/servers.sh. uws_std is the uws_events
-# program built for UIO's stdio backend, which has no executor: it accepts
-# the flags but installs no pool, so it is not passed them.
+# flag they do not define. uws_std is the uws_events program built for UIO's
+# stdio backend, which has no executor: it accepts the flags but installs no
+# pool, so it is not passed them.
 #
 # tokio_tungstenite and uwebsockets are listed for their /taskpool route only:
 # they are Rust and C++ servers, so none of the Go pools can run under them,
@@ -180,15 +171,10 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 # benchcli-uwscpp/test_scripts.py holds the two to each other.
 taskpool_frameworks=(
     "fib"
-    "fib-inline"
     "fnet"
-    "fnet-inline"
     "greatws"
-    "greatws-inline"
     "greatws_event"
-    "greatws_event-inline"
     "nbio_mixed"
-    "nbio_mixed-inline"
     "nbio_nonblocking"
     "tokio_tungstenite"
     "uwebsockets"
@@ -225,22 +211,17 @@ BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 frameworks=(
     "fasthttp"
     "fib"
-    "fib-inline"
     "fnet"
-    "fnet-inline"
     "gobwas"
     "gorilla"
     "greatws"
-    "greatws-inline"
     "greatws_event"
-    "greatws_event-inline"
     "gws"
     "gws_std"
     "hertz"
     "hertz_std"
     "nbio_blocking"
     "nbio_mixed"
-    "nbio_mixed-inline"
     "nbio_nonblocking"
     "nbio_std"
     "nettyws"

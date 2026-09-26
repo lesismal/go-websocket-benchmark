@@ -43,12 +43,11 @@ func main() {
 	})
 	upgrader.KeepaliveTime = 0
 
-	name := frameworks.Name(config.NbioModNonblocking)
-	addrs, err := config.GetFrameworkServerAddrs(name)
+	addrs, err := config.GetFrameworkServerAddrs(config.NbioModNonblocking)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", name, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.NbioModNonblocking, err)
 	}
-	engine := startServers(name, addrs)
+	engine := startServers(addrs)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -58,7 +57,7 @@ func main() {
 	engine.Shutdown(ctx)
 }
 
-func startServers(name string, addrs []string) *nbhttp.Engine {
+func startServers(addrs []string) *nbhttp.Engine {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	frameworks.HandleCommon(mux)

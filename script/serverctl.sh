@@ -13,7 +13,7 @@ fi
 # The server's flags besides the ones every server takes: only the servers
 # that define the pool flags may be given them.
 bench_server_args() {
-    local f=$1 tf pool
+    local f=$1 tf
     if [ "$f" = tokio_tungstenite ]; then
         # tokio_tungstenite takes none of the Go pool flags either: it answers
         # on its own logic thread pool. It ignores the flags it does not
@@ -31,15 +31,7 @@ bench_server_args() {
     fi
     for tf in "${taskpool_frameworks[@]}"; do
         if [ "$f" = "$tf" ]; then
-            # An -inline entry is its framework's server run inline, which is
-            # also what gives it its own ports: the server takes its name from
-            # this flag (frameworks.Name). The framework's own entry runs
-            # BENCH_TASKPOOL, which config.sh keeps off inline.
-            pool=${BENCH_TASKPOOL}
-            case "$f" in
-                *-inline) pool=inline ;;
-            esac
-            echo "-taskpool=${pool} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
+            echo "-taskpool=${BENCH_TASKPOOL} -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
             return
         fi
     done

@@ -52,15 +52,13 @@ func main() {
 		logging.Fatalf("read buffer size must be positive: %d", *readBufferSize)
 	}
 	// UIO runs every connection's callbacks in a task off its event loops, and
-	// a UIO executor must not run that task inline, so uws_events has no -inline
-	// entry. Checked before frameworks.Name, which would only say that.
+	// a UIO executor must not run that task inline.
 	if supportsExecutor && taskpool.FlagConfig().Name == taskpool.Inline {
 		logging.Fatalf("%v cannot run -taskpool=%v: UIO executors must dispatch asynchronously", frameworkName, taskpool.Inline)
 	}
-	name := frameworks.Name(frameworkName)
-	addrs, err := config.GetFrameworkServerAddrs(name)
+	addrs, err := config.GetFrameworkServerAddrs(frameworkName)
 	if err != nil {
-		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", name, err)
+		logging.Fatalf("GetFrameworkServerAddrs(%v) failed: %v", frameworkName, err)
 	}
 	if len(addrs) == 0 {
 		logging.Fatalf("no websocket listen addresses configured")
@@ -88,7 +86,7 @@ func main() {
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.Serve(addrs...) }()
 
-	pidLn := startHTTPServer(name)
+	pidLn := startHTTPServer()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	var serveErr error
@@ -103,10 +101,10 @@ func main() {
 	logging.Printf("server exit: %v", serveErr)
 }
 
-func startHTTPServer(name string) net.Listener {
-	addr, err := config.GetFrameworkHTTPServerAddrs(name)
+func startHTTPServer() net.Listener {
+	addr, err := config.GetFrameworkHTTPServerAddrs(frameworkName)
 	if err != nil {
-		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", name, err)
+		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", frameworkName, err)
 	}
 	mux := &http.ServeMux{}
 	frameworks.HandleCommon(mux)

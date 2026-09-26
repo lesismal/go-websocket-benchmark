@@ -15,19 +15,15 @@ unset BENCH_FRAMEWORKS
 # script/killall.sh sources config.sh again, which resets them to its own.
 million_frameworks=(
     "fib"
-    "fib-inline"
     "fnet"
-    "fnet-inline"
     "greatws"
-    "greatws-inline"
     "greatws_event"
-    "greatws_event-inline"
     "nbio_nonblocking"
     "uws_events"
 )
 
 # Optional comma-separated subset of the list above, in the order given, e.g.
-#   BENCH_FRAMEWORKS=fib,fib-inline bash script/1m_conns_benchmark.sh
+#   BENCH_FRAMEWORKS=fib,fnet bash script/1m_conns_benchmark.sh
 if [ -n "$million_selected" ]; then
     million_all=("${million_frameworks[@]}")
     IFS=',' read -r -a million_requested <<< "$million_selected"
