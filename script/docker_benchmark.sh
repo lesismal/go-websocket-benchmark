@@ -29,6 +29,14 @@ Environment overrides:
                            framework (see script/config.sh)
   BENCH_UWS_LOOPS_PER_CPU  uwebsockets' event loops per CPU (see
                            script/config.sh)
+  DOCKER_BENCH_SCRIPT      What the container runs (default:
+                           script/benchmark.sh); script/1m_conns_benchmark.sh
+                           is the 1M-connection benchmark, which is what
+                           script/docker_1m_conns_benchmark.sh and
+                           script/docker_1m_conns_benchmark_cn.sh run. Its
+                           BENCH_FRAMEWORKS picks from that script's own list,
+                           and it needs far more memory: a million connections
+                           on each side of the container's loopback
   DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available)
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
@@ -54,6 +62,8 @@ Examples:
     bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
   DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
     bash script/docker_benchmark.sh
+  BENCH_FRAMEWORKS=fib,fib-inline DOCKER_BENCH_MEMORY=24g \
+    bash script/docker_1m_conns_benchmark.sh
 EOF
 }
 
@@ -70,7 +80,36 @@ while [ "$#" -gt 0 ]; do
 done
 benchmark_args=("$@")
 
-. "$repo_root/script/config.sh" || exit 1
+bench_script=${DOCKER_BENCH_SCRIPT:-script/benchmark.sh}
+bench_script=${bench_script#./}
+case "$bench_script" in
+    *..*) echo "DOCKER_BENCH_SCRIPT must be a script/*.sh path, got: $bench_script" >&2; exit 1 ;;
+    script/*.sh) ;;
+    *) echo "DOCKER_BENCH_SCRIPT must be a script/*.sh path, got: $bench_script" >&2; exit 1 ;;
+esac
+if [ ! -f "$repo_root/$bench_script" ]; then
+    echo "DOCKER_BENCH_SCRIPT does not exist: $bench_script" >&2
+    exit 1
+fi
+if [ "$smoke" = true ] && [ "$bench_script" != script/benchmark.sh ]; then
+    echo "--smoke runs script/benchmark.sh only, not DOCKER_BENCH_SCRIPT=$bench_script" >&2
+    exit 1
+fi
+
+# config.sh checks BENCH_FRAMEWORKS against its own list, which is
+# script/benchmark.sh's. Another script picks from a list of its own and checks
+# it in the container (script/1m_conns_benchmark.sh does), so it is kept out
+# of that check here and passed through as given.
+if [ "$bench_script" = script/benchmark.sh ]; then
+    . "$repo_root/script/config.sh" || exit 1
+else
+    selected_frameworks=${BENCH_FRAMEWORKS:-}
+    unset BENCH_FRAMEWORKS
+    . "$repo_root/script/config.sh" || exit 1
+    if [ -n "$selected_frameworks" ]; then
+        export BENCH_FRAMEWORKS=$selected_frameworks
+    fi
+fi
 . "$repo_root/script/ports.sh"
 
 if [ "$BENCH_ROLE" != both ]; then
@@ -293,6 +332,10 @@ esac
 host_kernel=$(uname -srm 2>/dev/null || echo unknown)
 docker_os=$(docker info --format '{{.OperatingSystem}}, kernel {{.KernelVersion}}, {{.Architecture}}' 2>/dev/null || echo unknown)
 
+# Worked out here rather than in the heredoc: bash 3.2, macOS's, fails a
+# quote inside ${var:-word} there with "bad substitution".
+frameworks_description=${run_frameworks:-"all of ${bench_script}'s"}
+
 cat > "$result_dir/resources.txt" <<EOF
 Host OS: $host_os ($host_kernel)
 Host CPU model: $host_cpu_model
@@ -307,8 +350,9 @@ Server CPUs: $server_cpu_list
 Client CPUs: $client_cpu_list
 Docker memory available: $daemon_memory_bytes bytes
 Container memory limit: $memory_description
+Benchmark script: $bench_script
 Benchmark client: $bench_client
-Frameworks: ${run_frameworks:-all}
+Frameworks: $frameworks_description
 EOF
 cat "$result_dir/resources.txt"
 echo "Results: $result_dir"
@@ -316,10 +360,10 @@ echo "Results: $result_dir"
 set +e
 if [ "${#benchmark_args[@]}" -gt 0 ]; then
     docker run "${run_args[@]}" "$image" \
-        bash script/benchmark.sh "${benchmark_args[@]}" 2>&1 | tee "$result_dir/console.log"
+        bash "$bench_script" "${benchmark_args[@]}" 2>&1 | tee "$result_dir/console.log"
 else
     docker run "${run_args[@]}" "$image" \
-        bash script/benchmark.sh 2>&1 | tee "$result_dir/console.log"
+        bash "$bench_script" 2>&1 | tee "$result_dir/console.log"
 fi
 benchmark_status=${PIPESTATUS[0]}
 set -e

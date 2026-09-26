@@ -63,6 +63,18 @@ with `script/docker_benchmark.sh`'s.
 bash script/docker_benchmark_cn.sh --smoke
 ```
 
+`script/docker_1m_conns_benchmark.sh` (and `script/docker_1m_conns_benchmark_cn.sh`
+from mainland China) runs `script/1m_conns_benchmark.sh` in the same container
+instead, with the same options but `--smoke`. `BENCH_FRAMEWORKS` picks from that
+script's list, and flags given to it override its `-c=1000000` and the rest. Both
+ends of the million connections are in the one container, so give it the memory
+for them:
+
+```sh
+BENCH_FRAMEWORKS=fib,fib-inline DOCKER_BENCH_MEMORY=24g \
+bash script/docker_1m_conns_benchmark.sh
+```
+
 ## Servers not written in Go
 
 Two of the servers are not Go, and each builds with its own toolchain, which a
@@ -477,13 +489,15 @@ results:
 ----------------------------------------------------------------------------------------------------
 
 
-## 1m connections, 1k payload, benchmark for nbio/greatws
+## 1m connections, 1k payload, benchmark for fib/fnet/greatws/nbio/uws
 
 run:
 ```sh
 git clone https://github.com/lesismal/go-websocket-benchmark.git
 cd go-websocket-benchmark
 ./script/1m_conns_benchmark.sh
+# or in Docker; see "Docker benchmark" above
+bash script/docker_1m_conns_benchmark.sh
 ```
 
 result:
