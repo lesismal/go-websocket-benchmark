@@ -1,6 +1,56 @@
 #!/bin/bash
 
+# BENCH_FRAMEWORKS picks from this script's list below rather than from
+# script/config.sh's, which may have these commented out: taken here and
+# unset, so that config.sh - sourced again by every script this one runs -
+# never checks it against its own list.
+million_selected=${BENCH_FRAMEWORKS:-}
+unset BENCH_FRAMEWORKS
+
 . ./script/env.sh || { return 1 2>/dev/null || exit 1; }
+
+# The subset this script measures, in framework-name order like every other
+# framework list; see script/config.sh. Checked here, before anything is
+# killed or cleaned, and made the run's frameworks once that is done:
+# script/killall.sh sources config.sh again, which resets them to its own.
+million_frameworks=(
+    "fib"
+    "fib-inline"
+    "fnet"
+    "fnet-inline"
+    "greatws"
+    "greatws-inline"
+    "greatws_event"
+    "greatws_event-inline"
+    "nbio_nonblocking"
+    "uws_events"
+)
+
+# Optional comma-separated subset of the list above, in the order given, e.g.
+#   BENCH_FRAMEWORKS=fib,fib-inline bash script/1m_conns_benchmark.sh
+if [ -n "$million_selected" ]; then
+    million_all=("${million_frameworks[@]}")
+    IFS=',' read -r -a million_requested <<< "$million_selected"
+    million_frameworks=()
+    for million_name in "${million_requested[@]}"; do
+        million_found=false
+        for million_known in "${million_all[@]}"; do
+            if [ "$million_name" = "$million_known" ]; then
+                million_found=true
+                break
+            fi
+        done
+        if [ "$million_found" != true ]; then
+            echo "Unsupported framework in BENCH_FRAMEWORKS: $million_name (this script runs: ${million_all[*]})" >&2
+            return 1 2>/dev/null || exit 1
+        fi
+        million_frameworks+=("$million_name")
+    done
+    if [ "${#million_frameworks[@]}" -eq 0 ]; then
+        echo "BENCH_FRAMEWORKS must select at least one framework" >&2
+        return 1 2>/dev/null || exit 1
+    fi
+fi
 
 echo $line
 
@@ -12,18 +62,7 @@ echo $line
 
 echo $line
 
-# The subset this script measures, in framework-name order like every other
-# framework list; see script/config.sh.
-frameworks=(
-    "fnet"
-    "fnet-inline"
-    "greatws"
-    "greatws-inline"
-    "greatws_event"
-    "greatws_event-inline"
-    "nbio_nonblocking"
-    "uws_events"
-)
+frameworks=("${million_frameworks[@]}")
 
 print_env
 
@@ -60,8 +99,11 @@ if ! bench_runs_clients; then
 fi
 
 # As in script/benchmark.sh: a failed client still leaves the others a report.
+# The flags this script was given go after its own, so one given on the
+# command line wins - both clients take the last value of a repeated flag -
+# e.g. a smaller -c where the machine cannot hold a million connections.
 clients_failed=0
-. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 || clients_failed=1
+. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 "$@" || clients_failed=1
 
 # echo $line
 
