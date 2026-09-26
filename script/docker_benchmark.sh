@@ -372,6 +372,21 @@ mkdir -p "$result_dir/report" "$result_dir/log"
 docker cp "$container:/workspace/output/report/." "$result_dir/report" >/dev/null 2>&1 || true
 docker cp "$container:/workspace/output/log/." "$result_dir/log" >/dev/null 2>&1 || true
 
+# A server or client the kernel killed at the container's memory limit leaves
+# only a "Killed" line, or a server that stops answering its control port, in
+# the console; say what it was. Docker records it for the whole container.
+if [ "$(docker inspect --format '{{.State.OOMKilled}}' "$container" 2>/dev/null)" = true ]; then
+    {
+        echo "The container ran out of memory: the kernel killed a server or the client at its $memory_description limit."
+        echo "BenchPipeline (script/benchmark.sh's -rate=true) holds about -c x -rbs bytes (16KiB by default) per copy in flight."
+        echo "Give it more with DOCKER_BENCH_MEMORY (Docker exposes $daemon_memory_bytes bytes), or ask for less:"
+        echo "fewer connections (-c), a smaller write batch (-rbs), or no BenchPipeline (-rate=false)."
+    } | tee -a "$result_dir/console.log" >&2
+    if [ "$benchmark_status" -eq 0 ]; then
+        benchmark_status=1
+    fi
+fi
+
 if [ "$benchmark_status" -eq 0 ]; then
     connection_reports=("$result_dir"/report/*-Connections*.json)
     if [ ! -e "${connection_reports[0]}" ]; then
