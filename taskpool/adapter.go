@@ -55,13 +55,26 @@ func NbioExecute(pool Pool) func(f func()) { return runOrCall(pool) }
 //
 // What fnet submits is a drain of one connection's queued frames, and it
 // submits one only when no drain is in flight, so a task that never runs
-// leaves that flag set and every later frame queued behind it for good.
+// leaves that flag set and every later frame queued behind it for good. The
+// error reported back is fnet's signal that the drain was declined, and it
+// closes the connection behind one: runOrCall runs what the pool refuses, so
+// the task has always run by the time this returns nil.
+//
+// The connection id fnet keys each drain by is dropped: the Pool interface has
+// no way to carry it. That costs order nothing, because fnet has at most one
+// drain per connection in flight.
 //
 // It goes on the upgrader rather than on fnet.Server, whose WorkerPool runs
 // the HTTP request loop and holds a worker for as long as a connection stays
 // unupgraded: a bounded pool there would wedge on the handshake burst rather
 // than measure the callbacks.
-func FnetWorkerPool(pool Pool) func(task func()) { return runOrCall(pool) }
+func FnetWorkerPool(pool Pool) func(connID uint64, task func()) error {
+	run := runOrCall(pool)
+	return func(_ uint64, task func()) error {
+		run(task)
+		return nil
+	}
+}
 
 // runOrCall is the executor for a framework that takes a func it cannot be
 // told was declined. A task the pool refuses runs on the caller's goroutine,
