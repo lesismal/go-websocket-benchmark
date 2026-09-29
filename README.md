@@ -47,9 +47,15 @@ bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
 
 # 8 CPUs for the container: 2 pinned to the servers, 6 to the client
 bash script/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6
+
+# Keep Docker's default AppArmor profile and its VFS check on every read/write
+bash script/docker_benchmark.sh -vfs=true
 ```
 
-`-cput`, `-cpus` and `-cpuc` work the same with every `script/docker_*benchmark*.sh`.
+`-cput`, `-cpus`, `-cpuc` and `-vfs` work the same with every `script/docker_*benchmark*.sh`.
+By default (`-vfs=false`) the container runs with `--security-opt apparmor=unconfined`,
+so the AppArmor file-permission check the kernel's VFS makes on every read and
+write is not counted against the frameworks; `-vfs=true` keeps it.
 
 `BENCH_CLIENT` selects the client here too. Run
 `bash script/docker_benchmark.sh --help` for all overrides. The first run builds

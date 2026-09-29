@@ -20,14 +20,20 @@ Options:
                 (DOCKER_BENCH_SERVER_CPUS)
   -cpuc=N       Of those, CPUs the client is pinned to with taskset
                 (DOCKER_BENCH_CLIENT_CPUS)
+  -vfs=BOOL     false (default) runs the container with
+                --security-opt apparmor=unconfined, which turns off the
+                AppArmor file-permission check the kernel's VFS makes on
+                every read and write; true keeps Docker's default profile and
+                with it the check (DOCKER_BENCH_VFS). A bare -vfs is -vfs=true.
   -h, --help    Show this help.
 
-  The three -cpu* flags may come anywhere among the arguments; they are taken
-  out before the rest go to the benchmark's clients. Any one left out is
-  worked out from the others: -cput defaults to -cpus + -cpuc when both are
-  given, else to about 75% of what Docker exposes; -cpus and -cpuc default to
-  what -cput leaves after the other, or to half of it each. -cpus + -cpuc may
-  be less than -cput, not more: the server and client CPUs never overlap.
+  The three -cpu* flags and -vfs may come anywhere among the arguments;
+  they are taken out before the rest go to the benchmark's clients. Any
+  -cpu* flag left out is worked out from the others: -cput defaults to
+  -cpus + -cpuc when both are given, else to about 75% of what Docker
+  exposes; -cpus and -cpuc default to what -cput leaves after the other, or
+  to half of it each. -cpus + -cpuc may be less than -cput, not more: the
+  server and client CPUs never overlap.
 
 Environment overrides:
   BENCH_CLIENT             benchcli-uwscpp (default), benchcli-rust or
@@ -53,6 +59,7 @@ Environment overrides:
                            -cput overrides it
   DOCKER_BENCH_SERVER_CPUS The servers' CPU count; -cpus overrides it
   DOCKER_BENCH_CLIENT_CPUS The client's CPU count; -cpuc overrides it
+  DOCKER_BENCH_VFS         true or false (default); -vfs overrides it
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
   DOCKER_BENCH_OUTPUT      Result directory (default: output/docker/<timestamp>)
@@ -78,6 +85,7 @@ Examples:
   DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
     bash script/docker_benchmark.sh
   bash script/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6
+  bash script/docker_benchmark.sh -vfs=true
   BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
     bash script/docker_1m_conns_benchmark.sh
 EOF
@@ -88,14 +96,17 @@ rebuild=false
 cpu_total=${DOCKER_BENCH_CPUS:-}
 cpu_server=${DOCKER_BENCH_SERVER_CPUS:-}
 cpu_client=${DOCKER_BENCH_CLIENT_CPUS:-}
-# The -cpu* flags are this script's wherever they are; everything else is
-# passed on in its order. None of the clients has a flag by these names.
+vfs_check=${DOCKER_BENCH_VFS:-false}
+# The -cpu* and -vfs flags are this script's wherever they are; everything else
+# is passed on in its order. None of the clients has a flag by these names.
 other_args=()
 for arg in "$@"; do
     case "$arg" in
         -cput=*|--cput=*) cpu_total=${arg#*=} ;;
         -cpus=*|--cpus=*) cpu_server=${arg#*=} ;;
         -cpuc=*|--cpuc=*) cpu_client=${arg#*=} ;;
+        -vfs|--vfs) vfs_check=true ;;
+        -vfs=*|--vfs=*) vfs_check=${arg#*=} ;;
         *) other_args+=("$arg") ;;
     esac
 done
@@ -107,6 +118,10 @@ for cpu_flag in "cput:$cpu_total" "cpus:$cpu_server" "cpuc:$cpu_client"; do
         exit 1
     fi
 done
+case "$vfs_check" in
+    true|false) ;;
+    *) echo "-vfs must be true or false, got: $vfs_check" >&2; exit 1 ;;
+esac
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --smoke) smoke=true; shift ;;
@@ -340,6 +355,18 @@ run_args=(
 if [ -n "$run_frameworks" ]; then
     run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
 fi
+# read, write and writev reach a socket through the VFS, which on every call
+# runs the security module's file permission hook; under Docker's default
+# AppArmor profile that is a large share of a busy server's system time, which
+# frameworks calling recvfrom/sendto/sendmsg instead do not pay. Unconfined
+# leaves it out, so -vfs=false measures the frameworks rather than the
+# profile. On a Docker host without AppArmor the option changes nothing.
+if [ "$vfs_check" = true ]; then
+    vfs_description="on (Docker's default AppArmor profile)"
+else
+    run_args+=(--security-opt apparmor=unconfined)
+    vfs_description="off (apparmor=unconfined)"
+fi
 
 # The machine the numbers were measured on, for resources.txt. Every probe
 # falls back to "unknown" rather than stopping the run over a missing tool.
@@ -405,6 +432,7 @@ Server CPUs: $server_cpu_count ($server_cpu_list)
 Client CPUs: $client_cpu_count ($client_cpu_list)
 Docker memory available: $daemon_memory_bytes bytes
 Container memory limit: $memory_description
+VFS check: $vfs_description
 Benchmark script: $bench_script
 Benchmark client: $bench_client
 Frameworks: $frameworks_description
