@@ -44,7 +44,12 @@ bash script/docker_benchmark.sh
 BENCH_FRAMEWORKS=gorilla,nbio_nonblocking \
 DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
 bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
+
+# 8 CPUs for the container: 2 pinned to the servers, 6 to the client
+bash script/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6
 ```
+
+`-cput`, `-cpus` and `-cpuc` work the same with every `script/docker_*benchmark*.sh`.
 
 `BENCH_CLIENT` selects the client here too. Run
 `bash script/docker_benchmark.sh --help` for all overrides. The first run builds

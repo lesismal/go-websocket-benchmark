@@ -15,7 +15,19 @@ Usage:
 Options:
   --smoke       Run a short Gorilla-only validation.
   --rebuild     Rebuild the image without Docker's layer cache.
+  -cput=N       CPUs the container gets in all (DOCKER_BENCH_CPUS)
+  -cpus=N       Of those, CPUs the servers are pinned to with taskset
+                (DOCKER_BENCH_SERVER_CPUS)
+  -cpuc=N       Of those, CPUs the client is pinned to with taskset
+                (DOCKER_BENCH_CLIENT_CPUS)
   -h, --help    Show this help.
+
+  The three -cpu* flags may come anywhere among the arguments; they are taken
+  out before the rest go to the benchmark's clients. Any one left out is
+  worked out from the others: -cput defaults to -cpus + -cpuc when both are
+  given, else to about 75% of what Docker exposes; -cpus and -cpuc default to
+  what -cput leaves after the other, or to half of it each. -cpus + -cpuc may
+  be less than -cput, not more: the server and client CPUs never overlap.
 
 Environment overrides:
   BENCH_CLIENT             benchcli-uwscpp (default), benchcli-rust or
@@ -37,7 +49,10 @@ Environment overrides:
                            BENCH_FRAMEWORKS picks from that script's own list,
                            and it needs far more memory: a million connections
                            on each side of the container's loopback
-  DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available)
+  DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available);
+                           -cput overrides it
+  DOCKER_BENCH_SERVER_CPUS The servers' CPU count; -cpus overrides it
+  DOCKER_BENCH_CLIENT_CPUS The client's CPU count; -cpuc overrides it
   DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
   DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
   DOCKER_BENCH_OUTPUT      Result directory (default: output/docker/<timestamp>)
@@ -62,6 +77,7 @@ Examples:
     bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
   DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
     bash script/docker_benchmark.sh
+  bash script/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6
   BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
     bash script/docker_1m_conns_benchmark.sh
 EOF
@@ -69,6 +85,28 @@ EOF
 
 smoke=false
 rebuild=false
+cpu_total=${DOCKER_BENCH_CPUS:-}
+cpu_server=${DOCKER_BENCH_SERVER_CPUS:-}
+cpu_client=${DOCKER_BENCH_CLIENT_CPUS:-}
+# The -cpu* flags are this script's wherever they are; everything else is
+# passed on in its order. None of the clients has a flag by these names.
+other_args=()
+for arg in "$@"; do
+    case "$arg" in
+        -cput=*|--cput=*) cpu_total=${arg#*=} ;;
+        -cpus=*|--cpus=*) cpu_server=${arg#*=} ;;
+        -cpuc=*|--cpuc=*) cpu_client=${arg#*=} ;;
+        *) other_args+=("$arg") ;;
+    esac
+done
+set -- ${other_args[@]+"${other_args[@]}"}
+for cpu_flag in "cput:$cpu_total" "cpus:$cpu_server" "cpuc:$cpu_client"; do
+    cpu_value=${cpu_flag#*:}
+    if [ -n "$cpu_value" ] && ! [[ "$cpu_value" =~ ^[1-9][0-9]*$ ]]; then
+        echo "-${cpu_flag%%:*} must be a positive integer, got: $cpu_value" >&2
+        exit 1
+    fi
+done
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --smoke) smoke=true; shift ;;
@@ -179,12 +217,10 @@ if [ "$available_cpus" -lt 2 ]; then
     exit 1
 fi
 
-if [ -n "${DOCKER_BENCH_CPUS:-}" ]; then
-    if ! [[ "$DOCKER_BENCH_CPUS" =~ ^[0-9]+$ ]]; then
-        echo "DOCKER_BENCH_CPUS must be an integer" >&2
-        exit 1
-    fi
-    allocated_cpus=$DOCKER_BENCH_CPUS
+if [ -n "$cpu_total" ]; then
+    allocated_cpus=$cpu_total
+elif [ -n "$cpu_server" ] && [ -n "$cpu_client" ]; then
+    allocated_cpus=$((cpu_server + cpu_client))
 else
     allocated_cpus=$((available_cpus * 3 / 4))
     if [ "$allocated_cpus" -lt 2 ]; then allocated_cpus=2; fi
@@ -197,10 +233,29 @@ if [ "$allocated_cpus" -lt 2 ] || [ "$allocated_cpus" -gt "$available_cpus" ]; t
     exit 1
 fi
 
+if [ -n "$cpu_server" ] && [ -n "$cpu_client" ]; then
+    server_cpu_count=$cpu_server
+    client_cpu_count=$cpu_client
+elif [ -n "$cpu_server" ]; then
+    server_cpu_count=$cpu_server
+    client_cpu_count=$((allocated_cpus - cpu_server))
+elif [ -n "$cpu_client" ]; then
+    client_cpu_count=$cpu_client
+    server_cpu_count=$((allocated_cpus - cpu_client))
+else
+    server_cpu_count=$((allocated_cpus / 2))
+    client_cpu_count=$((allocated_cpus - server_cpu_count))
+fi
+if [ "$server_cpu_count" -lt 1 ] || [ "$client_cpu_count" -lt 1 ] \
+    || [ $((server_cpu_count + client_cpu_count)) -gt "$allocated_cpus" ]; then
+    echo "cannot pin $server_cpu_count server and $client_cpu_count client CPUs within $allocated_cpus;" >&2
+    echo "each needs at least 1, and together no more than the container's (-cput)" >&2
+    exit 1
+fi
+
 selected_cpus=("${expanded_cpus[@]:0:allocated_cpus}")
-server_cpu_count=$((allocated_cpus / 2))
 server_cpus=("${selected_cpus[@]:0:server_cpu_count}")
-client_cpus=("${selected_cpus[@]:server_cpu_count}")
+client_cpus=("${selected_cpus[@]:server_cpu_count:client_cpu_count}")
 join_cpus() {
     local joined=""
     local cpu
@@ -346,8 +401,8 @@ Docker OS: $docker_os
 Docker CPUs total: $daemon_cpu_count
 Docker CPUs available: $available_cpus ($allowed_cpu_spec)
 Docker CPUs allocated: $allocated_cpus ($selected_cpu_list)
-Server CPUs: $server_cpu_list
-Client CPUs: $client_cpu_list
+Server CPUs: $server_cpu_count ($server_cpu_list)
+Client CPUs: $client_cpu_count ($client_cpu_list)
 Docker memory available: $daemon_memory_bytes bytes
 Container memory limit: $memory_description
 Benchmark script: $bench_script
