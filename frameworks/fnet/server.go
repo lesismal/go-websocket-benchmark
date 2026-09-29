@@ -3,11 +3,9 @@ package main
 import (
 	"flag"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"time"
 
 	"go-websocket-benchmark/config"
@@ -15,7 +13,7 @@ import (
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/taskpool"
 
-	"github.com/linfeip/fnet"
+	"github.com/linfeip/fnet/fhttp"
 	"github.com/linfeip/fnet/websocket"
 )
 
@@ -63,14 +61,14 @@ func main() {
 	_ = server.Close()
 }
 
-// startServer runs ONE fnet.Server listening on every address so that all
+// startServer runs ONE fhttp.Server listening on every address so that all
 // ports share a single accept loop and one reactor pool (GOMAXPROCS pollers),
 // instead of 50 servers x (1 + GOMAXPROCS) pollers.
-func startServer(addrs []string) *fnet.Server {
+func startServer(addrs []string) *fhttp.Server {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
 	frameworks.HandleCommon(mux)
-	s := &fnet.Server{
+	s := &fhttp.Server{
 		Addrs:   addrs,
 		Handler: mux,
 		Listen:  frameworks.Listen,
@@ -87,27 +85,11 @@ func onWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("upgrade failed: %v", err)
 		return
 	}
-	setNoDelay(c.NetConn(), *nodelay)
+	// fnet accepts sockets itself and sets TCP_NODELAY=1 on them. Once the
+	// upgrade has moved the connection onto the event loop, NetConn is fnet's
+	// reactor conn, which exports its fd, so -nodelay=false can undo that.
+	// This server runs no TLS, which is the one case that would leave the
+	// connection on a goroutine with the fd out of reach.
+	frameworks.SetNoDelay(c.NetConn(), *nodelay)
 	c.SetReadDeadline(time.Time{})
-}
-
-// setNoDelay sets TCP_NODELAY on an fnet connection. fnet accepts sockets
-// itself and sets TCP_NODELAY=1 on them, but its VirtualConn keeps the fd
-// unexported and offers no SetNoDelay, so the fd is read through reflection
-// (a read of an unexported int field, which reflect allows). An fnet that
-// renames or retypes the field stops the server here rather than leaving
-// -nodelay=false silently ignored.
-func setNoDelay(c net.Conn, nodelay bool) {
-	vc, ok := c.(*fnet.VirtualConn)
-	if !ok {
-		frameworks.SetNoDelay(c, nodelay)
-		return
-	}
-	fd := reflect.ValueOf(vc).Elem().FieldByName("fd")
-	if fd.Kind() != reflect.Int {
-		logging.Fatalf("fnet.VirtualConn has no int fd field; cannot set TCP_NODELAY")
-	}
-	if fd.Int() > 0 {
-		_ = frameworks.SetNoDelayFD(int(fd.Int()), nodelay)
-	}
 }

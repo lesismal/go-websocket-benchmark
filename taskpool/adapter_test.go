@@ -79,10 +79,25 @@ func TestFnetWorkerPoolRunsWhatThePoolRefuses(t *testing.T) {
 	// A dropped task would leave fnet's drain flag set and wedge that
 	// connection, so a refusal has to run on the caller instead.
 	ran := false
-	FnetWorkerPool(refusingPool{})(func() { ran = true })
+	if err := FnetWorkerPool(refusingPool{})(1, func() { ran = true }); err != nil {
+		t.Errorf("a task that ran on the caller was reported declined: %v", err)
+	}
 	if !ran {
 		t.Error("the refused task did not run on the caller")
 	}
+}
+
+func TestFnetWorkerPoolRunsWhatALivePoolTakes(t *testing.T) {
+	// The drain has to reach the pool, not just be handed to an executor
+	// built and thrown away: a task that never runs leaves the connection
+	// silent, with fnet reporting the submission as taken.
+	var done sync.WaitGroup
+	done.Add(1)
+	submit := FnetWorkerPool(newTestPool(t, Goroutine))
+	if err := submit(1, done.Done); err != nil {
+		t.Fatalf("a live pool declined a drain: %v", err)
+	}
+	waitOrFail(t, &done, "fnet drain did not run")
 }
 
 func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {
