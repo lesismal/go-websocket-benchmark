@@ -21,7 +21,7 @@ require (
 	github.com/linfeip/fnet v0.0.0-20260927110723-b3e61d2437aa
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/urpc/uio v1.4.0
+	github.com/urpc/uio v1.5.0
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
 )
@@ -43,7 +43,7 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
-	github.com/klauspost/compress v1.20.0 // indirect
+	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
