@@ -59,8 +59,6 @@ esac
 #   go            one goroutine per task, bounded by nothing
 #   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
 #                 is fib's own default and this benchmark's
-#   fib_cond      the same pool in cond mode: a fixed population of parked
-#                 goroutines
 #   fib_elastic   the same pool in elastic mode: goroutines forked on demand
 #                 up to a ceiling
 #   nbio          github.com/lesismal/nbio/taskpool

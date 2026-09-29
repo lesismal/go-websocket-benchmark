@@ -132,7 +132,7 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `default` | each framework's own scheduling; not a pool, and no longer what a run without the variable measures |
 | `inline` | no pool: the callback runs on the I/O goroutine that read the frame; `uws_events` refuses it, since a UIO executor must not run its connections' task inline |
 | `go` | one goroutine per task, bounded by nothing |
-| `fib_adaptive`, `fib_cond`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its three modes (`fib_adaptive` is fib's own default, and this benchmark's) |
+| `fib_adaptive`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its two modes (`fib_adaptive` is fib's own default, and this benchmark's) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
 | `fnet` | `fnet.WorkerPool`, sharded and elastic: workers spawn on demand and retire when idle |
 | `greatws` | greatws's `stream2` business pool |

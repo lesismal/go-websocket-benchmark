@@ -50,7 +50,7 @@ func TestNamesCoversEveryFramework(t *testing.T) {
 	for _, name := range Names() {
 		registered[name] = true
 	}
-	for _, name := range []string{Default, Inline, Goroutine, FibAdaptive, FibCond, FibElastic, Nbio, Fnet, Greatws, Uws} {
+	for _, name := range []string{Default, Inline, Goroutine, FibAdaptive, FibElastic, Nbio, Fnet, Greatws, Uws} {
 		if !registered[name] {
 			t.Errorf("Names omits %q", name)
 		}

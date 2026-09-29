@@ -78,7 +78,6 @@ const (
 	// The pools the frameworks themselves ship with. FibAdaptive is the
 	// mode fib runs by default.
 	FibAdaptive = "fib_adaptive"
-	FibCond     = "fib_cond"
 	FibElastic  = "fib_elastic"
 	Nbio        = "nbio"
 	Fnet        = "fnet"
