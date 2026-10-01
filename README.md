@@ -79,7 +79,9 @@ from mainland China) runs `script/1m_conns_benchmark.sh` in the same container
 instead, with the same options but `--smoke`. `BENCH_FRAMEWORKS` picks from that
 script's list, and flags given to it override its `-c=1000000` and the rest. Both
 ends of the million connections are in the one container, so give it the memory
-for them:
+for them, and give the kernel the files: `fs.file-max` is the host's (or Docker
+Desktop's VM's) and has to hold two million sockets, which the script checks
+before it starts, saying how to raise it (see "before running the test"):
 
 ```sh
 BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
@@ -382,7 +384,10 @@ sysctl -w net.ipv4.ip_local_port_range="1024 65535"
 # just before its turn, and would fail to bind a port the client before it left
 # in TIME_WAIT. The run prints the exact list when they are not reserved.
 sysctl -w net.ipv4.ip_local_reserved_ports=15001-17651
-sysctl -w fs.file-max=2000500
+# System-wide, so it counts both ends of every connection when the client and
+# the servers share a machine, or a Docker container: a million connections
+# there are two million files. The benchmark scripts check it before they start.
+sysctl -w fs.file-max=3000000
 sysctl -w fs.nr_open=2000500
 sysctl -w net.nf_conntrack_max=2000500
 ulimit -n 2000500

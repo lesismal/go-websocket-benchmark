@@ -58,6 +58,10 @@ echo $line
 
 echo $line
 
+# After killall.sh, so that leftover servers' connections are not counted, and
+# with the -c that script/clients.sh gets below.
+bench_check_file_max 1000000 "$@" || { return 1 2>/dev/null || exit 1; }
+
 frameworks=("${million_frameworks[@]}")
 
 print_env

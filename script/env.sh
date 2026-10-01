@@ -16,6 +16,67 @@ bench_runs_clients() { [ "$BENCH_ROLE" != server ]; }
 # The servers are ours to stop only when we are the machine that started them.
 bench_owns_servers() { [ "$BENCH_ROLE" = both ]; }
 
+# Whether fs.file-max leaves room for the connections this run asks for.
+# Every connection is an open file at each end, and both ends count when the
+# client and the servers share this machine, so a million connections are two
+# million files. The limit is system-wide - a container shares the host's, or
+# Docker Desktop's VM's - and once it is reached socket() and accept() fail
+# with ENFILE everywhere: the client's last dials fail, a server that treats a
+# failed accept as fatal (uws_events) exits with every connection it held, and
+# the client cannot open the socket of a control request or even its report
+# file, so the framework is left out of the report. Checked before the run so
+# that it stops here, saying what to raise, rather than one framework at a
+# time. $1 is the connection count the clients default to; the rest are the
+# client flags, whose last -c wins as it does in the clients.
+bench_check_file_max() {
+    local conns=$1 arg take=false
+    shift
+    for arg in "$@"; do
+        if [ "$take" = true ]; then
+            conns=$arg
+            take=false
+            continue
+        fi
+        case "$arg" in
+            -c=*|--c=*) conns=${arg#*=} ;;
+            -c|--c) take=true ;;
+        esac
+    done
+    # A malformed -c is the clients' to reject.
+    [[ "$conns" =~ ^[0-9]+$ ]] || return 0
+    # CAP_SYS_ADMIN (bit 21) goes past fs.file-max, as root outside a container does.
+    local caps
+    caps=$(awk '/^CapEff:/ {print $2}' /proc/self/status 2>/dev/null)
+    if [ -n "$caps" ] && (( (16#$caps >> 21) & 1 )); then
+        return 0
+    fi
+    local allocated unused max
+    read -r allocated unused max < /proc/sys/fs/file-nr 2>/dev/null || return 0
+    [[ "$allocated" =~ ^[0-9]+$ && "$max" =~ ^[0-9]+$ ]] || return 0
+    local ends=0
+    bench_runs_servers && ends=$((ends + 1))
+    bench_runs_clients && ends=$((ends + 1))
+    # The servers' listeners, pollers and control connections, the dials in
+    # flight and the accepted sockets of the ones that timed out.
+    local spare=65536
+    local needed=$((conns * ends + spare))
+    if [ $((max - allocated)) -ge "$needed" ]; then
+        return 0
+    fi
+    local suggested=$(( (allocated + needed + 999999) / 1000000 * 1000000 ))
+    {
+        echo "fs.file-max is $max with $allocated files already open, too few for this run:"
+        echo "$conns connections x $ends end(s) on this machine, plus $spare to spare, need $needed free."
+        echo "It is system-wide (a container shares the host's), and running out of it fails the"
+        echo "last dials, stops servers whose accept gives up on ENFILE, and leaves the client"
+        echo "unable to ask the server for its numbers or write its report."
+        echo "Raise it where the kernel runs, or ask for fewer connections with -c:"
+        echo "  Linux host:     sudo sysctl -w fs.file-max=$suggested"
+        echo "  Docker Desktop: docker run --rm --privileged alpine sysctl -w fs.file-max=$suggested"
+    } >&2
+    return 1
+}
+
 # Only a single-node run has two halves to divide the CPUs between. On a node
 # that runs one of them, pinning it to half a machine nothing else is using
 # would leave the other half idle, so the default there is the whole node; an

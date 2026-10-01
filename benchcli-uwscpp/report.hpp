@@ -1,6 +1,8 @@
 #pragma once
 #include "pssample.hpp"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
@@ -31,6 +33,11 @@ inline std::string http(const std::string &url, const std::string *body=nullptr,
     }
     auto error=curl_easy_perform(curl);
     std::string message=curl_easy_strerror(error);
+    // The system call behind a transport failure: "Couldn't connect to server" is the same
+    // message for a refused connection and for a socket() the fd limits turned down.
+    long osErrno=0;
+    if (error!=CURLE_OK && curl_easy_getinfo(curl,CURLINFO_OS_ERRNO,&osErrno)==CURLE_OK && osErrno)
+        message+=" ("+std::string(std::strerror(int(osErrno)))+")";
     curl_easy_cleanup(curl);
     if (error!=CURLE_OK) throw std::runtime_error(url+": "+message);
     return result;
@@ -115,9 +122,11 @@ inline std::string filename(const Options &o,const std::string &base,const std::
 }
 inline void writeFile(const std::string &path,const std::string &data) {
     std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    errno=0;
     std::ofstream out(path,std::ios::binary);
     out.write(data.data(),std::streamsize(data.size()));
-    if (!out) throw std::runtime_error("cannot write "+path);
+    out.close();
+    if (!out) throw std::runtime_error("cannot write "+path+(errno?": "+std::string(std::strerror(errno)):""));
 }
 inline std::string fixed(double v,const std::string &unit="") {
     std::ostringstream out; out<<std::fixed<<std::setprecision(2)<<v<<unit; return out.str();
