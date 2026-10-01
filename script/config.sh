@@ -51,7 +51,9 @@ esac
 #   default       each framework's own scheduling. Not a pool, and not what a
 #                 run without this variable measures. greatws_event answers
 #                 in its poller under this one value; the rest run the pool
-#                 they ship with
+#                 they ship with. greatws_event is given it whatever this
+#                 variable holds, since its entry is that arrangement; see
+#                 bench_server_args in script/serverctl.sh
 #   inline        no pool: the callback runs on the I/O goroutine that read
 #                 the frame, so the answer is written from the event loop.
 #                 uws_events refuses it: a UIO executor must not run its
