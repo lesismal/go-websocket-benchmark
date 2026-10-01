@@ -201,6 +201,7 @@ print_env() {
     echo "uwebsockets threads asked for: loops ${BENCH_UWS_LOOPS_PER_CPU}/cpu (0 = the server's own sizing; the server's startup line says what it built)"
     echo $line
     echo "report sort: ${BENCH_REPORT_SORT} (result = best first, framework = config.FrameworkList order)"
+    echo "fib socket syscalls: ${BENCH_FIB_SOCKET_SYSCALLS} (true = recvfrom/sendto/sendmsg, false = read/write/writev)"
     echo "project: ${BENCH_PROJECT:-(none)}"
     echo $line
     echo "go env:"

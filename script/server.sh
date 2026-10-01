@@ -5,6 +5,11 @@
 framework=$1
 shift
 
+# fib alone takes this flag; see BENCH_FIB_SOCKET_SYSCALLS in script/config.sh.
+case "$framework" in
+    fib) set -- "-socketsyscalls=${BENCH_FIB_SOCKET_SYSCALLS}" "$@" ;;
+esac
+
 echo "run ${framework} server on cpu ${server_cpu_list:-unbound}"
 # Job control on, so the server does not start with SIGINT ignored: a
 # non-interactive shell ignores it in what it runs with &, and the SIGINT

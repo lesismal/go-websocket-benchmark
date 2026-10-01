@@ -57,6 +57,14 @@ By default (`-vfs=false`) the container runs with `--security-opt apparmor=uncon
 so the AppArmor file-permission check the kernel's VFS makes on every read and
 write is not counted against the frameworks; `-vfs=true` keeps it.
 
+`-socketsyscalls=false` has the fib server read and write its sockets with
+`read`, `write` and `writev` instead of fib's default `recvfrom`, `sendto` and
+`sendmsg` (`fib.Config.SocketSyscalls`, Linux only); `-socketsyscalls=true`,
+the default, keeps them. It is `BENCH_FIB_SOCKET_SYSCALLS` in
+`script/config.sh`, and works the same with `script/benchmark.sh`,
+`script/benchmarkN.sh`, `script/1m_conns_benchmark.sh` and every
+`script/docker_*benchmark*.sh`; no other server is given it.
+
 `BENCH_CLIENT` selects the client here too. Run
 `bash script/docker_benchmark.sh --help` for all overrides. The first run builds
 the image and downloads the pinned Go, C++ and Rust dependencies; later runs use
