@@ -7,14 +7,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/antlabs/greatws/task/driver"
+	"github.com/antlabs/task/task/driver"
 
 	// stream2 registers itself with greatws's task-driver registry.
-	_ "github.com/antlabs/greatws/task/stream2"
+	_ "github.com/antlabs/task/task"
 )
 
 const (
-	greatwsDriverName = "stream2"
+	greatwsDriverName = "elastic"
 
 	// greatws gives each of its event loops a pool of its own, so its own
 	// defaults are per-loop counts; this is one pool for the whole process,

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/antlabs/greatws/task/driver"
+	"github.com/antlabs/task/task/driver"
 
 	"go-websocket-benchmark/logging"
 )
