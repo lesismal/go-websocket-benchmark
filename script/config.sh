@@ -142,6 +142,29 @@ case "$BENCH_REPORT_SORT" in
     *) echo "Unsupported BENCH_REPORT_SORT: $BENCH_REPORT_SORT (want result or framework)" >&2; return 1 ;;
 esac
 
+# fib only: the calls its server reads and writes its sockets with, which is
+# fib.Config.SocketSyscalls:
+#
+#   true   (default, as in fib) recvfrom, sendto and sendmsg
+#   false  read, write and writev, which reach the same socket code through
+#          the VFS, and with it the security module's file permission hook on
+#          every call (AppArmor's, in a Docker container)
+#
+# Linux only: elsewhere fib ignores it.
+# script/server.sh gives it to the fib server as -socketsyscalls,
+# and to no other, which would exit on a flag it does not define. Exported,
+# since script/server.sh runs as a process of its own.
+#
+# Override for one run with: BENCH_FIB_SOCKET_SYSCALLS=false bash script/benchmark.sh
+# or with the drivers' own flag, which they take out of their arguments before
+# the clients see them: bash script/benchmark.sh -socketsyscalls=false
+BENCH_FIB_SOCKET_SYSCALLS=${BENCH_FIB_SOCKET_SYSCALLS:-true}
+case "$BENCH_FIB_SOCKET_SYSCALLS" in
+    true|false) ;;
+    *) echo "Unsupported BENCH_FIB_SOCKET_SYSCALLS: $BENCH_FIB_SOCKET_SYSCALLS (want true or false)" >&2; return 1 ;;
+esac
+export BENCH_FIB_SOCKET_SYSCALLS
+
 # What the run benchmarks: the Project row that heads the Summary table, so a
 # report read on its own still says what it measured. Set it to name a run of
 # something narrower, e.g. BENCH_PROJECT="uwebsockets threads, 3 CPUs".

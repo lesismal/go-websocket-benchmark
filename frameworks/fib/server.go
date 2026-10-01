@@ -26,6 +26,11 @@ var (
 	_        = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_        = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
+	// fib.Config.SocketSyscalls: read and write sockets with recvfrom, sendto
+	// and sendmsg rather than read, write and writev. script/server.sh sets it
+	// from BENCH_FIB_SOCKET_SYSCALLS in script/config.sh.
+	socketSyscalls = flag.Bool("socketsyscalls", true, `read and write sockets with recvfrom, sendto and sendmsg rather than read, write and writev (Linux only)`)
+
 	logStatusEnabled = flag.Bool("logstatus", false, `log the backpressure counters every 500ms and at exit`)
 )
 
@@ -104,6 +109,8 @@ func startServer(addrs []string) *fib.Engine {
 	serverConfig := fib.DefaultConfig()
 	serverConfig.Network = "tcp4"
 	serverConfig.Addrs = addrs
+	serverConfig.SocketSyscalls = *socketSyscalls
+	logging.Printf("%v server: socketsyscalls=%v", config.Fib, serverConfig.SocketSyscalls)
 	// Set rather than left to DefaultConfig, which has the same values today:
 	// these are the bounds the constants above document, and a run should not
 	// lose them to a change of fib's defaults.

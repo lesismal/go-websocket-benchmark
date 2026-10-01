@@ -20,6 +20,12 @@ Options:
                 (DOCKER_BENCH_SERVER_CPUS)
   -cpuc=N       Of those, CPUs the client is pinned to with taskset
                 (DOCKER_BENCH_CLIENT_CPUS)
+  -socketsyscalls=BOOL
+                fib only: true (default) has its server read and write
+                its sockets with recvfrom, sendto and sendmsg, false with
+                read, write and writev (BENCH_FIB_SOCKET_SYSCALLS; see
+                script/config.sh). A bare -socketsyscalls is true. Like
+                the -cpu* flags, it may come anywhere among the arguments.
   -vfs=BOOL     false (default) runs the container with
                 --security-opt apparmor=unconfined, which turns off the
                 AppArmor file-permission check the kernel's VFS makes on
@@ -45,6 +51,8 @@ Environment overrides:
                            GO-WEBSOCKET-BENCHMARK; empty leaves it out)
   BENCH_REPORT_SORT        Report row order: result (default, best first) or
                            framework (see script/config.sh)
+  BENCH_FIB_SOCKET_SYSCALLS true (default) or false; -socketsyscalls
+                           overrides it
   BENCH_UWS_LOOPS_PER_CPU  uwebsockets' event loops per CPU (see
                            script/config.sh)
   DOCKER_BENCH_SCRIPT      What the container runs (default:
@@ -105,6 +113,9 @@ for arg in "$@"; do
         -cput=*|--cput=*) cpu_total=${arg#*=} ;;
         -cpus=*|--cpus=*) cpu_server=${arg#*=} ;;
         -cpuc=*|--cpuc=*) cpu_client=${arg#*=} ;;
+        # Checked by config.sh, below.
+        -socketsyscalls|--socketsyscalls) BENCH_FIB_SOCKET_SYSCALLS=true ;;
+        -socketsyscalls=*|--socketsyscalls=*) BENCH_FIB_SOCKET_SYSCALLS=${arg#*=} ;;
         -vfs|--vfs) vfs_check=true ;;
         -vfs=*|--vfs=*) vfs_check=${arg#*=} ;;
         *) other_args+=("$arg") ;;
@@ -346,6 +357,8 @@ run_args=(
     --env "BENCH_TASKPOOL_QUEUE=$BENCH_TASKPOOL_QUEUE"
     # Likewise the report row order, which the run writes its tables in.
     --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
+    # And the calls the fib server reads and writes its sockets with.
+    --env "BENCH_FIB_SOCKET_SYSCALLS=$BENCH_FIB_SOCKET_SYSCALLS"
     # And the Summary's Project row.
     --env "BENCH_PROJECT=$BENCH_PROJECT"
     # And uwebsockets' loop multiplier, which sizes itself against the
@@ -436,6 +449,7 @@ VFS check: $vfs_description
 Benchmark script: $bench_script
 Benchmark client: $bench_client
 Frameworks: $frameworks_description
+Fib socket syscalls: $BENCH_FIB_SOCKET_SYSCALLS
 EOF
 cat "$result_dir/resources.txt"
 echo "Results: $result_dir"
