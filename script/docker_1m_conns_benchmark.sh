@@ -14,7 +14,10 @@
 # Both sides of each connection are in the one container, so its memory limit
 # has to hold two million sockets besides the servers and the client: give it
 # plenty with DOCKER_BENCH_MEMORY (and Docker Desktop's VM the memory to back
-# it), or ask for fewer connections with -c.
+# it), or ask for fewer connections with -c. The two million sockets also
+# count against fs.file-max, which a container shares with the host (or
+# Docker Desktop's VM) and cannot raise itself: script/1m_conns_benchmark.sh
+# stops before the run when it is too low and prints the sysctl to raise it.
 set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

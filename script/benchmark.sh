@@ -13,6 +13,10 @@ echo $line
 
 echo $line
 
+# After killall.sh, so that leftover servers' connections are not counted; the
+# clients' own -c default is 10000.
+bench_check_file_max 10000 "$@" || { return 1 2>/dev/null || exit 1; }
+
 print_env
 
 echo $line
