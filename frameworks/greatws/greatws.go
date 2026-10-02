@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
@@ -27,6 +26,10 @@ var (
 	_       = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_       = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
+
+	// greatws.WithEventLoops. 0 leaves greatws's own default, one per CPU.
+	// script/server.sh sets it from BENCH_EVENTLOOPS in script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops, 0 for greatws's own default`)
 )
 
 var upgrader *greatws.UpgradeServer
@@ -46,11 +49,12 @@ func main() {
 
 	var h Handler
 	h.m = greatws.NewMultiEventLoopMust(
-		greatws.WithEventLoops(runtime.NumCPU()), // 控制io go程数
+		greatws.WithEventLoops(*eventLoops),      // 控制io go程数
 		greatws.WithBusinessGoNum(240, 240, 240), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
 		greatws.WithMaxEventNum(1000),
 		greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
+	logging.Printf("%v server: eventloops=%d (0 = greatws's own default)", config.Greatws, *eventLoops)
 	opt := []greatws.ServerOption{
 		// greatws.WithServerIgnorePong(),
 		greatws.WithServerCallback(&Handler{}),

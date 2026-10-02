@@ -27,6 +27,10 @@ var (
 	_                 = flag.Int("mrb", 4096, `max read buffer size`)
 	_                 = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
+	// nbhttp.Config.NPoller. 0 leaves nbio's own default, one per CPU.
+	// script/server.sh sets it from BENCH_EVENTLOOPS in script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops (NPoller), 0 for nbio's own default`)
+
 	upgrader = websocket.NewUpgrader()
 )
 
@@ -67,7 +71,9 @@ func startServers(addrs []string) *nbhttp.Engine {
 		MaxBlockingOnline:       *maxBlockingOnline,
 		ReleaseWebsocketPayload: true,
 		Listen:                  frameworks.Listen,
+		NPoller:                 *eventLoops,
 	}
+	logging.Printf("%v server: eventloops=%d (0 = nbio's own default)", config.NbioModMixed, engineConfig.NPoller)
 
 	// nbio runs the reading callbacks on a task pool of its own sizing.
 	// -taskpool hands that work to one of the shared pools instead, so that

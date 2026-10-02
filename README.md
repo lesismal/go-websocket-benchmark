@@ -65,6 +65,20 @@ the default, keeps them. It is `BENCH_FIB_SOCKET_SYSCALLS` in
 `script/benchmarkN.sh`, `script/1m_conns_benchmark.sh` and every
 `script/docker_*benchmark*.sh`; no other server is given it.
 
+`-eventloops=N` gives every server that runs event loops of its own N of them:
+fib (`IOPollerCount`), fnet (`NumPollers`), greatws and greatws_event
+(`WithEventLoops`), hertz (`netpoll.SetNumLoops`), nbio_mixed and
+nbio_nonblocking (`NPoller`), tokio_tungstenite (`-threads`), uwebsockets
+(`-loops`) and uws_events (`uio.Events.Pollers`). `-eventloops=0`, the default,
+passes nothing, so each keeps its framework's own default count, and those
+differ: see `BENCH_EVENTLOOPS` in `script/config.sh`, which is what the flag
+sets, for each one's. It works with the same scripts as `-socketsyscalls`.
+
+```sh
+# Four event loops in every server that has them
+bash script/benchmark.sh -eventloops=4
+```
+
 `BENCH_CLIENT` selects the client here too. Run
 `bash script/docker_benchmark.sh --help` for all overrides. The first run builds
 the image and downloads the pinned Go, C++ and Rust dependencies; later runs use
@@ -180,7 +194,8 @@ does not read the mask.
 The loop count can be set as a multiplier of those CPUs instead of a thread
 count, which is the form that carries from one machine to the next:
 `BENCH_UWS_LOOPS_PER_CPU` (`-loopspercpu` on the server; `-loops` takes an
-absolute count). 0, the default, keeps one loop per CPU.
+absolute count, which `-eventloops=N` passes and which wins over the
+multiplier). 0, the default, keeps one loop per CPU.
 
 ```sh
 # Half as many event loops as CPUs

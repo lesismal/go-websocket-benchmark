@@ -21,6 +21,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hertznetpoll "github.com/cloudwego/hertz/pkg/network/netpoll"
+	"github.com/cloudwego/netpoll"
 	"github.com/hertz-contrib/pprof"
 	"github.com/hertz-contrib/websocket"
 	"github.com/lesismal/perf"
@@ -34,6 +35,11 @@ var (
 	_                 = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_                 = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
+	// netpoll.SetNumLoops, the pollers of the netpoll transport hertz serves
+	// on. 0 leaves netpoll's own default, GOMAXPROCS/20+1. script/server.sh
+	// sets it from BENCH_EVENTLOOPS in script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops (netpoll.SetNumLoops), 0 for netpoll's own default`)
+
 	upgrader = websocket.HertzUpgrader{}
 )
 
@@ -41,6 +47,14 @@ func main() {
 	flag.Parse()
 
 	gopool.SetCap(1000000)
+
+	// Before any connection: netpoll builds its pollers on the first one.
+	if *eventLoops > 0 {
+		if err := netpoll.SetNumLoops(*eventLoops); err != nil {
+			logging.Fatalf("netpoll.SetNumLoops(%d) failed: %v", *eventLoops, err)
+		}
+	}
+	logging.Printf("%v server: eventloops=%d (0 = netpoll's own default)", config.Hertz, *eventLoops)
 
 	if *readBufferSize > *maxReadBufferSize {
 		log.Printf("readBufferSize: %v, will handle reading by ReadMessage()", *readBufferSize)

@@ -8,6 +8,7 @@ require (
 	github.com/antlabs/task v0.1.0
 	github.com/bytedance/gopkg v0.1.4
 	github.com/cloudwego/hertz v0.10.6
+	github.com/cloudwego/netpoll v0.7.5
 	github.com/fasthttp/websocket v1.5.12
 	github.com/go-netty/go-netty-ws v1.0.12
 	github.com/gobwas/ws v1.4.0
@@ -35,7 +36,6 @@ require (
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/gopkg v0.2.0 // indirect
-	github.com/cloudwego/netpoll v0.7.5 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect

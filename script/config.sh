@@ -108,6 +108,40 @@ for uws_thread_factor in "$BENCH_UWS_LOOPS_PER_CPU"; do
     esac
 done
 
+# How many event loops each server in eventloop_frameworks below runs: the
+# goroutines (threads, for tokio_tungstenite and uwebsockets) that wait on the
+# poller. 0 (the default) leaves every framework its own default count, which
+# differs between them; N > 0 gives every one of them the same N. Each takes
+# it through its own knob, which script/server.sh passes it as:
+#
+#   fib                 -eventloops  fib.Config.IOPollerCount (default: CPUs/4, at least 1)
+#   fnet                -eventloops  fhttp.Server.NumPollers (default: GOMAXPROCS/3, rounded up)
+#   greatws(_event)     -eventloops  greatws.WithEventLoops (default: one per CPU)
+#   hertz               -eventloops  netpoll.SetNumLoops (default: GOMAXPROCS/20+1)
+#   nbio_mixed          -eventloops  nbhttp.Config.NPoller (default: one per CPU)
+#   nbio_nonblocking    -eventloops  nbhttp.Config.NPoller (default: one per CPU)
+#   tokio_tungstenite   -threads     its current-thread runtimes (default: one per CPU)
+#   uwebsockets         -loops       its uWS::App threads (default: one per CPU, or
+#                                    BENCH_UWS_LOOPS_PER_CPU, which -loops overrides)
+#   uws_events          -eventloops  uio.Events.Pollers (default: 4, capped by the CPUs)
+#
+# "CPU" there is the CPUs the server may run on, after script/env.sh pins it.
+# Exported, since script/server.sh runs as a process of its own.
+#
+# Override for one run with: BENCH_EVENTLOOPS=4 bash script/benchmark.sh
+# or with the drivers' own flag, which they take out of their arguments before
+# the clients see them: bash script/benchmark.sh -eventloops=4
+BENCH_EVENTLOOPS=${BENCH_EVENTLOOPS:-0}
+case "$BENCH_EVENTLOOPS" in
+    ''|*[!0-9]*)
+        echo "Unsupported BENCH_EVENTLOOPS: $BENCH_EVENTLOOPS (want a non-negative integer, 0 for each framework's own default)" >&2
+        return 1 ;;
+esac
+# A leading zero would be octal to the shell's arithmetic and a different
+# number to the servers' parsers.
+BENCH_EVENTLOOPS=$((10#$BENCH_EVENTLOOPS))
+export BENCH_EVENTLOOPS
+
 # The order the report tables put their rows in. Both orders carry the same
 # rows and the same numbers; only the order differs:
 #
@@ -197,6 +231,25 @@ taskpool_frameworks=(
     "fnet"
     "greatws"
     "greatws_event"
+    "nbio_mixed"
+    "nbio_nonblocking"
+    "tokio_tungstenite"
+    "uwebsockets"
+    "uws_events"
+)
+
+# The servers that run event loops of their own and take BENCH_EVENTLOOPS
+# above, in framework-name order like every other framework list here. The
+# rest serve each connection on goroutines of the Go runtime's netpoller (or,
+# for nbio_blocking, nbio_std, hertz_std and uws_std, a backend that reads on
+# goroutines), so there is no loop count to set, and the Go ones would exit on
+# a flag they do not define.
+eventloop_frameworks=(
+    "fib"
+    "fnet"
+    "greatws"
+    "greatws_event"
+    "hertz"
     "nbio_mixed"
     "nbio_nonblocking"
     "tokio_tungstenite"
