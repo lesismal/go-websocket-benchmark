@@ -3,6 +3,7 @@ package taskpool
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/antlabs/task/task/driver"
 	fibpool "github.com/lesismal/fib/taskpool"
@@ -75,29 +76,45 @@ func TestUwsExecutorPassesTheRefusalThrough(t *testing.T) {
 	waitOrFail(t, &done, "uws task did not run")
 }
 
-func TestFnetWorkerPoolRunsWhatThePoolRefuses(t *testing.T) {
-	// A dropped task would leave fnet's drain flag set and wedge that
-	// connection, so a refusal has to run on the caller instead.
-	ran := false
-	if err := FnetWorkerPool(refusingPool{})(1, func() { ran = true }); err != nil {
-		t.Errorf("a task that ran on the caller was reported declined: %v", err)
+// submitsWithoutRunningInline hands task to executor and fails the test if
+// executor does not return while the task is still blocked, which is what it
+// would do if it ran the task on the caller's stack. The task finishes once
+// executor has returned.
+func submitsWithoutRunningInline(t *testing.T, executor func(func()), task func()) {
+	t.Helper()
+	release := make(chan struct{})
+	submitted := make(chan struct{})
+	go func() {
+		defer close(submitted)
+		executor(func() { <-release; task() })
+	}()
+	select {
+	case <-submitted:
+	case <-time.After(30 * time.Second):
+		close(release)
+		t.Fatal("the executor ran the task on the caller's stack")
 	}
-	if !ran {
-		t.Error("the refused task did not run on the caller")
-	}
+	close(release)
 }
 
-func TestFnetWorkerPoolRunsWhatALivePoolTakes(t *testing.T) {
-	// The drain has to reach the pool, not just be handed to an executor
-	// built and thrown away: a task that never runs leaves the connection
-	// silent, with fnet reporting the submission as taken.
+func TestFnetExecutorRunsWhatThePoolRefuses(t *testing.T) {
+	// A dropped task would leave fnet's connection with a task it believes is
+	// in flight, and so silent for good; running it on the caller would break
+	// fnet's rule that an executor never does.
 	var done sync.WaitGroup
 	done.Add(1)
-	submit := FnetWorkerPool(newTestPool(t, Goroutine))
-	if err := submit(1, done.Done); err != nil {
-		t.Fatalf("a live pool declined a drain: %v", err)
-	}
-	waitOrFail(t, &done, "fnet drain did not run")
+	submitsWithoutRunningInline(t, FnetExecutor(refusingPool{}), done.Done)
+	waitOrFail(t, &done, "the refused task did not run")
+}
+
+func TestFnetExecutorRunsWhatALivePoolTakes(t *testing.T) {
+	// The task has to reach the pool, not just be handed to an executor
+	// built and thrown away: a task that never runs leaves the connection
+	// silent.
+	var done sync.WaitGroup
+	done.Add(1)
+	submitsWithoutRunningInline(t, FnetExecutor(newTestPool(t, Goroutine)), done.Done)
+	waitOrFail(t, &done, "fnet task did not run")
 }
 
 func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {

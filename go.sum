@@ -100,8 +100,8 @@ github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQsc
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
 github.com/limpo1989/taskgo v1.5.0 h1:xczgiyKl20SyWJ5OwH6CcYFMPliCTMUnRWXciRhegLc=
 github.com/limpo1989/taskgo v1.5.0/go.mod h1:x3mZYu4EyiAGBqy/qENxNKr78yLgHfjPg58RJRXklmY=
-github.com/linfeip/fnet v0.0.0-20260927110723-b3e61d2437aa h1:2Li9E7ueOT588SVYp2t7MwF+O/JO21waAu5Z6VTmjPU=
-github.com/linfeip/fnet v0.0.0-20260927110723-b3e61d2437aa/go.mod h1:EJt/nxcYp6CL4ulR1lWzYFnduoUecIR8CBDPiFS4IGY=
+github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680 h1:5OG/e1wR/YrrdIij5rRYAR8CNx7wJhKIvsMBXPIy6OI=
+github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=

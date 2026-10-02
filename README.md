@@ -66,7 +66,7 @@ the default, keeps them. It is `BENCH_FIB_SOCKET_SYSCALLS` in
 `script/docker_*benchmark*.sh`; no other server is given it.
 
 `-eventloops=N` gives every server that runs event loops of its own N of them:
-fib (`IOPollerCount`), fnet (`NumPollers`), greatws and greatws_event
+fib (`IOPollerCount`), fnet (`NumLoops`), greatws and greatws_event
 (`WithEventLoops`), hertz (`netpoll.SetNumLoops`), nbio_mixed and
 nbio_nonblocking (`NPoller`), tokio_tungstenite (`-threads`), uwebsockets
 (`-loops`) and uws_events (`uio.Events.Pollers`). `-eventloops=0`, the default,
@@ -160,11 +160,11 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `BENCH_TASKPOOL` | pool |
 | --- | --- |
 | `default` | each framework's own scheduling; not a pool, and no longer what a run without the variable measures |
-| `inline` | no pool: the callback runs on the I/O goroutine that read the frame; `uws_events` refuses it, since a UIO executor must not run its connections' task inline |
+| `inline` | no pool: the callback runs on the I/O goroutine that read the frame; `fnet` and `uws_events` refuse it, since their executors must not run a connection's task inline |
 | `go` | one goroutine per task, bounded by nothing |
 | `fib_adaptive`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its two modes (`fib_adaptive` is fib's own default, and this benchmark's) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
-| `fnet` | `fnet.WorkerPool`, sharded and elastic: workers spawn on demand and retire when idle |
+| `fnet` | `github.com/linfeip/fnet/taskpool`, sharded: one lock-free queue per shard, workers started on demand and then kept |
 | `greatws` | greatws's `stream2` business pool |
 | `uws` | `github.com/limpo1989/taskgo`, set up the way UIO sets it up: about one worker per P while tasks run, up to `512 * GOMAXPROCS` while they block, idle workers kept for 30 s |
 
@@ -248,8 +248,8 @@ Three things to keep in mind when reading a report:
 - Whichever pool is selected, one connection's messages are still handled and
   answered in the order they arrived. No pool promises that by itself - `go`
   runs a goroutine per task - so the order comes from never handing a pool
-  more than one task per connection at a time: fib and uws_events submit the
-  connection itself, and nbio, fnet and greatws each keep one per-connection
+  more than one task per connection at a time: fib, fnet and uws_events submit
+  the connection itself, and nbio and greatws each keep one per-connection
   queue and submit a drain only when none is in flight. See the `Ordering` section
   of [the package doc](taskpool/taskpool.go) for which mechanism each
   framework uses. `uwebsockets` echoes from its event loops, so it has no pool
@@ -257,14 +257,23 @@ Three things to keep in mind when reading a report:
 - No pool refuses work unless it is sized to: `uws` does once
   `BENCH_TASKPOOL_QUEUE` bounds its pending tasks, and the others wait for
   room. fib and uws_events close the connections behind the work their pool
-  refused; nbio and fnet run it on the caller instead, because a dropped task
-  there would stall a connection rather than lose one message.
-- `fnet`'s pool goes on its `websocket.Upgrader`, not on its `fnet.Server`:
-  the latter runs the HTTP request loop and holds a worker for as long as a
-  connection stays unupgraded, so a bounded pool there would wedge on the
-  handshake burst rather than measure the callbacks. `-tpmax` and `-tpqueue`
-  are read per shard by the `fnet` pool, which picks its own shard count from
-  `GOMAXPROCS`.
+  refused; nbio runs it on the caller instead, and fnet on a goroutine of its
+  own, because a dropped task there would stall a connection rather than lose
+  one message.
+- `fnet`'s pool is its `fnet.Options.Executor`, which runs every connection's
+  task: reading, the callbacks, flushing and closing. fnet requires that a task
+  never run on the caller's stack, so `-taskpool=inline` is refused for it, as
+  it is for `uws_events`. Its HTTP side takes no pool: a request handler runs
+  on a goroutine of fhttp's own. `-tpmax` and `-tpqueue` are totals that the
+  `fnet` pool splits across its shards, one per `GOMAXPROCS` unless `-tpmax`
+  is too small to give each two workers; a shard holds at most 64 workers, and
+  `-tpmin` is ignored, since its workers are never retired.
+- `fnet` serves `/init`, `/ps`, `/taskpool` and pprof on the port after its
+  benchmark ones, as fib and gws do: fhttp does not take a request with a body,
+  and `/init` is a POST with one. It also sets `TCP_NODELAY` on every
+  connection and leaves no way to turn it off, so `-nodelay=false` is refused
+  rather than reported under the wrong setting, and it opens its listeners
+  itself, so `-reuseport` does not reach them.
 
 ## Report row order
 

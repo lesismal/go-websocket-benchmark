@@ -1,40 +1,54 @@
 package taskpool
 
 import (
-	fnetpool "github.com/linfeip/fnet/pool"
+	"runtime"
+
+	fnettaskpool "github.com/linfeip/fnet/taskpool"
+)
+
+// fnettaskpool.DefaultTaskPool is one shard per P with 4 workers and an
+// 8192-task queue each. A shard is capped at fnettaskpool.MaxWorkers.
+const (
+	fnetWorkersPerShard = 4
+	fnetQueuePerShard   = 8192
+
+	// A shard with one worker holds every task queued behind a blocking one,
+	// so a ceiling too small to give each shard two gets fewer shards instead.
+	fnetMinWorkersPerShard = 2
 )
 
 func init() {
 	Register(Fnet, func(config Config) (Pool, error) {
-		return &fnetPool{pool: fnetpool.New(fnetpool.Config{
-			// fnet splits MaxWorkers equally across its shards (about one
-			// per core, fewer when the bound cannot give each 256), so
-			// -tpmax is a total here rather than a per-shard figure. Its
-			// queue has no bound, so -tpqueue is ignored. Leaving MaxWorkers
-			// at 0 keeps fnet's own 1024 workers per GOMAXPROCS, and at
-			// least 4096.
-			MaxWorkers: config.MaxWorkers,
-		})}, nil
+		// -tpmax and -tpqueue are totals, as they are for the other pools,
+		// and are split equally across the shards. Leaving them at 0 keeps
+		// fnet's own sizing.
+		shards := runtime.GOMAXPROCS(0)
+		workers := fnetWorkersPerShard
+		if config.MaxWorkers > 0 {
+			shards = max(1, min(shards, config.MaxWorkers/fnetMinWorkersPerShard))
+			workers = (config.MaxWorkers + shards - 1) / shards
+		}
+		queue := fnetQueuePerShard
+		if config.QueueSize > 0 {
+			queue = (config.QueueSize + shards - 1) / shards
+		}
+		return &fnetPool{pool: fnettaskpool.New(shards, workers, queue)}, nil
 	})
 }
 
-// fnetPool is github.com/linfeip/fnet/pool's Pool. Its workers are spawned on
-// demand and retired after an idle timeout, so an idle connection holds none,
-// and a submission that finds every worker busy queues rather than blocking
-// the reactor or refusing: Submit fails only after Close, which the Pool
-// interface leaves undefined, so Rejects reports false.
+// fnetPool is github.com/linfeip/fnet/taskpool's Pool: one bounded lock-free
+// queue per shard, and workers that a shard starts on demand up to its limit
+// and then keeps, parked until the next task, so MinWorkers has no meaning to
+// it and Stop has nothing to release. A submission picks a shard at random
+// and never blocks or refuses: one that finds its shard's queue full gets a
+// temporary goroutine, which drains the queue before it exits. That is why
+// Rejects reports false, and why QueueSize bounds the queue rather than the
+// work in flight.
 //
-// The shared pool is submitted to with fnet's Submit, which picks a shard at
-// random, takes the next one whose lock is free, and moves a task off a
-// saturated shard to one with room; idle workers steal from busy shards from
-// the other side. fnet gives its own pool the connection's id instead, which
-// keeps one connection's drains on one shard and so on one core's caches;
-// that affinity is not something the Pool interface can carry, and it costs
-// correctness nothing because fnet runs one drain per connection at a time
-// either way.
-type fnetPool struct{ pool *fnetpool.Pool }
+// The pool does not expose its worker count.
+type fnetPool struct{ pool *fnettaskpool.Pool }
 
-func (p *fnetPool) Go(f func()) bool { return p.pool.Submit(f) == nil }
-func (p *fnetPool) Workers() int     { return p.pool.RunningWorkers() }
+func (p *fnetPool) Go(f func()) bool { p.pool.Submit(f); return true }
+func (p *fnetPool) Workers() int     { return -1 }
 func (p *fnetPool) Rejects() bool    { return false }
-func (p *fnetPool) Stop()            { p.pool.Close() }
+func (p *fnetPool) Stop()            {}

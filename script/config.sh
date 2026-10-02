@@ -56,16 +56,16 @@ esac
 #                 bench_server_args in script/serverctl.sh
 #   inline        no pool: the callback runs on the I/O goroutine that read
 #                 the frame, so the answer is written from the event loop.
-#                 uws_events refuses it: a UIO executor must not run its
-#                 connections' task inline
+#                 fnet and uws_events refuse it: their executors must not
+#                 run a connection's task inline
 #   go            one goroutine per task, bounded by nothing
 #   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
 #                 is fib's own default and this benchmark's
 #   fib_elastic   the same pool in elastic mode: goroutines forked on demand
 #                 up to a ceiling
 #   nbio          github.com/lesismal/nbio/taskpool
-#   fnet          fnet.WorkerPool, sharded and elastic: workers spawn on
-#                 demand and retire when idle
+#   fnet          github.com/linfeip/fnet/taskpool, sharded: one lock-free
+#                 queue per shard, workers started on demand and then kept
 #   greatws       greatws's stream2 business pool
 #   uws           github.com/limpo1989/taskgo, the pool UIO runs uws's
 #                 connections on, set up as UIO sets it up; it refuses work
@@ -115,7 +115,7 @@ done
 # it through its own knob, which script/server.sh passes it as:
 #
 #   fib                 -eventloops  fib.Config.IOPollerCount (default: CPUs/4, at least 1)
-#   fnet                -eventloops  fhttp.Server.NumPollers (default: GOMAXPROCS/3, rounded up)
+#   fnet                -eventloops  fnet.Options.NumLoops (default: GOMAXPROCS/4, at least 2)
 #   greatws(_event)     -eventloops  greatws.WithEventLoops (default: one per CPU)
 #   hertz               -eventloops  netpoll.SetNumLoops (default: GOMAXPROCS/20+1)
 #   nbio_mixed          -eventloops  nbhttp.Config.NPoller (default: one per CPU)

@@ -51,28 +51,28 @@ func (e UwsExecutor) SubmitBatch(tasks []uio.IOTask) int {
 // runs leaves the connection stuck rather than merely dropping a message.
 func NbioExecute(pool Pool) func(f func()) { return runOrCall(pool) }
 
-// FnetWorkerPool adapts a Pool to fnet's websocket.Upgrader.WorkerPool.
+// FnetExecutor adapts a Pool to fnet.Options.Executor.
 //
-// What fnet submits is a drain of one connection's queued frames, and it
-// submits one only when no drain is in flight, so a task that never runs
-// leaves that flag set and every later frame queued behind it for good. The
-// error reported back is fnet's signal that the drain was declined, and it
-// closes the connection behind one: runOrCall runs what the pool refuses, so
-// the task has always run by the time this returns nil.
+// What fnet submits is a connection's task: it reads, runs the callbacks,
+// flushes the send buffer and closes. It submits one only when the connection
+// has none in flight, so a task that never runs leaves the connection silent
+// for good, and an Executor has no way to report a refusal. A task the pool
+// refuses therefore runs on a goroutine of its own, as it does in fnet's pool
+// when a shard's queue is full, and order is kept because the connection has
+// no other task to overtake it.
 //
-// The connection id fnet keys each drain by is dropped: the Pool interface has
-// no way to carry it. That costs order nothing, because fnet has at most one
-// drain per connection in flight.
+// It does not use runOrCall: fnet calls its Executor from the event loops,
+// from other connections' callbacks and from a task on its way out, and
+// requires that the task never run on the caller's stack. That is also why the
+// fnet server refuses the Inline pool.
 //
-// It goes on the upgrader rather than on fnet.Server, whose WorkerPool runs
-// the HTTP request loop and holds a worker for as long as a connection stays
-// unupgraded: a bounded pool there would wedge on the handshake burst rather
-// than measure the callbacks.
-func FnetWorkerPool(pool Pool) func(connID uint64, task func()) error {
-	run := runOrCall(pool)
-	return func(_ uint64, task func()) error {
-		run(task)
-		return nil
+// fnet's connection id is no longer passed to the Executor, so there is
+// nothing for the Pool interface to carry.
+func FnetExecutor(pool Pool) func(task func()) {
+	return func(task func()) {
+		if !pool.Go(task) {
+			go call(task)
+		}
 	}
 }
 
