@@ -26,6 +26,11 @@ Options:
                 read, write and writev (BENCH_FIB_SOCKET_SYSCALLS; see
                 script/config.sh). A bare -socketsyscalls is true. Like
                 the -cpu* flags, it may come anywhere among the arguments.
+  -eventloops=N Event loops for each server that runs its own (fib, fnet,
+                greatws, hertz, nbio, tokio_tungstenite, uwebsockets,
+                uws_events); 0 (default) leaves each its framework's own
+                default (BENCH_EVENTLOOPS; see script/config.sh). It may
+                come anywhere among the arguments too.
   -vfs=BOOL     false (default) runs the container with
                 --security-opt apparmor=unconfined, which turns off the
                 AppArmor file-permission check the kernel's VFS makes on
@@ -53,6 +58,8 @@ Environment overrides:
                            framework (see script/config.sh)
   BENCH_FIB_SOCKET_SYSCALLS true (default) or false; -socketsyscalls
                            overrides it
+  BENCH_EVENTLOOPS         Event loops per server, 0 (default) for each
+                           framework's own; -eventloops overrides it
   BENCH_UWS_LOOPS_PER_CPU  uwebsockets' event loops per CPU (see
                            script/config.sh)
   DOCKER_BENCH_SCRIPT      What the container runs (default:
@@ -116,6 +123,7 @@ for arg in "$@"; do
         # Checked by config.sh, below.
         -socketsyscalls|--socketsyscalls) BENCH_FIB_SOCKET_SYSCALLS=true ;;
         -socketsyscalls=*|--socketsyscalls=*) BENCH_FIB_SOCKET_SYSCALLS=${arg#*=} ;;
+        -eventloops=*|--eventloops=*) BENCH_EVENTLOOPS=${arg#*=} ;;
         -vfs|--vfs) vfs_check=true ;;
         -vfs=*|--vfs=*) vfs_check=${arg#*=} ;;
         *) other_args+=("$arg") ;;
@@ -359,6 +367,8 @@ run_args=(
     --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
     # And the calls the fib server reads and writes its sockets with.
     --env "BENCH_FIB_SOCKET_SYSCALLS=$BENCH_FIB_SOCKET_SYSCALLS"
+    # And the servers' event loop count.
+    --env "BENCH_EVENTLOOPS=$BENCH_EVENTLOOPS"
     # And the Summary's Project row.
     --env "BENCH_PROJECT=$BENCH_PROJECT"
     # And uwebsockets' loop multiplier, which sizes itself against the
@@ -450,6 +460,7 @@ Benchmark script: $bench_script
 Benchmark client: $bench_client
 Frameworks: $frameworks_description
 Fib socket syscalls: $BENCH_FIB_SOCKET_SYSCALLS
+Event loops: $BENCH_EVENTLOOPS (0 = each framework's own default)
 EOF
 cat "$result_dir/resources.txt"
 echo "Results: $result_dir"

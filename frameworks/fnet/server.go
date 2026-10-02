@@ -25,6 +25,11 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_       = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
+	// fhttp.Server.NumPollers. 0 leaves fnet's own default, a third of
+	// GOMAXPROCS rounded up. script/server.sh sets it from BENCH_EVENTLOOPS
+	// in script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops (NumPollers), 0 for fnet's own default`)
+
 	upgrader = &websocket.Upgrader{OnMessage: onMessage}
 )
 
@@ -62,8 +67,8 @@ func main() {
 }
 
 // startServer runs ONE fhttp.Server listening on every address so that all
-// ports share a single accept loop and one reactor pool (GOMAXPROCS pollers),
-// instead of 50 servers x (1 + GOMAXPROCS) pollers.
+// ports share a single accept loop and one reactor pool (-eventloops pollers),
+// instead of 50 servers x (1 + pollers).
 func startServer(addrs []string) *fhttp.Server {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
@@ -72,7 +77,10 @@ func startServer(addrs []string) *fhttp.Server {
 		Addrs:   addrs,
 		Handler: mux,
 		Listen:  frameworks.Listen,
+
+		NumPollers: *eventLoops,
 	}
+	logging.Printf("%v server: eventloops=%d (0 = fnet's own default)", config.Fnet, s.NumPollers)
 	go func() {
 		logging.Printf("server exit: %v", s.ListenAndServe())
 	}()

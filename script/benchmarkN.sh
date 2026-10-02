@@ -6,14 +6,16 @@
 # BodySize=(128 512 1024 4096)
 # BenchTime=(2000000)
 
-# -socketsyscalls[=BOOL] is the drivers' own flag, for BENCH_FIB_SOCKET_SYSCALLS
-# in script/config.sh: taken out here, before env.sh checks the value, so that
-# neither the clients nor the report step is handed a flag it does not define.
+# -socketsyscalls[=BOOL] and -eventloops=N are the drivers' own flags, for
+# BENCH_FIB_SOCKET_SYSCALLS and BENCH_EVENTLOOPS in script/config.sh: taken
+# out here, before env.sh checks the values, so that neither the clients nor
+# the report step is handed a flag it does not define.
 driver_args=()
 for arg in "$@"; do
     case "$arg" in
         -socketsyscalls|--socketsyscalls) BENCH_FIB_SOCKET_SYSCALLS=true ;;
         -socketsyscalls=*|--socketsyscalls=*) BENCH_FIB_SOCKET_SYSCALLS=${arg#*=} ;;
+        -eventloops=*|--eventloops=*) BENCH_EVENTLOOPS=${arg#*=} ;;
         *) driver_args+=("$arg") ;;
     esac
 done

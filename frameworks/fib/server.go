@@ -31,6 +31,12 @@ var (
 	// from BENCH_FIB_SOCKET_SYSCALLS in script/config.sh.
 	socketSyscalls = flag.Bool("socketsyscalls", true, `read and write sockets with recvfrom, sendto and sendmsg rather than read, write and writev (Linux only)`)
 
+	// fib.Config.IOPollerCount: the event loops the engine hands its
+	// connections to. 0 leaves fib's own default, a quarter of the CPUs and at
+	// least one. script/server.sh sets it from BENCH_EVENTLOOPS in
+	// script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops (IOPollerCount), 0 for fib's own default`)
+
 	logStatusEnabled = flag.Bool("logstatus", false, `log the backpressure counters every 500ms and at exit`)
 )
 
@@ -110,7 +116,9 @@ func startServer(addrs []string) *fib.Engine {
 	serverConfig.Network = "tcp4"
 	serverConfig.Addrs = addrs
 	serverConfig.SocketSyscalls = *socketSyscalls
-	logging.Printf("%v server: socketsyscalls=%v", config.Fib, serverConfig.SocketSyscalls)
+	serverConfig.IOPollerCount = *eventLoops
+	logging.Printf("%v server: socketsyscalls=%v eventloops=%d (0 = fib's own default)",
+		config.Fib, serverConfig.SocketSyscalls, serverConfig.IOPollerCount)
 	// Set rather than left to DefaultConfig, which has the same values today:
 	// these are the bounds the constants above document, and a run should not
 	// lose them to a change of fib's defaults.

@@ -87,7 +87,7 @@ class ScriptTests(unittest.TestCase):
     # frameworks out of script/config.sh is how a focused run is set up.
     def test_framework_lists_are_sorted_and_match_go(self):
         result = subprocess.run(
-            ["bash", "-c", ". ./script/config.sh && printf '%s\n' \"${frameworks[*]}\" \"${taskpool_frameworks[*]}\""],
+            ["bash", "-c", ". ./script/config.sh && printf '%s\n' \"${frameworks[*]}\" \"${taskpool_frameworks[*]}\" \"${eventloop_frameworks[*]}\""],
             cwd=ROOT,
             env={k: v for k, v in os.environ.items() if k != "BENCH_FRAMEWORKS"},
             text=True,
@@ -105,8 +105,9 @@ class ScriptTests(unittest.TestCase):
         subset = (ROOT / "script/1m_conns_benchmark.sh").read_text()
         million = re.findall(r'^\s*"([a-z0-9_-]+)"$', re.search(
             r"frameworks=\((.*?)\)", subset, re.S).group(1), re.M)
-        shell, taskpool = (line.split() for line in result.stdout.splitlines())
+        shell, taskpool, eventloop = (line.split() for line in result.stdout.splitlines())
         for name, listed in [("frameworks", shell), ("taskpool_frameworks", taskpool),
+                             ("eventloop_frameworks", eventloop),
                              ("1m_conns_benchmark.sh frameworks", million)]:
             self.assertEqual(listed, sorted(listed), name)
             self.assertTrue(listed and set(listed) <= set(go), (name, listed))

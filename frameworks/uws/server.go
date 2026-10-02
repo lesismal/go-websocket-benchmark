@@ -24,6 +24,10 @@ var (
 	_              = flag.Int64("m", 1024*1024*1024*2, `memory limit`)
 	_              = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_              = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
+
+	// uio.Events.Pollers. 0 leaves UIO's own default, 4 capped by the CPUs.
+	// script/server.sh sets it from BENCH_EVENTLOOPS in script/config.sh.
+	eventLoops = flag.Int("eventloops", 0, `event loops (Pollers), 0 for UIO's own default`)
 )
 
 type echoHandler struct{}
@@ -66,7 +70,7 @@ func main() {
 
 	server := uws.NewServer(echoHandler{})
 	server.Events = &uio.Events{
-		Pollers:       runtime.NumCPU(),
+		Pollers:       *eventLoops,
 		MaxBufferSize: maxBufferSize,
 	}
 	// UIO runs each connection's I/O as one task. An explicit benchmark pool
@@ -80,7 +84,7 @@ func main() {
 		}
 	}
 	logging.Printf(
-		"uws benchmark config: pollers=%d GOMAXPROCS=%d NumCPU=%d",
+		"uws benchmark config: pollers=%d (0 = UIO's own default) GOMAXPROCS=%d NumCPU=%d",
 		server.Events.Pollers, runtime.GOMAXPROCS(0), runtime.NumCPU(),
 	)
 	serveDone := make(chan error, 1)
