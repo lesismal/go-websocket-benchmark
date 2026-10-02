@@ -316,7 +316,7 @@ func frameworkControlPort(framework string) (int, error) {
 	}
 	port := ports[len(ports)-1]
 	switch framework {
-	case Fib, Gws, UwsEvents, UwsStdio:
+	case Fib, Fnet, Gws, UwsEvents, UwsStdio:
 		port++
 	}
 	return port, nil

@@ -33,10 +33,10 @@
 //   - uws_events submits each connection's whole I/O task, and UIO holds a
 //     scheduled flag while it is in flight, as fib does. uws_std reads and
 //     writes on goroutines of its own and never reaches the pool.
-//   - fnet queues one connection's frames behind a drain flag and submits a
-//     drain only when none is in flight, likewise. It also copies the payload
-//     out of the reactor's read buffer before the callback runs, so the echo
-//     sees a buffer of its own.
+//   - fnet submits one task per connection, which reads, runs the callbacks,
+//     flushes and closes, and holds a scheduled flag while it is in flight, as
+//     fib does. The callback gets the buffer the task read into, valid for the
+//     call, so the echo needs no copy.
 //   - greatws asks each connection for its own executor;
 //     RegisterGreatwsTaskDriver gives it one that keeps at most one drain in
 //     flight, which is the one piece of this the package supplies itself;
