@@ -102,6 +102,8 @@ github.com/limpo1989/taskgo v1.5.0 h1:xczgiyKl20SyWJ5OwH6CcYFMPliCTMUnRWXciRhegL
 github.com/limpo1989/taskgo v1.5.0/go.mod h1:x3mZYu4EyiAGBqy/qENxNKr78yLgHfjPg58RJRXklmY=
 github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680 h1:5OG/e1wR/YrrdIij5rRYAR8CNx7wJhKIvsMBXPIy6OI=
 github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
+github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00 h1:BjDxc0GQ+GANxeNnV/8TzA58t2FiVYn8Slqa8+aCK0k=
+github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=
