@@ -1,11 +1,7 @@
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
-github.com/antlabs/greatws v0.2.3-0.20261001171555-825db2ef8760 h1:RGcuWHGgOlKzw+bH8LRYk28RVXsE/vf2EkpefxDyMho=
-github.com/antlabs/greatws v0.2.3-0.20261001171555-825db2ef8760/go.mod h1:Eq5u0hX2/uLlWNa0ZM1mgaLgWwVX1Y3H3Cv0Dhww7HY=
 github.com/antlabs/greatws v0.2.3-0.20261006073253-986cbaddd444 h1:XTg9joQJQhHVCBHpNAvRDnkkTzvQV8R6PSqrNBtAOUU=
 github.com/antlabs/greatws v0.2.3-0.20261006073253-986cbaddd444/go.mod h1:kYw8+1g3GmOe/7x7jDbqeuIplCBDY39P1DYwZZStV/4=
-github.com/antlabs/pulse v0.0.0-20250706072419-b71307af8032 h1:/otfmYx78lTx9sizixAR1NlJs855LgUvPJaoNSoqKEw=
-github.com/antlabs/pulse v0.0.0-20250706072419-b71307af8032/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/pulse v0.0.0-20261006064421-8fe38114c515 h1:+n3rv2k7ygjOxWeu5imRXKzNEiC6EZNlA0ZY+BLYJo4=
 github.com/antlabs/pulse v0.0.0-20261006064421-8fe38114c515/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe h1:+1J0CjnE7QUJJFKMkbKKxZoVTVf+YPdehZ/SWqH9ePE=
@@ -104,8 +100,6 @@ github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQsc
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
 github.com/limpo1989/taskgo v1.5.0 h1:xczgiyKl20SyWJ5OwH6CcYFMPliCTMUnRWXciRhegLc=
 github.com/limpo1989/taskgo v1.5.0/go.mod h1:x3mZYu4EyiAGBqy/qENxNKr78yLgHfjPg58RJRXklmY=
-github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680 h1:5OG/e1wR/YrrdIij5rRYAR8CNx7wJhKIvsMBXPIy6OI=
-github.com/linfeip/fnet v0.0.0-20261002104541-13ff1d4ee680/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
 github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00 h1:BjDxc0GQ+GANxeNnV/8TzA58t2FiVYn8Slqa8+aCK0k=
 github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
@@ -148,8 +142,8 @@ github.com/tklauser/numcpus v0.4.0 h1:E53Dm1HjH1/R2/aoCtXtPgzmElmn51aOkhCFSuZq//
 github.com/tklauser/numcpus v0.4.0/go.mod h1:1+UI3pD8NW14VMwdgJNJ1ESk2UnwhAnz5hMwiKKqXCQ=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
-github.com/urpc/uio v1.5.1 h1:ysSQffQffEJJJ39qP1zhqq+Bptmu9x10fvAF2B36sZk=
-github.com/urpc/uio v1.5.1/go.mod h1:Jso/P2w3//g9d2ibEbFjDlqc/lLYBmh709BxKVfOhS8=
+github.com/urpc/uio v1.5.4 h1:jQveJ3I0G4z8ToDr30ClPo5GuwetNNpc4rvWF+QuuIk=
+github.com/urpc/uio v1.5.4/go.mod h1:Jso/P2w3//g9d2ibEbFjDlqc/lLYBmh709BxKVfOhS8=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.58.0 h1:GGB2dWxSbEprU9j0iMJHgdKYJVDyjrOwF9RE59PbRuE=
