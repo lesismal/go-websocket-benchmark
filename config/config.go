@@ -34,7 +34,6 @@ const (
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
 	Greatws            = "greatws"
-	GreatwsEvent       = "greatws_event"
 	Gws                = "gws"
 	GwsStd             = "gws_std"
 	Hertz              = "hertz"
@@ -77,7 +76,6 @@ var Ports = map[string]string{
 	Gobwas:             "15501:15550",
 	Gorilla:            "15601:15650",
 	Greatws:            "15701:15750",
-	GreatwsEvent:       "15901:15950",
 	Gws:                "16101:16150",
 	GwsStd:             "16201:16250",
 	Hertz:              "16301:16350",
@@ -112,7 +110,6 @@ var Langs = map[string]string{
 	Gobwas:             LangGo,
 	Gorilla:            LangGo,
 	Greatws:            LangGo,
-	GreatwsEvent:       LangGo,
 	Gws:                LangGo,
 	GwsStd:             LangGo,
 	Hertz:              LangGo,
@@ -161,7 +158,6 @@ var FrameworkList = []string{
 	Gobwas,
 	Gorilla,
 	Greatws,
-	GreatwsEvent,
 	Gws,
 	GwsStd,
 	Hertz,
@@ -393,8 +389,6 @@ func GetFrameworkPsInfo(framework, ip string) (*perf.PSCounter, error) {
 var TaskPoolFrameworks = []string{
 	Fib,
 	Fnet,
-	Greatws,
-	GreatwsEvent,
 	NbioModMixed,
 	NbioModNonblocking,
 	TokioTungstenite,

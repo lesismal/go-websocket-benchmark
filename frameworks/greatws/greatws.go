@@ -50,7 +50,7 @@ func main() {
 	var h Handler
 	h.m = greatws.NewMultiEventLoopMust(
 		greatws.WithEventLoops(*eventLoops),      // 控制io go程数
-		greatws.WithBusinessGoNum(240, 240, 240), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
+		greatws.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
 		greatws.WithMaxEventNum(1000),
 		greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()

@@ -3,7 +3,7 @@ module go-websocket-benchmark
 go 1.27
 
 require (
-	github.com/antlabs/greatws v0.2.3-0.20261006073253-986cbaddd444
+	github.com/antlabs/greatws v0.2.3-0.20261007132258-fa714a151917
 	github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe
 	github.com/antlabs/task v0.1.0
 	github.com/bytedance/gopkg v0.1.4
@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/antlabs/pulse v0.0.0-20261006064421-8fe38114c515 // indirect
+	github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 // indirect
 	github.com/antlabs/wsutil v0.1.13 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect

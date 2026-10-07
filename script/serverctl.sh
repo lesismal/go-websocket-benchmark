@@ -29,14 +29,15 @@ bench_server_args() {
         echo "-logicpool=false -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
         return
     fi
-    if [ "$f" = greatws_event ]; then
-        # greatws_event answers in its poller - what greatws calls its "io"
-        # task mode - and reaches that arrangement only through
-        # -taskpool=default, the name taskpool.Default spells. Given any other
-        # name it registers that pool and runs the callbacks off the event
-        # loop instead, which is greatws's entry rather than this one. So
-        # BENCH_TASKPOOL, the pool the other frameworks share, must not reach
-        # it: this entry is the inline arrangement by definition.
+    if [ "$f" = greatws ]; then
+        # greatws answers in its poller - what greatws calls its "io" task
+        # mode - and reaches that arrangement only through -taskpool=default,
+        # the name taskpool.Default spells. Given any other name it registers
+        # that pool as a task driver and runs the callbacks off the event
+        # loop instead (a cross-goroutine hop per message, measured at ~8x
+        # slower on 1KB echo). So BENCH_TASKPOOL, the pool the other
+        # frameworks share, must not reach it: this entry is the inline
+        # arrangement by definition.
         echo "-taskpool=default -tpmin=${BENCH_TASKPOOL_MIN} -tpmax=${BENCH_TASKPOOL_MAX} -tpqueue=${BENCH_TASKPOOL_QUEUE}"
         return
     fi
