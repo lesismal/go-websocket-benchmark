@@ -52,6 +52,9 @@ type BenchPipeline struct {
 	batch       int
 	batchBuffer []byte
 	tickRate    int
+	// unlimited is SendRate == 0: no ticker, one goroutine sends each team's
+	// batches as fast as the connections drain them. See Run.
+	unlimited bool
 
 	sendTimes int64
 	sendBytes int64
@@ -131,6 +134,19 @@ func (br *BenchPipeline) Run() {
 		conns := connTeams[i]
 		go func() {
 			defer wg.Done()
+			if br.unlimited {
+				// Unlimited: no tick to wait for, so one goroutine sends its
+				// team's batches as fast as the connections take them. Same
+				// in-flight bound as doOnce has for a rate.
+				for {
+					select {
+					case <-done:
+						return
+					default:
+					}
+					br.doOnce(conns)
+				}
+			}
 			ticker := time.NewTicker(time.Second / time.Duration(br.tickRate))
 			defer ticker.Stop()
 			for {
@@ -238,7 +254,8 @@ func (br *BenchPipeline) init() {
 	message := protocol.EncodeClientMessage(websocket.BinaryMessage, br.wbuffer)
 	br.batchBuffer, br.batch, br.tickRate = protocol.BatchBuffers(message, br.SendRate, br.BatchSize, br.Pipeline, br.SendLimit)
 	// br.batchBuffer, br.batch, br.tickRate = message, 1, br.SendRate
-	if br.tickRate <= 0 || len(br.batchBuffer) == 0 {
+	br.unlimited = br.SendRate == 0
+	if len(br.batchBuffer) == 0 || (!br.unlimited && br.tickRate <= 0) {
 		logging.Fatalf("BenchPipeline get wrong tickRate: %v, or batchBuffer: %v", br.tickRate, len(br.batchBuffer))
 	}
 

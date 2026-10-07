@@ -117,7 +117,10 @@ struct Options {
         std::cout << "benchcli-uwscpp: uWebSockets C++ benchmark client\n"
                      "Flags match benchcli-go (use -flag=value or -flag value; booleans use =false).\n";
         for (const auto &v:values) std::cout << "  -" << v.first << "=" << v.second << '\n';
-        std::cout << "-sort: report row order: result (default) ranks the best result first, framework keeps\n"
+        std::cout << "-rr: BenchPipeline messages a connection is sent a second; 0 is unlimited: each sends its\n"
+                     "     batch as fast as the connection takes it, for a server-side ceiling rather than\n"
+                     "     the client's send rate.\n"
+                     "-sort: report row order: result (default) ranks the best result first, framework keeps\n"
                      "       the config.FrameworkList order. Both carry the same rows and numbers.\n"
                      "-ps: where the server's CPU and MEM samples come from: auto samples the server here when\n"
                      "     it runs on this machine and asks it over HTTP when it does not, local always samples\n"

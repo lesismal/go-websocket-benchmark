@@ -54,7 +54,7 @@ var (
 	rateEnabled       = flag.Bool("rate", false, `benchpipeline: whether run benchpipeline`)
 	rateConcurrency   = flag.Int("rc", 10000, "benchpipeline: concurrency: how many goroutines used to do the echo test")
 	rateDuration      = flag.Int("rd", 10, `benchpipeline: how long to spend to do the test`)
-	rateSendRate      = flag.Int("rr", 200, "benchpipeline: how many request message can be sent to 1 conn every second")
+	rateSendRate      = flag.Int("rr", 200, "benchpipeline: how many request message can be sent to 1 conn every second; 0 sends as fast as the connection takes them")
 	rateBatchSize     = flag.Int("rbs", 1024*16, "benchpipeline: how many bytes can be written to 1 conn every time")
 	ratePipeline      = flag.Int("rpl", 0, "benchpipeline: how many messages are merged into one write to 1 conn; 0 fits as many as -rbs bytes hold")
 	rateSendLimit     = flag.Int("rl", 0, `benchpipeline: message sending limitation per second`)

@@ -53,6 +53,7 @@ struct Shared {
     std::vector<std::string> payloads,frames;
     std::string batchFrame;
     int batch=1;
+    bool unlimitedRate=false;
     int64_t rateEnd=0,rateStart=0;
     explicit Shared(const Options &o) {
         std::mt19937_64 random(std::random_device{}());
@@ -67,11 +68,15 @@ struct Shared {
         }
         // Messages per write, as protocol.Pipeline picks them: -rpl when set, or else as many
         // as -rbs bytes hold; at least one, at most -rr and -rl, and a divisor of -rr.
+        // -rr=0 is unlimited: every connection sends its batch as fast as it can, so the run
+        // measures the server's ceiling rather than the client's send rate. There is no rate
+        // to divide then, so only -rpl and -rl bound the batch.
         int rate=std::max(1,o.integer("rr"));
+        unlimitedRate=o.integer("rr")==0;
         batch=o.integer("rpl")>0?o.integer("rpl"):int(o.integer("rbs")/frames[0].size());
         batch=std::max(1,std::min(rate,batch));
         if (o.integer("rl")>0) batch=std::min(batch,o.integer("rl"));
-        while (rate%batch) --batch;
+        if (!unlimitedRate) while (rate%batch) --batch;
         for (int i=0;i<batch;++i) batchFrame+=frames[0];
     }
 };
@@ -348,6 +353,8 @@ inline void Worker::beginStage(int nextStage) {
         // Rate covers [start, end): send the first batch at start, then at each
         // interval. A one-second run therefore sends one full second's quota
         // and leaves time for the final echoes to arrive before its snapshot.
+        // Unlimited has no interval: the batches go out as fast as the
+        // connections drain them, so only the start event is queued.
         for (size_t j=0;j<teams.size();++j) teamEvents.push({shared.rateStart,j});
     }
 }
@@ -380,7 +387,7 @@ inline void Worker::tick() {
     } else if (stage==Rate && done.load()!=Rate) {
         int rate=sendRate;
         auto interval=std::max<int64_t>(1,1'000'000'000LL*shared.batch/rate);
-        auto sendThrough=std::min(now,shared.rateEnd-1);
+        auto sendThrough=shared.unlimitedRate?now:std::min(now,shared.rateEnd-1);
         while (!teamEvents.empty() && teamEvents.top().first<=sendThrough) {
             auto event=teamEvents.top();teamEvents.pop();
             for (auto *c:teams[event.second].conns) {
@@ -389,7 +396,8 @@ inline void Worker::tick() {
                 write(*c,shared.batchFrame);
                 if (c->ready) {c->sent+=shared.batch;rateStats.sent+=shared.batch;}
             }
-            teamEvents.push({std::max(event.first+interval,now+1),event.second});
+            teamEvents.push(shared.unlimitedRate?std::make_pair(now+1,event.second)
+                                               :std::make_pair(std::max(event.first+interval,now+1),event.second));
         }
         if (now>=shared.rateEnd) done.store(Rate,std::memory_order_release);
     }

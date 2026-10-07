@@ -86,24 +86,34 @@ func EncodeClientMessage(messageType websocket.MessageType, data []byte) []byte 
 // messages a second the whole run may send when it is set, and it divides
 // rate, so that every write is the same size. benchcli-uwscpp picks it the
 // same way.
+//
+// rate 0 is unlimited: the connection sends at whatever rate it can, so there
+// is no rate to divide and only pipeline and limit bound the batch.
 func Pipeline(frameLen, rate, maxLen, pipeline, limit int) int {
 	batch := pipeline
 	if batch <= 0 {
 		batch = maxLen / frameLen
 	}
-	batch = max(1, min(batch, rate))
+	batch = max(1, batch)
+	if rate > 0 {
+		batch = min(batch, rate)
+	}
 	if limit > 0 {
 		batch = min(batch, limit)
 	}
-	for rate%batch != 0 {
+	for rate > 0 && rate%batch != 0 {
 		batch--
 	}
 	return batch
 }
 
 // BatchBuffers is the write BenchPipeline sends each tick: Pipeline copies of buf,
-// and the ticks a second that make rate frames.
+// and the ticks a second that make rate frames. An unlimited rate sends from a
+// single goroutine rather than a ticker, so tickRate is 0 then.
 func BatchBuffers(buf []byte, rate, maxLen, pipeline, limit int) ([]byte, int, int) {
 	batch := Pipeline(len(buf), rate, maxLen, pipeline, limit)
+	if rate <= 0 {
+		return bytes.Repeat(buf, batch), batch, 0
+	}
 	return bytes.Repeat(buf, batch), batch, rate / batch
 }
