@@ -49,10 +49,10 @@ esac
 # and what it selects:
 #
 #   default       each framework's own scheduling. Not a pool, and not what a
-#                 run without this variable measures. greatws_event answers
-#                 in its poller under this one value; the rest run the pool
-#                 they ship with. greatws_event is given it whatever this
-#                 variable holds, since its entry is that arrangement; see
+#                 run without this variable measures. greatws answers in its
+#                 poller under this one value; the rest run the pool they
+#                 ship with. greatws is given it whatever this variable
+#                 holds, since its entry is that arrangement; see
 #                 bench_server_args in script/serverctl.sh
 #   inline        no pool: the callback runs on the I/O goroutine that read
 #                 the frame, so the answer is written from the event loop.
@@ -229,8 +229,6 @@ BENCH_PROJECT=${BENCH_PROJECT-GO-WEBSOCKET-BENCHMARK}
 taskpool_frameworks=(
     "fib"
     "fnet"
-    "greatws"
-    "greatws_event"
     "nbio_mixed"
     "nbio_nonblocking"
     "tokio_tungstenite"
@@ -248,7 +246,6 @@ eventloop_frameworks=(
     "fib"
     "fnet"
     "greatws"
-    "greatws_event"
     "hertz"
     "nbio_mixed"
     "nbio_nonblocking"
@@ -291,7 +288,6 @@ frameworks=(
     "gobwas"
     "gorilla"
     "greatws"
-    "greatws_event"
     "gws"
     "gws_std"
     "hertz"

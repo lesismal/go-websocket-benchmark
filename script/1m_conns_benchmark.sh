@@ -32,7 +32,6 @@ million_frameworks=(
     "fib"
     "fnet"
     "greatws"
-    "greatws_event"
     "nbio_nonblocking"
     "uws_events"
 )
