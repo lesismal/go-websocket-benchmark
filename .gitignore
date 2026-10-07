@@ -1,4 +1,4 @@
 .idea/
 .vscode/
 output/
-bin/
+/greatws_event

@@ -1,9 +1,9 @@
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
-github.com/antlabs/greatws v0.2.3-0.20261006073253-986cbaddd444 h1:XTg9joQJQhHVCBHpNAvRDnkkTzvQV8R6PSqrNBtAOUU=
-github.com/antlabs/greatws v0.2.3-0.20261006073253-986cbaddd444/go.mod h1:kYw8+1g3GmOe/7x7jDbqeuIplCBDY39P1DYwZZStV/4=
-github.com/antlabs/pulse v0.0.0-20261006064421-8fe38114c515 h1:+n3rv2k7ygjOxWeu5imRXKzNEiC6EZNlA0ZY+BLYJo4=
-github.com/antlabs/pulse v0.0.0-20261006064421-8fe38114c515/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
+github.com/antlabs/greatws v0.2.3-0.20261007132258-fa714a151917 h1:ucdJhhT9e5tNNM2ccYvyGeEyLBipQBOGWKTvhqH5QhU=
+github.com/antlabs/greatws v0.2.3-0.20261007132258-fa714a151917/go.mod h1:qZk/YM0KW0Lqzq7AiCeflf7WmcMPq/iz3z4YgJW4M5U=
+github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 h1:u4ja6lULCPPWZudtKCHfxSyIzmc3OJs88CgtxmT0lXA=
+github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe h1:+1J0CjnE7QUJJFKMkbKKxZoVTVf+YPdehZ/SWqH9ePE=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe/go.mod h1:lkg3B8YPZruCqFGXk31OJh3EKyF5naJnzJmqJ2VhbW8=
 github.com/antlabs/task v0.1.0 h1:Dw6loTr/zHv8q8z/S3CIeDEFF+pnMhOBCXcNDTPTG0k=
