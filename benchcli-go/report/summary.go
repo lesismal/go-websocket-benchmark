@@ -1,11 +1,16 @@
 package report
 
 import (
+	"encoding/json"
+	"errors"
+	"io/fs"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
 
 	"go-websocket-benchmark/config"
+	"go-websocket-benchmark/logging"
 )
 
 // SummaryParameter is one row of the Summary table: a name report fields are
@@ -18,11 +23,17 @@ type SummaryParameter struct {
 // SummaryParameters is the order the Summary table lists the run's parameters
 // in, and their descriptions. A tagged name missing from here still gets a
 // row, after these, with no description; benchcli-uwscpp and benchcli-rust
-// read this list for the same order and the same words.
+// read this list for the same order and the same words. Pool Size, Event
+// Loops, Loops Per CPU and Socket Syscalls are server settings rather than
+// report fields; see ServerParameter.
 var SummaryParameters = []SummaryParameter{
 	{"Project", "what this run benchmarks (-project)"},
 	{"Client", "benchmark client, as language-framework: cpp-uwebsockets, rust-tokio_tungstenite or go-nbio"},
 	{"Pool", "task pool, used by Go event-loop frameworks only"},
+	{"Pool Size", "task pool sizing, 0 for the pool's own default (BENCH_TASKPOOL_MIN/_MAX/_QUEUE)"},
+	{"Event Loops", "event loops per server, threads for Rust and C++, 0 for each framework's own default (-eventloops)"},
+	{"Loops Per CPU", "uwebsockets event loops per CPU, 0 for one per CPU; -eventloops overrides it (BENCH_UWS_LOOPS_PER_CPU)"},
+	{"Socket Syscalls", "fib socket calls: true recvfrom/sendto/sendmsg, false read/write/writev; Linux only (-socketsyscalls)"},
 	{"Conns", "connections each benchmark runs over"},
 	{"Payload", "message size in bytes"},
 	{"Dial Concurrency", "connections dialed at once (-dc)"},
@@ -48,6 +59,57 @@ func PprofSetting(enabled bool) string {
 // no -project. benchcli-uwscpp and benchcli-rust default to the same name.
 const DefaultProject = "GO-WEBSOCKET-BENCHMARK"
 
+// ServerParameter is one of the server settings script/config.sh gave a run -
+// the event loops, the pool's sizing and the like - and the frameworks of the
+// run that take it. The clients never see these, so no report carries them:
+// the driver that starts the run writes them to ServerParametersFile, beside
+// the reports, and the Summary gives each a row of its own, its Description
+// naming those frameworks. See bench_write_server_parameters in script/env.sh.
+type ServerParameter struct {
+	Name       string   `json:"Name"`
+	Value      string   `json:"Value"`
+	Frameworks []string `json:"Frameworks"`
+}
+
+// ServerParametersFile is where a run's ServerParameters are: one file for the
+// run, whatever -preffix and -suffix its reports were written with, since
+// every one of them was measured against the same servers.
+// benchcli-uwscpp and benchcli-rust read the same file.
+const ServerParametersFile = "./output/report/ServerParameters.json"
+
+// ReadServerParameters reads ServerParametersFile. A run started without a
+// driver script has none, and a file that cannot be read is logged and taken
+// as none: the Summary is then without those rows rather than the report
+// without its tables.
+func ReadServerParameters() []ServerParameter {
+	b, err := os.ReadFile(ServerParametersFile)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	var params []ServerParameter
+	if err == nil {
+		err = json.Unmarshal(b, &params)
+	}
+	if err != nil {
+		logging.Printf("reading %v failed: %v", ServerParametersFile, err)
+		return nil
+	}
+	return params
+}
+
+// serverParameterDescription is the Description of a ServerParameter's row:
+// the words SummaryParameters has for it, and the frameworks it reached.
+func serverParameterDescription(p ServerParameter) string {
+	description := summaryDescription(p.Name)
+	if len(p.Frameworks) == 0 {
+		return description
+	}
+	if description != "" {
+		description += "; "
+	}
+	return description + "affects: " + strings.Join(p.Frameworks, ", ")
+}
+
 // summaryValue is one value a parameter took, and the frameworks it took it
 // for, in the order they were read.
 type summaryValue struct {
@@ -70,7 +132,14 @@ type summaryValue struct {
 // benchmarks; it is no field of a report, so it comes from the report step's
 // -project rather than from the rows. An empty project leaves the row out, and
 // a run with no reports still has no Summary at all.
-func Summary(project string, tables ...[]Report) string {
+//
+// params are the run's server settings, each a row in SummaryParameters order
+// among the others, whose Description ends with the frameworks it affects:
+//
+//	Event Loops | 4 | event loops per server, ... (-eventloops); affects: fib, fnet
+//
+// A report field of the same name keeps its own row.
+func Summary(project string, params []ServerParameter, tables ...[]Report) string {
 	values := map[string][]summaryValue{}
 	var names []string
 	for _, reports := range tables {
@@ -94,12 +163,26 @@ func Summary(project string, tables ...[]Report) string {
 	if len(names) == 0 {
 		return ""
 	}
+	server := map[string]ServerParameter{}
+	for _, p := range params {
+		if _, seen := values[p.Name]; seen || p.Name == "" {
+			continue
+		}
+		if _, seen := server[p.Name]; !seen {
+			names = append(names, p.Name)
+		}
+		server[p.Name] = p
+	}
 
 	var rows [][]string
 	if project != "" {
 		rows = append(rows, []string{"Project", project, summaryDescription("Project")})
 	}
 	for _, name := range summaryOrder(names) {
+		if p, ok := server[name]; ok {
+			rows = append(rows, []string{name, p.Value, serverParameterDescription(p)})
+			continue
+		}
 		// A parameter no report carries - one added after the reports being
 		// read were written - has no row rather than an empty one.
 		if v := values[name]; len(v) == 1 && v[0].value == "" {

@@ -86,7 +86,8 @@ Framework order, port ranges and report schemas are generated at build time from
 a report field updates both clients on the next build. JSON files retain the Go
 names and fields and can be aggregated by either client. Markdown uses the same
 columns, units and framework order, and the same Summary table of the run's
-parameters (`summary:"<name>"` fields) in front of the three.
+parameters (`summary:"<name>"` fields, and the server settings the driver
+scripts record in `output/report/ServerParameters.json`) in front of the three.
 
 ```sh
 ./output/bin/bench.client -f=gorilla -c=10000 -ec=10000 -en=2000000 \

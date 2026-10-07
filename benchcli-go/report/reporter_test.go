@@ -204,7 +204,7 @@ func TestHiddenColumnsStayInTheJSON(t *testing.T) {
 		!strings.Contains(table, "12.50") {
 		t.Errorf("BenchPipeline table:\n%s", table)
 	}
-	if summary := Summary("", []Report{echo}, []Report{rate}); !strings.Contains(summary, "cpp-uwebsockets (gorilla); go-nbio (gorilla)") {
+	if summary := Summary("", nil, []Report{echo}, []Report{rate}); !strings.Contains(summary, "cpp-uwebsockets (gorilla); go-nbio (gorilla)") {
 		t.Errorf("Summary does not show the clients without their prefix:\n%s", summary)
 	}
 
@@ -268,11 +268,11 @@ func TestSummaryPprofRows(t *testing.T) {
 	Init(false)
 	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", EchoPprof: "on"}}
 	rate := []Report{&BenchPipelineReport{Framework: "fib", BenchClient: "benchcli-uwscpp", RatePprof: "off"}}
-	summary := Summary("", echo, rate)
+	summary := Summary("", nil, echo, rate)
 	if !rowOrder(summary, "Rate Pipeline", "Echo Pprof", "on", "(-ep)", "Rate Pprof", "off", "(-rp)") {
 		t.Errorf("Summary has no pprof rows:\n%s", summary)
 	}
-	if summary := Summary("", []Report{&BenchEchoReport{Framework: "fib"}}); strings.Contains(summary, "Pprof") {
+	if summary := Summary("", nil, []Report{&BenchEchoReport{Framework: "fib"}}); strings.Contains(summary, "Pprof") {
 		t.Errorf("a report without the field still has a row:\n%s", summary)
 	}
 }
@@ -280,7 +280,7 @@ func TestSummaryPprofRows(t *testing.T) {
 func TestSummaryProjectRow(t *testing.T) {
 	Init(false)
 	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", Payload: 1024}}
-	summary := Summary(DefaultProject, echo)
+	summary := Summary(DefaultProject, nil, echo)
 	lines := strings.Split(summary, "\n")
 	if want := "| Project          | GO-WEBSOCKET-BENCHMARK | what this run benchmarks (-project) "; len(lines) < 3 || !strings.HasPrefix(lines[2], want) {
 		t.Errorf("Summary's first row is not %q:\n%s", want, summary)
@@ -288,11 +288,44 @@ func TestSummaryProjectRow(t *testing.T) {
 	if !rowOrder(summary, "Project", "Client", "Payload") {
 		t.Errorf("Project does not come first:\n%s", summary)
 	}
-	if summary := Summary("nbio-only", echo); !strings.Contains(summary, "| Project          | nbio-only ") {
+	if summary := Summary("nbio-only", nil, echo); !strings.Contains(summary, "| Project          | nbio-only ") {
 		t.Errorf("-project does not name the row:\n%s", summary)
 	}
-	if summary := Summary("", echo); strings.Contains(summary, "Project") {
+	if summary := Summary("", nil, echo); strings.Contains(summary, "Project") {
 		t.Errorf("an empty project still has a row:\n%s", summary)
+	}
+}
+
+// TestSummaryServerParameters gives each server setting the run recorded a
+// row in SummaryParameters order - the server's settings after Pool - its
+// Description naming the frameworks it affects, and leaves a name a report
+// field already has to that field's row.
+func TestSummaryServerParameters(t *testing.T) {
+	Init(false)
+	echo := []Report{&BenchEchoReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Payload: 1024}}
+	params := []ServerParameter{
+		{Name: "Socket Syscalls", Value: "true", Frameworks: []string{"fib"}},
+		{Name: "Event Loops", Value: "4", Frameworks: []string{"fib", "fnet"}},
+		{Name: "Payload", Value: "1", Frameworks: []string{"fib"}},
+		{Name: "Custom", Value: "x"},
+	}
+	summary := Summary("", params, echo)
+	if !rowOrder(summary, "Pool", "Event Loops", "Socket Syscalls", "Conns", "Payload", "Custom") {
+		t.Errorf("server settings are out of SummaryParameters order:\n%s", summary)
+	}
+	if !strings.Contains(summary, "| Event Loops      | 4 ") ||
+		!strings.Contains(summary, "(-eventloops); affects: fib, fnet ") ||
+		!strings.Contains(summary, "(-socketsyscalls); affects: fib ") {
+		t.Errorf("Event Loops or Socket Syscalls does not name what it affects:\n%s", summary)
+	}
+	if strings.Count(summary, "| Payload") != 1 || !strings.Contains(summary, "| Payload          | 1024 ") {
+		t.Errorf("a server setting replaced a report's own row:\n%s", summary)
+	}
+	if !strings.Contains(summary, "| Custom           | x   ") || strings.Contains(summary, "affects:  ") {
+		t.Errorf("a setting with no description or frameworks:\n%s", summary)
+	}
+	if Summary("", params) != "" {
+		t.Error("server settings alone made a Summary of no reports")
 	}
 }
 
@@ -313,7 +346,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 	rate := []Report{
 		&BenchPipelineReport{Framework: "fib", BenchClient: "benchcli-uwscpp", TaskPool: "fib_adaptive", Duration: 10e9, Connections: 20000, Concurrency: 5000, SendRate: 200, Pipeline: 10, Payload: 1024},
 	}
-	summary := Summary("", conns, echo, rate)
+	summary := Summary("", nil, conns, echo, rate)
 	rows := []string{"Client", "cpp-uwebsockets", "Pool", "fib_adaptive", "Go event-loop frameworks only", "Conns", "20000",
 		"Payload", "1024", "Dial Concurrency", "2000", "Echo Concurrency", "10000", "Echo Total", "2000000",
 		"Rate Concurrency", "5000", "Rate Duration", "10.00s", "Rate SendRate", "200", "Rate Pipeline", "10",
@@ -353,7 +386,7 @@ func TestSummaryTakesTheParametersOutOfTheTables(t *testing.T) {
 		}
 	}
 
-	if Summary(DefaultProject) != "" || Summary(DefaultProject, nil, nil) != "" {
+	if Summary(DefaultProject, nil) != "" || Summary(DefaultProject, nil, nil, nil) != "" {
 		t.Error("Summary of no reports is not empty")
 	}
 }
@@ -550,9 +583,9 @@ func TestPoolSummaryNamesOnlyThePools(t *testing.T) {
 		for i, pool := range c.pools {
 			reports = append(reports, &ConnectionsReport{Framework: strconv.Itoa(i), TaskPool: pool})
 		}
-		if !strings.Contains(Summary("", reports), "| Pool             | "+c.want+" ") ||
-			!strings.Contains(Summary("", reports), " | task pool, used by Go event-loop frameworks only ") {
-			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary("", reports))
+		if !strings.Contains(Summary("", nil, reports), "| Pool             | "+c.want+" ") ||
+			!strings.Contains(Summary("", nil, reports), " | task pool, used by Go event-loop frameworks only ") {
+			t.Errorf("pools %v: want Pool %q in:\n%s", c.pools, c.want, Summary("", nil, reports))
 		}
 	}
 }

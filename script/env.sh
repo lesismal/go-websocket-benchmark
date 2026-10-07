@@ -173,6 +173,63 @@ clean() {
     done
 }
 
+# The server settings this config gives a run, for the Summary table the
+# report step writes: Pool Size, Event Loops, Loops Per CPU and Socket
+# Syscalls, each with the frameworks of this run it reaches, which the row's
+# Description names. The clients never see these settings, so no report
+# carries them: the driver writes them here, beside the reports, once the run's
+# frameworks are known, and script/report.sh run again later reads the run's
+# own settings rather than whatever the shell holds by then. A setting no
+# framework of this run takes is left out. The words of each row are
+# report.SummaryParameters'; see report.ServerParameter.
+#
+# A client node of a two-node run writes its own settings, so give both nodes
+# the same ones.
+bench_write_server_parameters() {
+    local pooled=() f
+    # tokio_tungstenite and uwebsockets serve /taskpool but take no Go pool,
+    # nor its sizing; see bench_server_args in script/serverctl.sh.
+    for f in "${taskpool_frameworks[@]}"; do
+        case "$f" in
+            tokio_tungstenite|uwebsockets) ;;
+            *) pooled+=("$f") ;;
+        esac
+    done
+    mkdir -p ./output/report
+    bench_server_parameter_sep=""
+    {
+        printf '['
+        bench_server_parameter "Pool Size" \
+            "min ${BENCH_TASKPOOL_MIN}, max ${BENCH_TASKPOOL_MAX}, queue ${BENCH_TASKPOOL_QUEUE}" "${pooled[@]}"
+        bench_server_parameter "Event Loops" "${BENCH_EVENTLOOPS}" "${eventloop_frameworks[@]}"
+        bench_server_parameter "Loops Per CPU" "${BENCH_UWS_LOOPS_PER_CPU}" uwebsockets
+        bench_server_parameter "Socket Syscalls" "${BENCH_FIB_SOCKET_SYSCALLS}" fib
+        printf ']\n'
+    } >./output/report/ServerParameters.json
+}
+
+# One entry of bench_write_server_parameters' list: its name, its value and
+# the frameworks that take it, of which only this run's are written. None of
+# them leaves the entry out.
+bench_server_parameter() {
+    local name=$1 value=$2 f r list=""
+    shift 2
+    for f in "$@"; do
+        for r in "${frameworks[@]}"; do
+            if [ "$f" = "$r" ]; then
+                list="${list:+${list},}\"${f}\""
+            fi
+        done
+    done
+    [ -n "$list" ] || return 0
+    # The value is the shell's, so quote what JSON would not take as it is.
+    value=${value//\\/\\\\}
+    value=${value//\"/\\\"}
+    printf '%s{"Name":"%s","Value":"%s","Frameworks":[%s]}' \
+        "$bench_server_parameter_sep" "$name" "$value" "$list"
+    bench_server_parameter_sep=","
+}
+
 print_env() {
     echo "os:"
     echo

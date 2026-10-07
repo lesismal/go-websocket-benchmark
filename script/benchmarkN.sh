@@ -65,6 +65,10 @@ fi
 
 . ./script/serverctl.sh || { return 1 2>/dev/null || exit 1; }
 
+# The server settings of this run, for the report's Summary; see
+# bench_write_server_parameters in script/env.sh.
+bench_write_server_parameters
+
 # As in script/benchmark.sh: a failed client still leaves the others a report.
 clients_failed=0
 if bench_owns_servers; then

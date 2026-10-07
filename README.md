@@ -322,6 +322,16 @@ language-framework: `cpp-uwebsockets`, `rust-tokio_tungstenite` or `go-nbio`
 field, and so does the block each benchmark prints to the console as it
 finishes.
 
+The Summary also has the server settings `script/config.sh` gave the run, after
+`Pool`: `Pool Size` (`BENCH_TASKPOOL_MIN/_MAX/_QUEUE`), `Event Loops`
+(`BENCH_EVENTLOOPS`, `-eventloops`), `Loops Per CPU` (`BENCH_UWS_LOOPS_PER_CPU`)
+and `Socket Syscalls` (`BENCH_FIB_SOCKET_SYSCALLS`, `-socketsyscalls`). Each
+one's `Description` ends with the frameworks of the run it affects, e.g.
+`affects: fib, fnet, hertz`, and a setting none of the run's frameworks takes
+has no row. The clients never see these settings, so the driver scripts record
+them in `output/report/ServerParameters.json` when the run starts, which is
+also what a later `script/report.sh` reads them from.
+
 In either order, every column a table is ranked by - `TPS`, `CPU EER` and
 `MEM EER` - shows each row's share of the best in that column after the
 number, the best being `100%`, floored so that only the best reads `100%`. Each

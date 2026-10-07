@@ -68,6 +68,10 @@ if ! bench_runs_clients; then
     return 0 2>/dev/null || exit 0
 fi
 
+# The server settings of this run, for the report's Summary; see
+# bench_write_server_parameters in script/env.sh.
+bench_write_server_parameters
+
 # A framework whose client failed must not cost the others their report: the
 # report step reads whatever JSON the run did write, so it runs either way, and
 # the failure is returned after it.

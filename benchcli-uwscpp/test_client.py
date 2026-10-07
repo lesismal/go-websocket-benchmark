@@ -506,6 +506,25 @@ class ClientTests(unittest.TestCase):
         self.assertEqual([cell.strip() for cell in first.split('|')[1:3]], ['Project', 'uwebsockets threads, 3 CPUs'])
         self.run_client('-r=true', '-project=')
         self.assertNotIn('Project', (directory / 'Summary.md').read_text())
+        # The server settings the driver recorded are rows after Pool, each naming the
+        # frameworks it affects; a report field's name keeps that field's row.
+        (directory / 'ServerParameters.json').write_text(json.dumps([
+            {'Name': 'Socket Syscalls', 'Value': 'false', 'Frameworks': ['fib']},
+            {'Name': 'Event Loops', 'Value': '4', 'Frameworks': ['fib', 'gorilla']},
+            {'Name': 'Payload', 'Value': '1', 'Frameworks': ['gorilla']}]))
+        self.run_client('-r=true', '-project=')
+        lines = (directory / 'Summary.md').read_text().splitlines()
+        cells = [[cell.strip() for cell in line.split('|')[1:4]] for line in lines[2:]]
+        self.assertEqual([row[:2] for row in cells[:6]], [['Client', 'cpp-uwebsockets'], ['Pool', 'nbio'],
+                                                          ['Event Loops', '4'], ['Socket Syscalls', 'false'],
+                                                          ['Conns', '100'], ['Payload', '64']])
+        self.assertTrue(cells[2][2].endswith('(-eventloops); affects: fib, gorilla'), cells[2][2])
+        self.assertTrue(cells[3][2].endswith('(-socketsyscalls); affects: fib'), cells[3][2])
+        # A file that cannot be read costs only those rows.
+        (directory / 'ServerParameters.json').write_text('{oops')
+        result = self.run_client('-r=true', '-project=')
+        self.assertNotIn('Event Loops', (directory / 'Summary.md').read_text())
+        self.assertIn('ServerParameters.json', result.stderr)
 
     def test_invalid_arguments_and_empty_echo(self):
         for arg in ['-f=invalid', '-c=-1', '-dt=oops', '-check=oops', '-unknown=1', '-suffix=../x', '-ps=oops', '-sort=oops']:

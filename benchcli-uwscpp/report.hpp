@@ -384,11 +384,47 @@ inline std::string summaryDescription(const std::string &name) {
         if (p["name"]==name) return p["description"];
     return "";
 }
+// ServerParameter mirrors report.ServerParameter: one of the server settings the driver script
+// recorded for the run, and the frameworks of the run it affects.
+struct ServerParameter { std::string name, value; std::vector<std::string> frameworks; };
+// report.ServerParametersFile: one file for the run, whatever -preffix and -suffix its reports have.
+inline const std::string kServerParametersFile="output/report/ServerParameters.json";
+// readServerParameters mirrors report.ReadServerParameters: none when the run was started without
+// a driver script, and none - logged - for a file that cannot be read, so that the Summary loses
+// only those rows.
+inline std::vector<ServerParameter> readServerParameters() {
+    std::vector<ServerParameter> params;
+    std::ifstream in(kServerParametersFile);
+    if (!in) return params;
+    try {
+        json list; in>>list;
+        for (const auto &p:list) {
+            ServerParameter param{p.value("Name",std::string()),p.value("Value",std::string()),{}};
+            for (const auto &f:p.value("Frameworks",json::array())) param.frameworks.push_back(f.get<std::string>());
+            params.push_back(std::move(param));
+        }
+    } catch (const std::exception &e) {
+        std::cerr<<"reading "<<kServerParametersFile<<" failed: "<<e.what()<<'\n';
+        params.clear();
+    }
+    return params;
+}
+// serverParameterDescription mirrors report.serverParameterDescription: the setting's description
+// and the frameworks it reached.
+inline std::string serverParameterDescription(const ServerParameter &p) {
+    auto description=summaryDescription(p.name);
+    if (p.frameworks.empty()) return description;
+    if (!description.empty()) description+="; ";
+    description+="affects: ";
+    for (size_t i=0;i<p.frameworks.size();++i) description+=(i?", ":"")+p.frameworks[i];
+    return description;
+}
 // summaryTable mirrors report.Summary: the run's parameters, the summary-tagged fields of every
 // row of every report, left-aligned. One value where the rows agree; otherwise each value
 // followed by the frameworks that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool,
 // which poolSummary writes - and a Description column from summaryDescription, all headed by
-// -project's Project row unless it is empty.
+// -project's Project row unless it is empty. The server settings the run recorded are rows
+// among them, their Descriptions naming the frameworks they affect.
 inline std::string summaryTable(const Options &o) {
     using Value=SummaryValue;
     std::map<std::string,std::vector<Value>> values;
@@ -409,14 +445,27 @@ inline std::string summaryTable(const Options &o) {
             }
         }
     if (names.empty()) return "";
+    // A report field of the same name keeps its own row, as report.Summary has it.
+    std::map<std::string,ServerParameter> server;
+    for (auto &p:readServerParameters()) {
+        if (p.name.empty() || values.count(p.name)) continue;
+        if (!server.count(p.name)) names.push_back(p.name);
+        server[p.name]=std::move(p);
+    }
     std::vector<std::string> ordered;
-    for (const auto &p:metadata["summaryOrder"])
-        if (values.count(p["name"].get<std::string>())) ordered.push_back(p["name"].get<std::string>());
+    for (const auto &p:metadata["summaryOrder"]) {
+        auto name=p["name"].get<std::string>();
+        if (values.count(name) || server.count(name)) ordered.push_back(name);
+    }
     for (const auto &name:names)
         if (std::find(ordered.begin(),ordered.end(),name)==ordered.end()) ordered.push_back(name);
     std::vector<std::vector<std::string>> rows;
     if (!o.get("project").empty()) rows.push_back({"Project",o.get("project"),summaryDescription("Project")});
     for (const auto &name:ordered) {
+        if (auto it=server.find(name); it!=server.end()) {
+            rows.push_back({name,it->second.value,serverParameterDescription(it->second)});
+            continue;
+        }
         const auto &list=values[name];
         // A parameter no report carries has no row, as report.Summary has it.
         if (list.size()==1 && list[0].value.empty()) continue;

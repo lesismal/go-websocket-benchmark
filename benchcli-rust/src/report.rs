@@ -360,10 +360,55 @@ fn summary_description(name: &str) -> String {
         .unwrap_or_default()
 }
 
+// report.ServerParametersFile: the server settings the driver script recorded for the run, one
+// file whatever -preffix and -suffix the reports have.
+const SERVER_PARAMETERS_FILE: &str = "output/report/ServerParameters.json";
+
+// report.ReadServerParameters: (name, value, frameworks it affects) of each setting, none when
+// the run was started without a driver script, and none - logged - for a file that cannot be
+// read, so that the Summary loses only those rows.
+fn read_server_parameters() -> Vec<(String, String, Vec<String>)> {
+    let data = match std::fs::read(SERVER_PARAMETERS_FILE) {
+        Ok(data) => data,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(e) => {
+            eprintln!("reading {SERVER_PARAMETERS_FILE} failed: {e}");
+            return Vec::new();
+        }
+    };
+    let list: Vec<Value> = match serde_json::from_slice(&data) {
+        Ok(list) => list,
+        Err(e) => {
+            eprintln!("reading {SERVER_PARAMETERS_FILE} failed: {e}");
+            return Vec::new();
+        }
+    };
+    let text = |v: &Value| v.as_str().unwrap_or("").to_string();
+    list.iter()
+        .map(|p| {
+            let frameworks = p["Frameworks"]
+                .as_array()
+                .map_or(Vec::new(), |fs| fs.iter().map(text).collect());
+            (text(&p["Name"]), text(&p["Value"]), frameworks)
+        })
+        .collect()
+}
+
+// report.serverParameterDescription: the setting's description and the frameworks it reached.
+fn server_parameter_description(name: &str, frameworks: &[String]) -> String {
+    let description = summary_description(name);
+    if frameworks.is_empty() {
+        return description;
+    }
+    let separator = if description.is_empty() { "" } else { "; " };
+    format!("{description}{separator}affects: {}", frameworks.join(", "))
+}
+
 // report.Summary: the run's parameters, the summary-tagged fields of every row of every report,
 // left-aligned. One value where the rows agree; otherwise each value followed by the frameworks
 // that had it, "20000 (fib, fnet); 19998 (fasthttp)" - except Pool - and a Description column,
-// all headed by -project's Project row unless it is empty.
+// all headed by -project's Project row unless it is empty. The server settings the run recorded
+// are rows among them, their Descriptions naming the frameworks they affect.
 fn summary_table(o: &Options) -> Result<String, String> {
     let mut values: std::collections::HashMap<String, Vec<(String, Vec<String>)>> =
         Default::default();
@@ -399,10 +444,21 @@ fn summary_table(o: &Options) -> Result<String, String> {
     if names.is_empty() {
         return Ok(String::new());
     }
+    // A report field of the same name keeps its own row, as report.Summary has it.
+    let mut server: std::collections::HashMap<String, (String, Vec<String>)> = Default::default();
+    for (name, value, frameworks) in read_server_parameters() {
+        if name.is_empty() || values.contains_key(&name) {
+            continue;
+        }
+        if !server.contains_key(&name) {
+            names.push(name.clone());
+        }
+        server.insert(name, (value, frameworks));
+    }
     let mut ordered: Vec<String> = summary_order()
         .iter()
         .map(|p| p["name"].as_str().unwrap().to_string())
-        .filter(|n| values.contains_key(n))
+        .filter(|n| values.contains_key(n) || server.contains_key(n))
         .collect();
     for name in names {
         if !ordered.contains(&name) {
@@ -418,10 +474,19 @@ fn summary_table(o: &Options) -> Result<String, String> {
         ]
     });
     // A parameter no report carries has no row, as report.Summary has it.
-    ordered.retain(|name| !(values[name].len() == 1 && values[name][0].0.is_empty()));
+    ordered.retain(|name| {
+        server.contains_key(name) || !(values[name].len() == 1 && values[name][0].0.is_empty())
+    });
     let rows = project_row
         .into_iter()
         .chain(ordered.iter().map(|name| {
+            if let Some((value, frameworks)) = server.get(name) {
+                return vec![
+                    name.clone(),
+                    value.clone(),
+                    server_parameter_description(name, frameworks),
+                ];
+            }
             let list = &values[name];
             let text = if name == "Pool" {
                 pool_summary(list)

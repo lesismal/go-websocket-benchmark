@@ -360,9 +360,10 @@ func ReadBenchPipelineReports(preffix, suffix string) []Report {
 }
 
 // GenerateSummary is the Summary table of the run the three reports' files
-// are from, headed by project; see Summary.
+// are from, headed by project, with the server settings the run recorded; see
+// Summary.
 func GenerateSummary(project, preffix, suffix string) string {
-	return Summary(project, ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
+	return Summary(project, ReadServerParameters(), ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
 		ReadBenchPipelineReports(preffix, suffix))
 }
 

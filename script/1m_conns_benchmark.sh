@@ -113,6 +113,10 @@ if ! bench_runs_clients; then
     return 0 2>/dev/null || exit 0
 fi
 
+# The server settings of this run, for the report's Summary; see
+# bench_write_server_parameters in script/env.sh.
+bench_write_server_parameters
+
 # As in script/benchmark.sh: a failed client still leaves the others a report.
 # The flags this script was given go after its own, so one given on the
 # command line wins - both clients take the last value of a repeated flag -
