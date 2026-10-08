@@ -3,7 +3,7 @@ module go-websocket-benchmark
 go 1.27
 
 require (
-	github.com/antlabs/greatws v0.2.3-0.20261007132258-fa714a151917
+	github.com/antlabs/fio v0.2.3-0.20261008153003-1fa642ec3542
 	github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe
 	github.com/antlabs/task v0.1.0
 	github.com/bytedance/gopkg v0.1.4
@@ -60,8 +60,8 @@ require (
 	github.com/valyala/fasthttp v1.58.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )

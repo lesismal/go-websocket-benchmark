@@ -16,7 +16,10 @@ import (
 
 	//"time"
 
-	"github.com/antlabs/greatws"
+	// 这个库改名了（greatws -> quicknet -> fio），代码也重组进了
+	// websocket/ 子目录。用别名保持下面的代码不用动——这个框架在压测里
+	// 一直叫 greatws，报告里也是这个名字。
+	greatws "github.com/antlabs/fio/websocket"
 )
 
 var (
@@ -49,7 +52,7 @@ func main() {
 
 	var h Handler
 	h.m = greatws.NewMultiEventLoopMust(
-		greatws.WithEventLoops(*eventLoops),      // 控制io go程数
+		greatws.WithEventLoops(*eventLoops),    // 控制io go程数
 		greatws.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
 		greatws.WithMaxEventNum(1000),
 		greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
