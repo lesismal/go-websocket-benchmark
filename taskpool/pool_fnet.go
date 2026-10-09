@@ -6,10 +6,11 @@ import (
 	fnettaskpool "github.com/linfeip/fnet/taskpool"
 )
 
-// fnettaskpool.DefaultTaskPool is one shard per P with 4 workers and an
-// 8192-task queue each. A shard is capped at fnettaskpool.MaxWorkers.
+// fnettaskpool.DefaultTaskPool is one shard per P with fnettaskpool.MaxWorkers
+// (512) workers and an 8192-task queue each. A shard is capped at
+// fnettaskpool.MaxWorkers.
 const (
-	fnetWorkersPerShard = 4
+	fnetWorkersPerShard = fnettaskpool.MaxWorkers
 	fnetQueuePerShard   = 8192
 
 	// A shard with one worker holds every task queued behind a blocking one,
@@ -39,16 +40,19 @@ func init() {
 // fnetPool is github.com/linfeip/fnet/taskpool's Pool: one bounded lock-free
 // queue per shard, and workers that a shard starts on demand up to its limit
 // and then keeps, parked until the next task, so MinWorkers has no meaning to
-// it and Stop has nothing to release. A submission picks a shard at random
-// and never blocks or refuses: one that finds its shard's queue full gets a
-// temporary goroutine, which drains the queue before it exits. That is why
-// Rejects reports false, and why QueueSize bounds the queue rather than the
-// work in flight.
+// it and Stop has nothing to release. A shard whose workers are all busy
+// borrows a parked worker from another shard, or starts one there. Go picks a
+// shard at random; GoKeyed, which FnetExecutor uses, the shard the key
+// selects, as fnet's own executor does. Neither blocks or refuses: a
+// submission that finds its shard's queue full gets a temporary goroutine,
+// which drains the queue before it exits. That is why Rejects reports false,
+// and why QueueSize bounds the queue rather than the work in flight.
 //
 // The pool does not expose its worker count.
 type fnetPool struct{ pool *fnettaskpool.Pool }
 
-func (p *fnetPool) Go(f func()) bool { p.pool.Submit(f); return true }
-func (p *fnetPool) Workers() int     { return -1 }
-func (p *fnetPool) Rejects() bool    { return false }
-func (p *fnetPool) Stop()            {}
+func (p *fnetPool) Go(f func()) bool               { p.pool.Submit(f); return true }
+func (p *fnetPool) GoKeyed(key int, f func()) bool { p.pool.SubmitTo(key, f); return true }
+func (p *fnetPool) Workers() int                   { return -1 }
+func (p *fnetPool) Rejects() bool                  { return false }
+func (p *fnetPool) Stop()                          {}

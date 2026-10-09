@@ -103,7 +103,7 @@ func TestFnetExecutorRunsWhatThePoolRefuses(t *testing.T) {
 	// fnet's rule that an executor never does.
 	var done sync.WaitGroup
 	done.Add(1)
-	submitsWithoutRunningInline(t, FnetExecutor(refusingPool{}), done.Done)
+	submitsWithoutRunningInline(t, fnetExecutorTest(refusingPool{}), done.Done)
 	waitOrFail(t, &done, "the refused task did not run")
 }
 
@@ -113,8 +113,22 @@ func TestFnetExecutorRunsWhatALivePoolTakes(t *testing.T) {
 	// silent.
 	var done sync.WaitGroup
 	done.Add(1)
-	submitsWithoutRunningInline(t, FnetExecutor(newTestPool(t, Goroutine)), done.Done)
+	submitsWithoutRunningInline(t, fnetExecutorTest(newTestPool(t, Goroutine)), done.Done)
 	waitOrFail(t, &done, "fnet task did not run")
+}
+
+func TestFnetExecutorRunsWhatTheFnetPoolTakes(t *testing.T) {
+	// The fnet pool takes fnet's key through keyedPool, a path of its own.
+	var done sync.WaitGroup
+	done.Add(1)
+	submitsWithoutRunningInline(t, fnetExecutorTest(newTestPool(t, Fnet)), done.Done)
+	waitOrFail(t, &done, "fnet task did not run on the fnet pool")
+}
+
+// fnetExecutorTest is FnetExecutor submitting every task under one key.
+func fnetExecutorTest(pool Pool) func(func()) {
+	executor := FnetExecutor(pool)
+	return func(task func()) { executor(7, task) }
 }
 
 func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {

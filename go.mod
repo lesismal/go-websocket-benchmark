@@ -20,7 +20,7 @@ require (
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/limpo1989/taskgo v1.5.0
-	github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00
+	github.com/linfeip/fnet v0.0.0-20261009115752-19f29c33945b
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/urpc/uio v1.5.4

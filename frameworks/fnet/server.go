@@ -27,7 +27,7 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_       = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
-	// fnet.Options.NumLoops. 0 leaves fnet's own default, max(2, GOMAXPROCS/4).
+	// fnet.Options.NumLoops. 0 leaves fnet's own default, max(2, GOMAXPROCS/8).
 	// script/server.sh sets it from BENCH_EVENTLOOPS in script/config.sh.
 	eventLoops = flag.Int("eventloops", 0, `event loops (NumLoops), 0 for fnet's own default`)
 )
@@ -52,12 +52,6 @@ func (echoHandler) OnClose(*websocket.Conn, error) {}
 func main() {
 	flag.Parse()
 
-	// fnet sets TCP_NODELAY on every connection it accepts and exposes no way
-	// to undo that, so only the default can be measured; a run that silently
-	// ignored -nodelay=false would be reported under the wrong setting.
-	if !*nodelay {
-		logging.Fatalf("%v cannot run -nodelay=false: it sets TCP_NODELAY on every connection and exposes no way to turn it off", config.Fnet)
-	}
 	// fnet runs a connection's task - reading, the callbacks, flushing,
 	// closing - on an executor and requires that it never run on the caller's
 	// stack, which is what the Inline pool would do.
@@ -69,7 +63,18 @@ func main() {
 	// the work to one of the shared pools instead, so that fnet can be
 	// measured on another framework's scheduler; -taskpool=default leaves it
 	// on its own.
-	engine := fnet.Options{NumLoops: *eventLoops}
+	//
+	// fnet leaves TCP_NODELAY off unless NoDelay asks for it; on Linux it
+	// sets it on the listeners, which the accepted connections inherit.
+	// fnet opens its listeners itself, so -reuseport goes to ReusePort: on
+	// Linux every event loop then listens on each address with a socket of
+	// its own and keeps the connections it accepts, instead of all the loops
+	// sharing one listener per address.
+	engine := fnet.Options{
+		NumLoops:  *eventLoops,
+		NoDelay:   *nodelay,
+		ReusePort: frameworks.ReusePort(),
+	}
 	if pool := taskpool.FromFlags(); pool != nil {
 		engine.Executor = taskpool.FnetExecutor(pool)
 	}
@@ -89,10 +94,8 @@ func main() {
 }
 
 // startServer runs ONE fhttp.Server listening on every address so that all
-// ports share a single accept loop and one set of event loops
-// (engine.NumLoops), instead of 50 servers x (1 + loops).
-//
-// fnet opens its listeners itself, so -reuseport has no say in them.
+// ports share one set of event loops (engine.NumLoops), instead of 50 servers
+// x loops.
 func startServer(addrs []string, engine fnet.Options) *fhttp.Server {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/ws", onWebsocket)
@@ -100,7 +103,7 @@ func startServer(addrs []string, engine fnet.Options) *fhttp.Server {
 	if err != nil {
 		logging.Fatalf("fhttp.NewServerAddrs failed: %v", err)
 	}
-	logging.Printf("%v server: eventloops=%d (0 = fnet's own default)", config.Fnet, engine.NumLoops)
+	logging.Printf("%v server: eventloops=%d (0 = fnet's own default), nodelay=%v, reuseport=%v", config.Fnet, engine.NumLoops, engine.NoDelay, engine.ReusePort)
 	go func() {
 		logging.Printf("server exit: %v", s.Serve())
 	}()
@@ -109,9 +112,8 @@ func startServer(addrs []string, engine fnet.Options) *fhttp.Server {
 
 // startControlServer serves the routes frameworks.HandleCommon registers -
 // /init, /ps, /taskpool and pprof - on the port after the benchmark ones, as
-// fib and gws do. They cannot share fnet's port: fhttp refuses a request with
-// a body with a 413, and /init is a POST with one. See
-// config.frameworkControlPort.
+// fib and gws do, so that they stay off fnet's event loops and its executor.
+// See config.frameworkControlPort.
 func startControlServer() *http.Server {
 	addr, err := config.GetFrameworkHTTPServerAddrs(config.Fnet)
 	if err != nil {

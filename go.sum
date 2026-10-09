@@ -1,5 +1,7 @@
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
+github.com/antlabs/fio v0.2.3-0.20261008153003-1fa642ec3542 h1:pRw/9QjeJN812c3CKRxMgHMdUob9FvkTmaUoxCClPCo=
+github.com/antlabs/fio v0.2.3-0.20261008153003-1fa642ec3542/go.mod h1:32Osha1jKO3mTX3SQ47DrC54XYRq+pVNj8PAUVBvgjA=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 h1:u4ja6lULCPPWZudtKCHfxSyIzmc3OJs88CgtxmT0lXA=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe h1:+1J0CjnE7QUJJFKMkbKKxZoVTVf+YPdehZ/SWqH9ePE=
@@ -98,8 +100,8 @@ github.com/libp2p/go-reuseport v0.4.0 h1:nR5KU7hD0WxXCJbmw7r2rhRYruNRl2koHw8fQsc
 github.com/libp2p/go-reuseport v0.4.0/go.mod h1:ZtI03j/wO5hZVDFo2jKywN6bYKWLOy8Se6DrI2E1cLU=
 github.com/limpo1989/taskgo v1.5.0 h1:xczgiyKl20SyWJ5OwH6CcYFMPliCTMUnRWXciRhegLc=
 github.com/limpo1989/taskgo v1.5.0/go.mod h1:x3mZYu4EyiAGBqy/qENxNKr78yLgHfjPg58RJRXklmY=
-github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00 h1:BjDxc0GQ+GANxeNnV/8TzA58t2FiVYn8Slqa8+aCK0k=
-github.com/linfeip/fnet v0.0.0-20261003114910-5d263089eb00/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
+github.com/linfeip/fnet v0.0.0-20261009115752-19f29c33945b h1:ZtppQ0GKnCFQXpbD+mW0NKx1qT7RcwazCeOTa3m4PZo=
+github.com/linfeip/fnet v0.0.0-20261009115752-19f29c33945b/go.mod h1:/youPy1U2FM3bGN/znfhmmaAaE91dzqt4o+8aDbcHjw=
 github.com/lxzan/gws v1.10.2 h1:htReTvcY89iMk1ScVtUbk6J96kIZWaafj6r/lasK/NA=
 github.com/lxzan/gws v1.10.2/go.mod h1:gXHSCPmTGryWJ4icuqy8Yho32E4YIMHH0fkDRYJRbdc=
 github.com/nyaruka/phonenumbers v1.0.55/go.mod h1:sDaTZ/KPX5f8qyV9qN+hIm+4ZBARJrupC6LuhshJq1U=

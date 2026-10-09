@@ -17,3 +17,7 @@ func Listen(network, addr string) (net.Listener, error) {
 	}
 	return net.Listen(network, addr)
 }
+
+// ReusePort reports -reuseport, for a framework that opens its listeners
+// itself and has an option of its own for it.
+func ReusePort() bool { return *reuse }

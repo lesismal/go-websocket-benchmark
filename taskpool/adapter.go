@@ -66,14 +66,29 @@ func NbioExecute(pool Pool) func(f func()) { return runOrCall(pool) }
 // requires that the task never run on the caller's stack. That is also why the
 // fnet server refuses the Inline pool.
 //
-// fnet's connection id is no longer passed to the Executor, so there is
-// nothing for the Pool interface to carry.
-func FnetExecutor(pool Pool) func(task func()) {
-	return func(task func()) {
+// fnet passes a key with each task, the same for all of a connection's tasks,
+// so that its own pool keeps them on one shard. The Pool interface has no
+// place for it: the fnet pool takes it through keyedPool, and the others,
+// which have no shards to keep a connection on, go without.
+func FnetExecutor(pool Pool) func(key int, task func()) {
+	if kp, ok := pool.(keyedPool); ok {
+		return func(key int, task func()) {
+			if !kp.GoKeyed(key, task) {
+				go call(task)
+			}
+		}
+	}
+	return func(_ int, task func()) {
 		if !pool.Go(task) {
 			go call(task)
 		}
 	}
+}
+
+// keyedPool is a Pool that can keep the tasks submitted with one key on one
+// of its queues; see FnetExecutor.
+type keyedPool interface {
+	GoKeyed(key int, f func()) bool
 }
 
 // runOrCall is the executor for a framework that takes a func it cannot be
