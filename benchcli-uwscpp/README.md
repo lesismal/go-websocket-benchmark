@@ -76,7 +76,8 @@ The client retains established connections between stages. Echo warms up with
 round trips outstanding in total. Rate divides all live connections across
 `-rc` sending groups. Each write carries `-rpl` messages, or when that is 0 as
 many as fit `-rbs` - one if a frame is larger than the byte budget - at most
-`-rr` and `-rl`, lowered to divide `-rr`. benchcli-go picks it the same way,
+`-rr` and `-rl`, lowered to divide `-rr`; with `-rr=0` (unlimited) neither `-rr`
+bound applies. benchcli-go picks it the same way,
 and the report records it as `Pipeline`, the Summary's `Rate Pipeline`. Per-connection outstanding batches and
 partial writes are bounded. Latencies and report durations are nanoseconds;
 SendBytes/RecvBytes count payload bytes, excluding WebSocket framing.

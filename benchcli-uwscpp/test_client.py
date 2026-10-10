@@ -252,12 +252,17 @@ class ClientTests(unittest.TestCase):
     # -rpl sets the messages each write carries, lowered to divide -rr, and
     # the report records what ran, which the Summary shows as Rate Pipeline.
     def test_rate_pipeline(self):
-        # 0: -rbs holds 120 of these 128-byte frames, capped at -rr.
-        for pipeline, want in [('4', 4), ('7', 5), ('0', 20)]:
-            self.run_client('-rate=true', '-rd=1', '-rr=20', f'-rpl={pipeline}', '-rc=1')
+        # 0: -rbs holds 120 of these 128-byte frames, capped at -rr, and
+        # uncapped when -rr=0 leaves the rate unlimited. An unlimited run
+        # still has batches in flight when it stops.
+        for rate, pipeline, want in [('0', '0', 120), ('0', '7', 7), ('20', '4', 4), ('20', '7', 5), ('20', '0', 20)]:
+            self.run_client('-rate=true', '-rd=1', f'-rr={rate}', f'-rpl={pipeline}', '-rc=1')
             r = self.report('BenchPipeline')
             self.assertEqual(r['Pipeline'], want, r)
-            self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
+            if rate == '0':
+                self.assertLessEqual(r['RecvTimes'], r['SendTimes'], r)
+            else:
+                self.assertEqual(r['RecvTimes'], r['SendTimes'], r)
         self.run_client('-r=true')
         summary = (self.cwd / 'output/report/Summary.md').read_text()
         self.assertIn('| Rate Pipeline    | 20 ', summary)
