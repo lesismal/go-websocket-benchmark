@@ -19,11 +19,11 @@ require (
 	github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
-	github.com/limpo1989/taskgo v1.5.0
+	github.com/limpo1989/taskgo v1.6.0
 	github.com/linfeip/fnet v0.0.0-20261009115752-19f29c33945b
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/urpc/uio v1.5.4
+	github.com/urpc/uio v1.6.0
 	golang.org/x/time v0.15.0
 	nhooyr.io/websocket v1.8.17
 )
@@ -48,7 +48,7 @@ require (
 	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
-	github.com/petermattis/goid v0.0.0-20260820044319-269ab09b5261 // indirect
+	github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
