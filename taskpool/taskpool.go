@@ -8,9 +8,9 @@
 // it up.
 //
 // A server picks one with the -taskpool flag; see FromFlags. It defaults to
-// FibAdaptive rather than to Default, so that a run nobody configured still
-// puts every framework that has a pool hook on one pool; -taskpool=default
-// asks for the scheduling each framework ships with instead. The pools differ
+// Default, so that a run nobody configured measures each framework on the
+// scheduling it ships with; naming a pool puts every framework that has a
+// pool hook on that one pool instead. The pools differ
 // in whether a submission can be refused, which matters to the caller: see
 // Pool.Go.
 //
@@ -66,8 +66,8 @@ import (
 // The implementations, as -taskpool takes them.
 const (
 	// Default leaves a framework running its own built-in scheduling. New
-	// returns a nil Pool for it. It is a choice the flag has to be given,
-	// not the flag's own default: see FromFlags.
+	// returns a nil Pool for it. It is also the flag's own default: see
+	// FromFlags.
 	Default = "default"
 
 	// Inline and Goroutine are the two baselines the pools sit between: no
@@ -179,7 +179,7 @@ func New(config Config) (Pool, error) {
 }
 
 var (
-	flagName       = flag.String("taskpool", FibAdaptive, "goroutine pool the server runs its callbacks on, or \"default\" for the framework's own; see taskpool.Names")
+	flagName       = flag.String("taskpool", Default, "goroutine pool the server runs its callbacks on, or \"default\" for the framework's own; see taskpool.Names")
 	flagMinWorkers = flag.Int("tpmin", 0, "taskpool: worker floor, 0 for the pool's own default")
 	flagMaxWorkers = flag.Int("tpmax", 0, "taskpool: worker ceiling, 0 for the pool's own default")
 	flagQueueSize  = flag.Int("tpqueue", 0, "taskpool: queued tasks, 0 for the pool's own default")

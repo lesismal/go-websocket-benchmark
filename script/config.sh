@@ -48,8 +48,8 @@ esac
 # Goroutine pool the servers run their callbacks on. Every value it takes,
 # and what it selects:
 #
-#   default       each framework's own scheduling. Not a pool, and not what a
-#                 run without this variable measures. fio answers in its
+#   default       each framework's own scheduling, and what a run without
+#                 this variable measures. Not a pool: fio answers in its
 #                 poller under this one value; the rest run the pool they
 #                 ship with. fio is given it whatever this variable
 #                 holds, since its entry is that arrangement; see
@@ -60,7 +60,7 @@ esac
 #                 run a connection's task inline
 #   go            one goroutine per task, bounded by nothing
 #   fib_adaptive  github.com/lesismal/fib/taskpool in adaptive mode, which
-#                 is fib's own default and this benchmark's
+#                 is fib's own default
 #   fib_elastic   the same pool in elastic mode: goroutines forked on demand
 #                 up to a ceiling
 #   nbio          github.com/lesismal/nbio/taskpool
@@ -81,7 +81,7 @@ esac
 # a framework with no pool hook at all.
 #
 # Override for one run with: BENCH_TASKPOOL=nbio bash script/benchmark.sh
-BENCH_TASKPOOL=${BENCH_TASKPOOL:-fib_adaptive}
+BENCH_TASKPOOL=${BENCH_TASKPOOL:-default}
 # Pool sizing. 0 leaves each pool its own default, which is the sizing the
 # framework it came from runs it at.
 BENCH_TASKPOOL_MIN=${BENCH_TASKPOOL_MIN:-0}

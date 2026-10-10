@@ -140,15 +140,18 @@ one pool can be run under several frameworks, or one framework under several
 pools.
 
 `script/config.sh` selects it with `BENCH_TASKPOOL`, which defaults to
-`fib_adaptive`: a run nobody configured puts every framework that has a pool
-hook on the one pool, and `BENCH_TASKPOOL=default` asks for the scheduling each
-framework ships with instead. Two servers lose their distinguishing feature to
-that default and are worth setting explicitly: `fio_event` runs its
-callbacks in the event loop only under `default` (or `inline`, which is the
-same arrangement), and `uws_events` runs on UIO's own taskgo scheduler
-only under `default`.
+`default`: a run nobody configured measures each framework on the scheduling it
+ships with - `fio_event` runs its callbacks in the event loop, `uws_events` runs
+on UIO's own taskgo scheduler, and `fib`, `fnet` and the nbio servers on their
+own pools. Naming a pool, e.g. `BENCH_TASKPOOL=fib_adaptive`, puts every
+framework that has a pool hook on that one pool instead, which takes those two
+servers off their distinguishing arrangement (`fio_event` keeps it under
+`inline` too, which is the same thing).
 
 ```sh
+# Every framework that can, on fib's pool
+BENCH_TASKPOOL=fib_adaptive bash script/benchmark.sh
+
 # Every framework that can, on nbio's pool
 BENCH_TASKPOOL=nbio bash script/benchmark.sh
 
@@ -159,10 +162,10 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 
 | `BENCH_TASKPOOL` | pool |
 | --- | --- |
-| `default` | each framework's own scheduling; not a pool, and no longer what a run without the variable measures |
+| `default` | each framework's own scheduling; not a pool, and what a run without the variable measures |
 | `inline` | no pool: the callback runs on the I/O goroutine that read the frame; `fnet` and `uws_events` refuse it, since their executors must not run a connection's task inline |
 | `go` | one goroutine per task, bounded by nothing |
-| `fib_adaptive`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its two modes (`fib_adaptive` is fib's own default, and this benchmark's) |
+| `fib_adaptive`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its two modes (`fib_adaptive` is fib's own default) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
 | `fnet` | `github.com/linfeip/fnet/taskpool`, sharded: one lock-free queue per shard, workers started on demand and then kept |
 | `fio` | fio's `stream2` business pool |
@@ -176,7 +179,7 @@ forked ones in another - so the same `_MAX` does not mean the same thing to
 all of them.
 
 The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
-`-tpqueue`, which default the same way, and log which pool they installed. Seven of the server binaries
+`-tpqueue`, which default the same way (`-taskpool=default`), and log which pool they installed. Seven of the server binaries
 use them: `fib`, `fnet`, `fio`, `fio_event`, `nbio_mixed`,
 `nbio_nonblocking` and `uws_events`. `uws_std` is the `uws_events` program
 built for UIO's stdio backend, which has no executor, so it accepts them but
@@ -313,7 +316,7 @@ benchmark's concurrency, `Echo Total`, `Rate Duration`, `Rate SendRate` and `Rat
 not columns of the three tables: they are the Summary table printed in front of
 them and written to `Summary.md` next to them, left-aligned, with a
 `Description` column saying what each one is. `Pool` names only the pools that
-ran, e.g. `fib_adaptive`: only the Go event-loop frameworks install one, as its
+ran, e.g. `default` or `fib_adaptive`: only the Go event-loop frameworks install one, as its
 description says, and the rest are left out. Any other parameter the frameworks
 disagree on lists each value with the frameworks that had it, e.g.
 `20000 (fib, fnet); 19998 (fasthttp)`. `Client` reads as

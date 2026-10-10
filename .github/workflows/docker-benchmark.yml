@@ -35,7 +35,7 @@ on:
         options: [benchcli-uwscpp, benchcli-rust, benchcli-go]
         default: benchcli-uwscpp
       taskpool:
-        description: "BENCH_TASKPOOL (empty = fib_adaptive, the script default)"
+        description: "BENCH_TASKPOOL (empty = default, each framework's own scheduling, the script default)"
         type: string
         default: ""
       cpus:
