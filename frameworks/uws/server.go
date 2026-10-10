@@ -72,6 +72,7 @@ func main() {
 	server.Events = &uio.Events{
 		Pollers:       *eventLoops,
 		MaxBufferSize: maxBufferSize,
+		ReusePort:     frameworks.ReusePort(),
 	}
 	// UIO runs each connection's I/O as one task. An explicit benchmark pool
 	// runs those tasks in place of UIO's own scheduler; -taskpool=default keeps
