@@ -1,4 +1,17 @@
 .idea/
 .vscode/
 output/
+
+# go test -c output
+*.test
+
+# Server binaries. script/build.sh writes them into output/bin/ (covered by
+# output/ above); these guard the ones a manual
+# `go build -o <name> ./frameworks/<name>` drops at the repository root - a
+# 12MB greatws executable reached main that way.
+/fio
+/fio_event
+# The names the entries above were built under before the greatws -> fio
+# rename; a stray binary from an older checkout is the same accident.
+/greatws
 /greatws_event
