@@ -131,10 +131,10 @@ func fnetExecutorTest(pool Pool) func(func()) {
 	return func(task func()) { executor(7, task) }
 }
 
-func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {
-	// greatws expects one connection's callbacks to run in the order they
+func TestFioTaskDriverKeepsAConnectionsOrder(t *testing.T) {
+	// fio expects one connection's callbacks to run in the order they
 	// were added however many workers the pool has.
-	executor := (&greatwsTaskDriver{pool: newTestPool(t, Goroutine)}).NewExecutor()
+	executor := (&fioTaskDriver{pool: newTestPool(t, Goroutine)}).NewExecutor()
 
 	var mu sync.Mutex
 	const tasks = 500
@@ -150,7 +150,7 @@ func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {
 			t.Fatalf("AddTask failed: %v", err)
 		}
 	}
-	waitOrFail(t, &done, "greatws executor did not finish")
+	waitOrFail(t, &done, "fio executor did not finish")
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -167,16 +167,16 @@ func TestGreatwsTaskDriverKeepsAConnectionsOrder(t *testing.T) {
 	}
 }
 
-func TestGreatwsTaskDriverLeavesRefusedWorkQueued(t *testing.T) {
+func TestFioTaskDriverLeavesRefusedWorkQueued(t *testing.T) {
 	// A refusal has to leave the task for the next AddTask to carry:
 	// dropping it would lose a message rather than delay one.
-	executor := (&greatwsTaskDriver{pool: refusingPool{}}).NewExecutor()
+	executor := (&fioTaskDriver{pool: refusingPool{}}).NewExecutor()
 
 	var mu sync.Mutex
 	if err := executor.AddTask(&mu, func() bool { return false }); err == nil {
 		t.Fatal("AddTask hid the pool's refusal")
 	}
-	queue := executor.(*greatwsTaskExecutor)
+	queue := executor.(*fioTaskExecutor)
 	mu.Lock()
 	pending, running := len(queue.pending), queue.running
 	mu.Unlock()
@@ -188,11 +188,11 @@ func TestGreatwsTaskDriverLeavesRefusedWorkQueued(t *testing.T) {
 	}
 }
 
-func TestGreatwsTaskDriverIsItsOwnTasker(t *testing.T) {
-	// greatws asks each driver for a Tasker per event loop; every loop has
+func TestFioTaskDriverIsItsOwnTasker(t *testing.T) {
+	// fio asks each driver for a Tasker per event loop; every loop has
 	// to land on the one pool the benchmark configured.
 	pool := newTestPool(t, Goroutine)
-	var taskDriver driver.TaskDriver = &greatwsTaskDriver{pool: pool}
+	var taskDriver driver.TaskDriver = &fioTaskDriver{pool: pool}
 	first := taskDriver.New(t.Context(), 1, 1, 1, &driver.Conf{})
 	second := taskDriver.New(t.Context(), 1, 1, 1, &driver.Conf{})
 	if first != second {

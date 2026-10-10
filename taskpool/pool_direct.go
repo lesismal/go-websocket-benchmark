@@ -10,8 +10,8 @@ func init() {
 // inlinePool runs the task on the goroutine that submitted it, which for
 // every framework here is an I/O goroutine. It is the baseline the pools are
 // measured against: no handoff and no queue, at the cost of a handler that
-// blocks stalling every connection its poller holds. greatws calls the same
-// arrangement its "io" task mode, and it is what greatws_event runs by
+// blocks stalling every connection its poller holds. fio calls the same
+// arrangement its "io" task mode, and it is what fio_event runs by
 // default.
 type inlinePool struct{}
 

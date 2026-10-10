@@ -17,9 +17,9 @@ import (
 	//"time"
 
 	// 这个库改名了（greatws -> quicknet -> fio），代码也重组进了
-	// websocket/ 子目录。用别名保持下面的代码不用动——这个框架在压测里
-	// 一直叫 greatws，报告里也是这个名字。
-	greatws "github.com/antlabs/fio/websocket"
+	// websocket/ 子目录，包的正式名字是 websocket。别名成 fio，
+	// 和这个框架在压测里的名字保持一致。
+	fio "github.com/antlabs/fio/websocket"
 )
 
 var (
@@ -30,55 +30,55 @@ var (
 	_       = flag.Int("mb", 10000, `max blocking online num, e.g. 10000`)
 	_       = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
 
-	// greatws.WithEventLoops. 0 leaves greatws's own default, one per CPU.
+	// fio.WithEventLoops. 0 leaves fio's own default, one per CPU.
 	// script/server.sh sets it from BENCH_EVENTLOOPS in script/config.sh.
-	eventLoops = flag.Int("eventloops", 0, `event loops, 0 for greatws's own default`)
+	eventLoops = flag.Int("eventloops", 0, `event loops, 0 for fio's own default`)
 )
 
-var upgrader *greatws.UpgradeServer
+var upgrader *fio.UpgradeServer
 
 func main() {
 	flag.Parse()
 
-	// greatws picks the task pool its callbacks run on by name, so a shared
+	// fio picks the task pool its callbacks run on by name, so a shared
 	// pool goes in as a task driver of its own. It has to be registered
-	// before the event loops are built, since greatws instantiates every
+	// before the event loops are built, since fio instantiates every
 	// registered driver for each of them.
 	pool := taskpool.FromFlags()
 	taskMode := ""
 	if pool != nil {
-		taskMode = taskpool.RegisterGreatwsTaskDriver(pool)
+		taskMode = taskpool.RegisterFioTaskDriver(pool)
 	}
 
 	var h Handler
-	h.m = greatws.NewMultiEventLoopMust(
-		greatws.WithEventLoops(*eventLoops),    // 控制io go程数
-		greatws.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
-		greatws.WithMaxEventNum(1000),
-		greatws.WithLogLevel(slog.LevelError)) // epoll, kqueue
+	h.m = fio.NewMultiEventLoopMust(
+		fio.WithEventLoops(*eventLoops),    // 控制io go程数
+		fio.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
+		fio.WithMaxEventNum(1000),
+		fio.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
-	logging.Printf("%v server: eventloops=%d (0 = greatws's own default)", config.Greatws, *eventLoops)
-	opt := []greatws.ServerOption{
-		// greatws.WithServerIgnorePong(),
-		greatws.WithServerCallback(&Handler{}),
-		greatws.WithServerMultiEventLoop(h.m),
+	logging.Printf("%v server: eventloops=%d (0 = fio's own default)", config.Fio, *eventLoops)
+	opt := []fio.ServerOption{
+		// fio.WithServerIgnorePong(),
+		fio.WithServerCallback(&Handler{}),
+		fio.WithServerMultiEventLoop(h.m),
 	}
 	if taskMode != "" {
-		opt = append(opt, greatws.WithServerCustomTaskMode(taskMode))
+		opt = append(opt, fio.WithServerCustomTaskMode(taskMode))
 	}
 
-	// greatws v0.2.2 stores this option but never applies it; the
+	// fio v0.2.2 stores this option but never applies it; the
 	// server's ConnState below is what sets TCP_NODELAY. It is still
-	// passed so that a greatws which starts applying it agrees with that
+	// passed so that a fio which starts applying it agrees with that
 	// rather than putting its own default back.
 	if !*nodelay {
-		opt = append(opt, greatws.WithServerTCPDelay())
+		opt = append(opt, fio.WithServerTCPDelay())
 	}
-	upgrader = greatws.NewUpgrade(opt...)
+	upgrader = fio.NewUpgrade(opt...)
 
-	addrs, err := config.GetFrameworkServerAddrs(config.Greatws)
+	addrs, err := config.GetFrameworkServerAddrs(config.Fio)
 	if err != nil {
-		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Greatws, err)
+		logging.Fatalf("GetFrameworkBenchmarkAddrs(%v) failed: %v", config.Fio, err)
 	}
 
 	lns := h.startServers(addrs)
@@ -100,9 +100,9 @@ func (h *Handler) startServers(addrs []string) []net.Listener {
 		server := http.Server{
 			// Addr:    addr,
 			Handler: mux,
-			// greatws takes the socket over by duplicating the hijacked
+			// fio takes the socket over by duplicating the hijacked
 			// conn's fd, so setting it on that conn sets it on the socket
-			// greatws serves.
+			// fio serves.
 			ConnState: func(c net.Conn, state http.ConnState) {
 				if state == http.StateHijacked {
 					frameworks.SetNoDelay(c, *nodelay)
@@ -132,10 +132,10 @@ func (h *Handler) onWebsocket(w http.ResponseWriter, r *http.Request) {
 }
 
 type Handler struct {
-	greatws.DefCallback
-	m *greatws.MultiEventLoop
+	fio.DefCallback
+	m *fio.MultiEventLoop
 }
 
-func (h *Handler) OnMessage(c *greatws.Conn, op greatws.Opcode, msg []byte) {
+func (h *Handler) OnMessage(c *fio.Conn, op fio.Opcode, msg []byte) {
 	_ = c.WriteMessage(op, msg)
 }

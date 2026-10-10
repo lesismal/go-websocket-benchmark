@@ -66,7 +66,7 @@ the default, keeps them. It is `BENCH_FIB_SOCKET_SYSCALLS` in
 `script/docker_*benchmark*.sh`; no other server is given it.
 
 `-eventloops=N` gives every server that runs event loops of its own N of them:
-fib (`IOPollerCount`), fnet (`NumLoops`), greatws and greatws_event
+fib (`IOPollerCount`), fnet (`NumLoops`), fio and fio_event
 (`WithEventLoops`), hertz (`netpoll.SetNumLoops`), nbio_mixed and
 nbio_nonblocking (`NPoller`), tokio_tungstenite (`-threads`), uwebsockets
 (`-loops`) and uws_events (`uio.Events.Pollers`). `-eventloops=0`, the default,
@@ -134,7 +134,7 @@ benchmark in the container still runs with `--network none`.
 The frameworks here schedule their callbacks in different ways, and some of the
 difference a benchmark shows between two of them is the pool rather than the
 framework. [`taskpool`](taskpool) collects those pools behind one interface -
-the fib, nbio, fnet and greatws entries import those projects' own pools, and
+the fib, nbio, fnet and fio entries import those projects' own pools, and
 `uws` is taskgo, the pool UIO runs the uws servers' connections on - so that
 one pool can be run under several frameworks, or one framework under several
 pools.
@@ -143,7 +143,7 @@ pools.
 `fib_adaptive`: a run nobody configured puts every framework that has a pool
 hook on the one pool, and `BENCH_TASKPOOL=default` asks for the scheduling each
 framework ships with instead. Two servers lose their distinguishing feature to
-that default and are worth setting explicitly: `greatws_event` runs its
+that default and are worth setting explicitly: `fio_event` runs its
 callbacks in the event loop only under `default` (or `inline`, which is the
 same arrangement), and `uws_events` runs on UIO's own taskgo scheduler
 only under `default`.
@@ -165,7 +165,7 @@ BENCH_TASKPOOL_QUEUE=10000 bash script/benchmark.sh
 | `fib_adaptive`, `fib_elastic` | `github.com/lesismal/fib/taskpool`, in each of its two modes (`fib_adaptive` is fib's own default, and this benchmark's) |
 | `nbio` | `github.com/lesismal/nbio/taskpool` |
 | `fnet` | `github.com/linfeip/fnet/taskpool`, sharded: one lock-free queue per shard, workers started on demand and then kept |
-| `greatws` | greatws's `stream2` business pool |
+| `fio` | fio's `stream2` business pool |
 | `uws` | `github.com/limpo1989/taskgo`, set up the way UIO sets it up: about one worker per P while tasks run, up to `512 * GOMAXPROCS` while they block, idle workers kept for 30 s |
 
 `BENCH_TASKPOOL_MIN`, `_MAX` and `_QUEUE` are requests rather than promises: 0
@@ -177,7 +177,7 @@ all of them.
 
 The servers take the same choice as `-taskpool`, `-tpmin`, `-tpmax` and
 `-tpqueue`, which default the same way, and log which pool they installed. Seven of the server binaries
-use them: `fib`, `fnet`, `greatws`, `greatws_event`, `nbio_mixed`,
+use them: `fib`, `fnet`, `fio`, `fio_event`, `nbio_mixed`,
 `nbio_nonblocking` and `uws_events`. `uws_std` is the `uws_events` program
 built for UIO's stdio backend, which has no executor, so it accepts them but
 installs no pool. The rest have no
@@ -249,7 +249,7 @@ Three things to keep in mind when reading a report:
   answered in the order they arrived. No pool promises that by itself - `go`
   runs a goroutine per task - so the order comes from never handing a pool
   more than one task per connection at a time: fib, fnet and uws_events submit
-  the connection itself, and nbio and greatws each keep one per-connection
+  the connection itself, and nbio and fio each keep one per-connection
   queue and submit a drain only when none is in flight. See the `Ordering` section
   of [the package doc](taskpool/taskpool.go) for which mechanism each
   framework uses. `uwebsockets` echoes from its event loops, so it has no pool
@@ -503,8 +503,8 @@ results:
 | nettyws          | 778445 | 892.59  | 14.18us | 12.79ms | 142.58ms | 10.86ms | 13.31ms | 19.36ms | 20.35ms | 27.50ms  | 2.57s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 636.37  | 872.12  | 1127.89 | 189.11M | 189.11M | 189.11M |
 | nhooyr           | 659804 | 651.89  | 19.06us | 15.10ms | 181.33ms | 11.14ms | 14.08ms | 24.10ms | 37.20ms | 107.87ms | 3.03s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 24.98   | 1012.14 | 1515.70 | 386.97M | 386.97M | 386.97M |
 | quickws          | 782685 | 944.61  | 15.31us | 12.71ms | 139.09ms | 10.78ms | 12.24ms | 19.28ms | 20.40ms | 41.09ms  | 2.56s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 578.30  | 828.58  | 1086.75 | 150.31M | 150.31M | 150.31M |
-| greatws          | 648302 | 983.04  | 30.80us | 15.35ms | 302.55ms | 13.35ms | 16.50ms | 21.74ms | 24.18ms | 62.52ms  | 3.08s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 68.93   | 659.49  | 973.74  | 154.16M | 154.71M | 155.25M |
-| greatws_event    | 657385 | 1158.59 | 28.88us | 15.17ms | 190.30ms | 13.45ms | 16.33ms | 21.33ms | 22.78ms | 31.36ms  | 3.04s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 11.99   | 567.40  | 845.77  | 161.71M | 163.85M | 165.98M |
+| fio          | 648302 | 983.04  | 30.80us | 15.35ms | 302.55ms | 13.35ms | 16.50ms | 21.74ms | 24.18ms | 62.52ms  | 3.08s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 68.93   | 659.49  | 973.74  | 154.16M | 154.71M | 155.25M |
+| fio_event    | 657385 | 1158.59 | 28.88us | 15.17ms | 190.30ms | 13.45ms | 16.33ms | 21.33ms | 22.78ms | 31.36ms  | 3.04s | 2000000 | 2000000 | 0      | 10000 | 10000       | 1024    | 11.99   | 567.40  | 845.77  | 161.71M | 163.85M | 165.98M |
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 20240403 16:31.05.064 [BenchPipeline] Report
@@ -525,12 +525,12 @@ results:
 | nettyws          | 10.00s   | 1924.26 | 19900000    | 18.98G     | 19900000    | 18.98G     | 10000 | 200      | 1024    | 979.88  | 1034.16 | 1061.80 | 205.34M | 206.97M | 207.56M |
 | nhooyr           | 10.00s   | 1150.49 | 18659680    | 17.80G     | 18534252    | 17.68G     | 10000 | 200      | 1024    | 1575.61 | 1610.99 | 1645.84 | 388.97M | 391.11M | 391.66M |
 | quickws          | 10.00s   | 2238.76 | 19900000    | 18.98G     | 19900000    | 18.98G     | 10000 | 200      | 1024    | 0.00    | 888.89  | 1010.88 | 154.31M | 155.87M | 156.31M |
-| greatws          | 10.00s   | 1626.12 | 19643320    | 18.73G     | 19581458    | 18.67G     | 10000 | 200      | 1024    | 1151.57 | 1204.18 | 1240.71 | 154.30M | 162.51M | 170.98M |
-| greatws_event    | 10.00s   | 1914.01 | 19889190    | 18.97G     | 19858307    | 18.94G     | 10000 | 200      | 1024    | 984.68  | 1037.52 | 1058.69 | 154.58M | 163.28M | 177.87M |
+| fio          | 10.00s   | 1626.12 | 19643320    | 18.73G     | 19581458    | 18.67G     | 10000 | 200      | 1024    | 1151.57 | 1204.18 | 1240.71 | 154.30M | 162.51M | 170.98M |
+| fio_event    | 10.00s   | 1914.01 | 19889190    | 18.97G     | 19858307    | 18.94G     | 10000 | 200      | 1024    | 984.68  | 1037.52 | 1058.69 | 154.58M | 163.28M | 177.87M |
 ----------------------------------------------------------------------------------------------------
 
 
-## 1m connections, 1k payload, benchmark for fib/fnet/greatws/nbio/uws
+## 1m connections, 1k payload, benchmark for fib/fnet/fio/nbio/uws
 
 run:
 ```sh
@@ -549,14 +549,14 @@ result:
 | Framework        | TPS   | Min  | Avg     | Max    | TP50 | TP75 | TP90 | TP95 | TP99  | Used   | Total   | Success | Failed | Concurrency |
 | ---------------- | ----- | ---- | ------- | ------ | ---- | ---- | ---- | ---- | ----- | ------ | ------- | ------- | ------ | ----------- |
 | nbio_nonblocking | 64058 | 10ns | 30.94ms | 15.61s | 20ns | 20ns | 21ns | 30ns | 31ns  | 15.61s | 1000000 | 1000000 | 0      | 2000        |
-| greatws          | 63882 | 10ns | 31.04ms | 15.65s | 20ns | 21ns | 30ns | 40ns | 121ns | 15.65s | 1000000 | 1000000 | 0      | 2000        |
-| greatws_event    | 69324 | 10ns | 28.61ms | 14.42s | 20ns | 20ns | 30ns | 31ns | 51ns  | 14.43s | 1000000 | 1000000 | 0      | 2000        |
+| fio          | 63882 | 10ns | 31.04ms | 15.65s | 20ns | 21ns | 30ns | 40ns | 121ns | 15.65s | 1000000 | 1000000 | 0      | 2000        |
+| fio_event    | 69324 | 10ns | 28.61ms | 14.42s | 20ns | 20ns | 30ns | 31ns | 51ns  | 14.43s | 1000000 | 1000000 | 0      | 2000        |
 ----------------------------------------------------------------------------------------------------
 20240403 16:35.28.732 [BenchEcho] Report
 
 | Framework        | TPS    | EER    | Min     | Avg     | Max   | TP50    | TP75    | TP90     | TP95     | TP99     | Used   | Total   | Success | Failed | Conns   | Concurrency | Payload | CPU Min | CPU Avg | CPU Max | MEM Min | MEM Avg | MEM Max |
 | ---------------- | ------ | ------ | ------- | ------- | ----- | ------- | ------- | -------- | -------- | -------- | ------ | ------- | ------- | ------ | ------- | ----------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
 | nbio_nonblocking | 152342 | 440.12 | 27.08us | 65.54ms | 1.08s | 34.59ms | 37.14ms | 133.20ms | 367.50ms | 453.01ms | 13.13s | 2000000 | 2000000 | 0      | 1000000 | 10000       | 1024    | 189.15  | 346.13  | 496.95  | 967.02M | 967.58M | 968.51M |
-| greatws          | 141385 | 412.66 | 25.55us | 70.62ms | 1.05s | 37.50ms | 42.03ms | 143.13ms | 373.50ms | 463.37ms | 14.15s | 2000000 | 2000000 | 0      | 1000000 | 10000       | 1024    | 112.40  | 342.62  | 399.85  | 575.97M | 576.48M | 576.86M |
-| greatws_event    | 145457 | 514.79 | 24.77us | 68.66ms | 1.00s | 35.80ms | 38.67ms | 140.22ms | 373.21ms | 453.04ms | 13.75s | 2000000 | 2000000 | 0      | 1000000 | 10000       | 1024    | 48.71   | 282.56  | 340.90  | 447.33M | 448.25M | 448.86M |
+| fio          | 141385 | 412.66 | 25.55us | 70.62ms | 1.05s | 37.50ms | 42.03ms | 143.13ms | 373.50ms | 463.37ms | 14.15s | 2000000 | 2000000 | 0      | 1000000 | 10000       | 1024    | 112.40  | 342.62  | 399.85  | 575.97M | 576.48M | 576.86M |
+| fio_event    | 145457 | 514.79 | 24.77us | 68.66ms | 1.00s | 35.80ms | 38.67ms | 140.22ms | 373.21ms | 453.04ms | 13.75s | 2000000 | 2000000 | 0      | 1000000 | 10000       | 1024    | 48.71   | 282.56  | 340.90  | 447.33M | 448.25M | 448.86M |
 ----------------------------------------------------------------------------------------------------

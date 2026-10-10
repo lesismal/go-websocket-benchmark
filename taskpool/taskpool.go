@@ -2,7 +2,7 @@
 // ship with behind one interface, so that a framework can be measured on a
 // pool other than its own and the pools can be compared on equal footing.
 //
-// Every pool here is the real thing: the fib, nbio and greatws entries import
+// Every pool here is the real thing: the fib, nbio and fio entries import
 // those projects' pools rather than reimplementing them, and the uws entry is
 // taskgo, the pool UIO schedules its connections' I/O on, set up as UIO sets
 // it up.
@@ -37,13 +37,13 @@
 //     flushes and closes, and holds a scheduled flag while it is in flight, as
 //     fib does. The callback gets the buffer the task read into, valid for the
 //     call, so the echo needs no copy.
-//   - greatws asks each connection for its own executor;
-//     RegisterGreatwsTaskDriver gives it one that keeps at most one drain in
+//   - fio asks each connection for its own executor;
+//     RegisterFioTaskDriver gives it one that keeps at most one drain in
 //     flight, which is the one piece of this the package supplies itself;
-//     TestGreatwsTaskDriverKeepsAConnectionsOrder holds it to that on every
+//     TestFioTaskDriverKeepsAConnectionsOrder holds it to that on every
 //     registered pool.
 //
-// All but greatws are the frameworks' own invariants, which is why nothing is
+// All but fio are the frameworks' own invariants, which is why nothing is
 // layered on top of them: a second queue would cost a handoff per burst and
 // measure a scheduling step the framework does not take.
 //
@@ -81,7 +81,7 @@ const (
 	FibElastic  = "fib_elastic"
 	Nbio        = "nbio"
 	Fnet        = "fnet"
-	Greatws     = "greatws"
+	Fio         = "fio"
 	Uws         = "uws"
 )
 

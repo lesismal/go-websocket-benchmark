@@ -30,10 +30,10 @@ type InitArgs struct {
 const (
 	Fasthttp           = "fasthttp"
 	Fib                = "fib"
+	Fio                = "fio"
 	Fnet               = "fnet"
 	Gobwas             = "gobwas"
 	Gorilla            = "gorilla"
-	Greatws            = "greatws"
 	Gws                = "gws"
 	GwsStd             = "gws_std"
 	Hertz              = "hertz"
@@ -72,10 +72,10 @@ const (
 var Ports = map[string]string{
 	Fasthttp:           "15001:15050",
 	Fib:                "15101:15150",
+	Fio:                "15701:15750",
 	Fnet:               "15301:15350",
 	Gobwas:             "15501:15550",
 	Gorilla:            "15601:15650",
-	Greatws:            "15701:15750",
 	Gws:                "16101:16150",
 	GwsStd:             "16201:16250",
 	Hertz:              "16301:16350",
@@ -106,10 +106,10 @@ const (
 var Langs = map[string]string{
 	Fasthttp:           LangGo,
 	Fib:                LangGo,
+	Fio:                LangGo,
 	Fnet:               LangGo,
 	Gobwas:             LangGo,
 	Gorilla:            LangGo,
-	Greatws:            LangGo,
 	Gws:                LangGo,
 	GwsStd:             LangGo,
 	Hertz:              LangGo,
@@ -154,10 +154,10 @@ func FrameworkServesPprof(framework string) bool {
 var FrameworkList = []string{
 	Fasthttp,
 	Fib,
+	Fio,
 	Fnet,
 	Gobwas,
 	Gorilla,
-	Greatws,
 	Gws,
 	GwsStd,
 	Hertz,

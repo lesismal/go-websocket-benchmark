@@ -49,9 +49,9 @@ esac
 # and what it selects:
 #
 #   default       each framework's own scheduling. Not a pool, and not what a
-#                 run without this variable measures. greatws answers in its
+#                 run without this variable measures. fio answers in its
 #                 poller under this one value; the rest run the pool they
-#                 ship with. greatws is given it whatever this variable
+#                 ship with. fio is given it whatever this variable
 #                 holds, since its entry is that arrangement; see
 #                 bench_server_args in script/serverctl.sh
 #   inline        no pool: the callback runs on the I/O goroutine that read
@@ -66,7 +66,7 @@ esac
 #   nbio          github.com/lesismal/nbio/taskpool
 #   fnet          github.com/linfeip/fnet/taskpool, sharded: one lock-free
 #                 queue per shard, workers started on demand and then kept
-#   greatws       greatws's stream2 business pool
+#   fio           fio's stream2 business pool
 #   uws           github.com/limpo1989/taskgo, the pool UIO runs uws's
 #                 connections on, set up as UIO sets it up; it refuses work
 #                 only once BENCH_TASKPOOL_QUEUE bounds its pending tasks
@@ -116,7 +116,7 @@ done
 #
 #   fib                 -eventloops  fib.Config.IOPollerCount (default: CPUs/4, at least 1)
 #   fnet                -eventloops  fnet.Options.NumLoops (default: GOMAXPROCS/4, at least 2)
-#   greatws(_event)     -eventloops  greatws.WithEventLoops (default: one per CPU)
+#   fio(_event)         -eventloops  fio.WithEventLoops (default: one per CPU)
 #   hertz               -eventloops  netpoll.SetNumLoops (default: GOMAXPROCS/20+1)
 #   nbio_mixed          -eventloops  nbhttp.Config.NPoller (default: one per CPU)
 #   nbio_nonblocking    -eventloops  nbhttp.Config.NPoller (default: one per CPU)
@@ -244,8 +244,8 @@ taskpool_frameworks=(
 # a flag they do not define.
 eventloop_frameworks=(
     "fib"
+    "fio"
     "fnet"
-    "greatws"
     "hertz"
     "nbio_mixed"
     "nbio_nonblocking"
@@ -284,10 +284,10 @@ BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 frameworks=(
     "fasthttp"
     "fib"
+    "fio"
     "fnet"
     "gobwas"
     "gorilla"
-    "greatws"
     "gws"
     "gws_std"
     "hertz"

@@ -29,8 +29,8 @@ bench_server_args() {
         echo "-logicpool=false -loopspercpu=${BENCH_UWS_LOOPS_PER_CPU}"
         return
     fi
-    if [ "$f" = greatws ]; then
-        # greatws answers in its poller - what greatws calls its "io" task
+    if [ "$f" = fio ]; then
+        # fio answers in its poller - what fio calls its "io" task
         # mode - and reaches that arrangement only through -taskpool=default,
         # the name taskpool.Default spells. Given any other name it registers
         # that pool as a task driver and runs the callbacks off the event

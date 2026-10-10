@@ -27,7 +27,7 @@ Options:
                 script/config.sh). A bare -socketsyscalls is true. Like
                 the -cpu* flags, it may come anywhere among the arguments.
   -eventloops=N Event loops for each server that runs its own (fib, fnet,
-                greatws, hertz, nbio, tokio_tungstenite, uwebsockets,
+                fio, hertz, nbio, tokio_tungstenite, uwebsockets,
                 uws_events); 0 (default) leaves each its framework's own
                 default (BENCH_EVENTLOOPS; see script/config.sh). It may
                 come anywhere among the arguments too.

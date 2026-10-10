@@ -30,8 +30,8 @@ set -- ${driver_args[@]+"${driver_args[@]}"}
 # script/killall.sh sources config.sh again, which resets them to its own.
 million_frameworks=(
     "fib"
+    "fio"
     "fnet"
-    "greatws"
     "nbio_nonblocking"
     "uws_events"
 )
