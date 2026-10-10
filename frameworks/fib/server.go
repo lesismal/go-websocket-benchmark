@@ -125,11 +125,10 @@ func startServer(addrs []string) *fib.Engine {
 	serverConfig.WriteBufferHighWatermark = connectionPendingHighWatermark
 	serverConfig.MaxPendingBytes = processPendingBudget
 
-	// fib's own pool is ModeAdaptive, which is also what -taskpool
-	// defaults to, so the default run measures the same arrangement
-	// reached through the shared registry. Another -taskpool runs the
-	// engine on another framework's scheduler; -taskpool=default leaves
-	// fib to build its pool itself.
+	// -taskpool defaults to default, which leaves fib to build its pool
+	// itself (ModeAdaptive). -taskpool=fib_adaptive measures that same
+	// arrangement reached through the shared registry; another -taskpool
+	// runs the engine on another framework's scheduler.
 	if pool := taskpool.FromFlags(); pool != nil {
 		serverConfig.SetTaskPool(taskpool.FibTaskPool{Pool: pool})
 	}
