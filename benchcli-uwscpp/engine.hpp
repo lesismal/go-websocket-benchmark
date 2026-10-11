@@ -74,7 +74,7 @@ struct Shared {
         int rate=std::max(1,o.integer("rr"));
         unlimitedRate=o.integer("rr")==0;
         batch=o.integer("rpl")>0?o.integer("rpl"):int(o.integer("rbs")/frames[0].size());
-        batch=std::max(1,std::min(rate,batch));
+        batch=std::max(1,unlimitedRate?batch:std::min(rate,batch));
         if (o.integer("rl")>0) batch=std::min(batch,o.integer("rl"));
         if (!unlimitedRate) while (rate%batch) --batch;
         for (int i=0;i<batch;++i) batchFrame+=frames[0];
