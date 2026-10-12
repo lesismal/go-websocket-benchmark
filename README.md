@@ -312,7 +312,7 @@ and a report written before the column existed gets it from there when it is
 read again.
 
 The run's parameters - `Client`, `Pool`, `Conns`, `Payload`, and each
-benchmark's concurrency, `Echo Total`, `Rate Duration`, `Rate SendRate` and `Rate Pipeline` (messages per write, `-rpl`) - are
+benchmark's concurrency, `Echo Total`, `Rate Duration`, `Rate SendRate` (`-rr`, messages per connection per second; 0, the default, is unlimited) and `Rate Pipeline` (messages per write, `-rpl`) - are
 not columns of the three tables: they are the Summary table printed in front of
 them and written to `Summary.md` next to them, left-aligned, with a
 `Description` column saying what each one is. `Pool` names only the pools that

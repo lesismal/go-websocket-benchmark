@@ -228,7 +228,9 @@ func (be *BenchEcho) init() {
 	}
 
 	if be.Limit > 0 {
-		limiter := rate.NewLimiter(rate.Every(1*time.Second), be.Limit)
+		// Limit round trips a second, starting with a second's worth, as
+		// the other clients' buckets do.
+		limiter := rate.NewLimiter(rate.Limit(be.Limit), be.Limit)
 		be.limitFn = func() {
 			limiter.Wait(context.Background())
 		}

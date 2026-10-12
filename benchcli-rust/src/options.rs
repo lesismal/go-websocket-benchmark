@@ -39,7 +39,7 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("rate", "false"),
     ("rc", "10000"),
     ("rd", "10"),
-    ("rr", "200"),
+    ("rr", "0"),
     ("rbs", "16384"),
     ("rpl", "0"),
     ("rl", "0"),
@@ -200,7 +200,10 @@ impl Options {
             println!("  -{k}={v}");
         }
         println!(
-            "-sort: report row order: result (default) ranks the best result first, framework keeps\n\
+            "-rr: BenchPipeline messages a connection is sent a second; 0 is unlimited: each sends its\n\
+             \x20    batch as fast as the connection takes it, for a server-side ceiling rather than\n\
+             \x20    the client's send rate.\n\
+             -sort: report row order: result (default) ranks the best result first, framework keeps\n\
              \x20      the config.FrameworkList order. Both carry the same rows and numbers.\n\
              -ps: where the server's CPU and MEM samples come from: auto samples the server here when\n\
              \x20    it runs on this machine and asks it over HTTP when it does not, local always samples\n\

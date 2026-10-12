@@ -9,6 +9,7 @@
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <tuple>
 #include <cctype>
 #include <random>
 #include <vector>
@@ -35,6 +36,23 @@ struct TokenBucket {
         tokens=std::min(double(limit),tokens+double(now-last)*limit/1e9); last=now;
         if (tokens<n) return false;
         tokens-=n; return true;
+    }
+};
+// A worker's share of -rl in Rate: rate messages per second, with a one-second burst to start;
+// a rate of 0 is no limit. The worker's own rather than one bucket all of them ask in turn,
+// which hands each refill to whichever worker happens to ask first. A share smaller than a
+// batch sends one once the bucket is full and owes the rest, so it neither starves nor
+// exceeds its share over time.
+struct RateBucket {
+    double rate=0,tokens=0;
+    int64_t last=0;
+    void reset(double r) {rate=r;tokens=r;last=nowNs();}
+    bool take(int n) {
+        if (rate==0) return true;
+        auto now=nowNs();
+        tokens=std::min(rate,tokens+double(now-last)*rate/1e9);last=now;
+        if (tokens<std::min(double(n),rate)) return false;
+        tokens-=n;return true;
     }
 };
 struct Stats {
@@ -101,7 +119,14 @@ struct DialEvent {
     bool retry;
     bool operator<(const DialEvent &v) const {return due>v.due;}
 };
-struct Team { std::vector<Connection *> conns; };
+// cursor, left and due are where the team is in sending its current batch round: the member
+// it goes on from, how many members it has still to visit, and when the round is due (the
+// interval schedule, which a refused round keeps falling behind). -rl refusing a member leaves
+// the round unfinished, to be taken up from that member on the next tick rather than dropped
+// until the next interval: every worker then asks the shared bucket each tick while it is
+// short, not once an interval, so the tokens do not all go to whichever worker happens to ask
+// first, and the members after the refused one are not the ones that always miss out.
+struct Team { std::vector<Connection *> conns; size_t cursor=0,left=0; int64_t due=0; };
 struct Worker {
     const Options &options;
     Shared &shared;
@@ -111,6 +136,9 @@ struct Worker {
     std::string host;
     // Written by main only while this worker is done with its previous stage.
     int echoConcurrency=0,rateConcurrency=0;
+    // This worker's share of -rl, messages per second; 0 is no limit.
+    double rateLimit=0;
+    RateBucket rateBucket;
     int64_t target=0;
     std::atomic<int> done{0},live{0};
     Stats dialStats,echoStats,rateStats;
@@ -127,8 +155,12 @@ struct Worker {
     std::list<Connection *> outstanding;
     std::priority_queue<DialEvent> dialEvents;
     std::vector<Team> teams;
-    using TeamEvent=std::pair<int64_t,size_t>;
+    // (at, served, seq, team): when the team is next looked at. One -rl refused (served false)
+    // goes before the ones it did not at the same time, so the teams take turns at the tokens;
+    // seq keeps the rest in the order they went last time.
+    using TeamEvent=std::tuple<int64_t,bool,uint64_t,size_t>;
     std::priority_queue<TeamEvent,std::vector<TeamEvent>,std::greater<TeamEvent>> teamEvents;
+    uint64_t teamSeq=0;
     std::mt19937_64 random{std::random_device{}()};
     Worker(const Options &o,Shared &s,int i,int n,int c,int dc):options(o),shared(s),id(i),workerCount(n),count(c),dialConcurrency(dc),
         checkValid(o.boolean("check")),enableTPN(o.boolean("tpn")),
@@ -355,7 +387,8 @@ inline void Worker::beginStage(int nextStage) {
         // and leaves time for the final echoes to arrive before its snapshot.
         // Unlimited has no interval: the batches go out as fast as the
         // connections drain them, so only the start event is queued.
-        for (size_t j=0;j<teams.size();++j) teamEvents.push({shared.rateStart,j});
+        for (size_t j=0;j<teams.size();++j) {teams[j].due=shared.rateStart;teamEvents.push({shared.rateStart,true,teamSeq++,j});}
+        rateBucket.reset(rateLimit);
     }
 }
 inline void Worker::tick() {
@@ -388,16 +421,23 @@ inline void Worker::tick() {
         int rate=sendRate;
         auto interval=std::max<int64_t>(1,1'000'000'000LL*shared.batch/rate);
         auto sendThrough=shared.unlimitedRate?now:std::min(now,shared.rateEnd-1);
-        while (!teamEvents.empty() && teamEvents.top().first<=sendThrough) {
-            auto event=teamEvents.top();teamEvents.pop();
-            for (auto *c:teams[event.second].conns) {
+        // Set once -rl refuses a batch: every batch is the same size, so the rest of this pass
+        // would be refused too and is not offered the bucket.
+        bool throttled=false;
+        while (!teamEvents.empty() && std::get<0>(teamEvents.top())<=sendThrough) {
+            auto j=std::get<3>(teamEvents.top());teamEvents.pop();
+            auto &team=teams[j];
+            if (!team.left) team.left=team.conns.size();
+            bool refused=false;
+            for (;team.left;team.cursor=(team.cursor+1)%team.conns.size(),--team.left) {
+                auto *c=team.conns[team.cursor];
                 if (!c->ready || !c->pending.empty() || c->sent-c->received+shared.batch>=int64_t(shared.batch)*5) continue;
-                if (!shared.limiter.take(shared.batch)) continue;
+                if (throttled || !rateBucket.take(shared.batch)) {throttled=refused=true;break;}
                 write(*c,shared.batchFrame);
                 if (c->ready) {c->sent+=shared.batch;rateStats.sent+=shared.batch;}
             }
-            teamEvents.push(shared.unlimitedRate?std::make_pair(now+1,event.second)
-                                               :std::make_pair(std::max(event.first+interval,now+1),event.second));
+            if (!refused) team.due=shared.unlimitedRate?now+1:std::max(team.due+interval,now+1);
+            teamEvents.push({refused?now+1:team.due,!refused,teamSeq++,j});
         }
         if (now>=shared.rateEnd) done.store(Rate,std::memory_order_release);
     }

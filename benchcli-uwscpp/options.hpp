@@ -37,7 +37,7 @@ struct Options {
         {"c","10000"}, {"dc","2000"}, {"dt","5s"}, {"dr","5"}, {"dri","100ms"},
         {"b","1024"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"},
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","false"}, {"epd","5"},
-        {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","200"}, {"rbs","16384"}, {"rpl","0"},
+        {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","0"}, {"rbs","16384"}, {"rpl","0"},
         {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"sort",kSortResult},
         {"preffix",""}, {"suffix",""}, {"project","GO-WEBSOCKET-BENCHMARK"},
         {"threads","0"}, {"io-timeout","30s"}

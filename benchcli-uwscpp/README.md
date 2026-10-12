@@ -61,7 +61,7 @@ Existing Go flags and defaults are accepted (`-flag=value`, `-flag value`, and
 | `-ps` | Where the server's CPU and MEM samples come from: `auto` (default) samples the server process here when it runs on this machine and asks it over `/ps` when it does not, `local` always samples here, `remote` always asks |
 | `-ec`, `-en`, `-el` | Echo concurrency, measured round trips, global messages/second limit |
 | `-ep`, `-epd` | Echo CPU/heap profiles and CPU profile duration in seconds |
-| `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rpl`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second, batch byte budget, messages per write (0 fits as many as `-rbs` holds), global messages/second limit |
+| `-rate`, `-rc`, `-rd`, `-rr`, `-rbs`, `-rpl`, `-rl` | Enable Rate, sending groups, seconds, messages/connection/second (0, the default, is unlimited), batch byte budget, messages per write (0 fits as many as `-rbs` holds), global messages/second limit |
 | `-rp`, `-rpd` | Rate CPU/heap profiles and CPU profile duration in seconds |
 | `-r`, `-preffix`, `-suffix` | Aggregate reports, filename prefix (original spelling), filename suffix |
 | `-project` | The Summary's Project row, naming what the run benchmarks; `GO-WEBSOCKET-BENCHMARK` by default, empty leaves the row out. `script/report.sh` passes `script/config.sh`'s `BENCH_PROJECT` |
