@@ -5,6 +5,10 @@
 # documents. A push has no inputs, so every one of them falls back to the
 # default given in the job's env block.
 #
+# A run is four benchmarks, one job each, at 100, 500, 1000 and 5000
+# connections (the job's strategy below says how BenchPipeline is set for
+# each); smoke runs only the first of them.
+#
 # The benchmark asks for 8 CPUs, which the standard GitHub-hosted runner (a
 # shared 4-CPU VM) does not have. Point the repository variable
 # DOCKER_BENCH_RUNNER (Settings > Secrets and variables > Actions > Variables)
@@ -47,7 +51,7 @@ on:
         type: string
         default: ""
       benchmark_args:
-        description: "Extra benchmark client flags, e.g. -c=10000 -en=2000000 -b=1024"
+        description: "Extra benchmark client flags, e.g. -en=2000000 -b=1024; given to every job, after its own -c, -rr and -rpl, so a -c here makes them all that"
         type: string
         default: ""
       rebuild:
@@ -56,7 +60,8 @@ on:
         default: false
 
 # One benchmark at a time: two of them on the same runner pool measure each
-# other rather than the frameworks. A run already going is left to finish; of
+# other rather than the frameworks (which is also why the jobs below run one
+# after another). A run already going is left to finish; of
 # the ones waiting behind it, GitHub keeps only the newest, so a burst of
 # pushes queues one run for the latest commit rather than one per commit.
 concurrency:
@@ -67,7 +72,30 @@ jobs:
   benchmark:
     # x86_64. ubuntu-latest may move to arm64 runners; this label does not.
     runs-on: ${{ vars.DOCKER_BENCH_RUNNER || 'ubuntu-24.04' }}
+    name: benchmark (${{ matrix.conns }} conns)
     timeout-minutes: 360
+
+    # One job per connection count, one after another, each on a runner of its
+    # own. BenchPipeline is set to offer 10M messages a second at every count
+    # (-c x -rr), more than any framework reads back, so that the fastest one
+    # is held back by neither the rate nor the client's send loop: the
+    # 4-CPU runner's best was 2.06M/s (10000 connections, unlimited -rr), and
+    # on an M-series Mac with the same -cput=4 uws_std read back 7.3M, 6.2M,
+    # 5.1M and 5.1M of these 10M. That loop sends a connection at most one
+    # -rpl batch per 1ms tick and keeps at most 5 batches in flight, which
+    # is why -rpl grows as the count shrinks: -rr <= -rpl x 500 leaves it a
+    # batch every 2ms or more. The default batch (-rbs/frame, 15 at 1KiB)
+    # would cap 100 connections at 1.5M/s even at an unlimited -rr. -rr must
+    # also be a multiple of -rpl, or the clients shrink the batch until it is.
+    #   conns     -rr   -rpl  batches/s/conn  in flight
+    #     100  100000   200        500         100000
+    #     500   20000    40        500         100000
+    #    1000   10000    20        500         100000
+    #    5000    2000    20        100         500000
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON((inputs.mode || 'full') == 'smoke' && '{"include":[{"conns":100,"rr":100000,"rpl":200}]}' || '{"include":[{"conns":100,"rr":100000,"rpl":200},{"conns":500,"rr":20000,"rpl":40},{"conns":1000,"rr":10000,"rpl":20},{"conns":5000,"rr":2000,"rpl":20}]}') }}
 
     # The inputs with a push's defaults filled in; a dispatch passes its own.
     # BENCH_CPUS is what was asked for; the runner check sets BENCH_RUN_CPUS
@@ -121,7 +149,10 @@ jobs:
           INPUT_REBUILD: ${{ inputs.rebuild || false }}
           # A fixed directory instead of the script's timestamped one, so the
           # upload and summary steps below know where the run landed.
-          DOCKER_BENCH_OUTPUT: ${{ github.workspace }}/output/docker/ci
+          DOCKER_BENCH_OUTPUT: ${{ github.workspace }}/output/docker/ci-c${{ matrix.conns }}
+          MATRIX_CONNS: ${{ matrix.conns }}
+          MATRIX_RR: ${{ matrix.rr }}
+          MATRIX_RPL: ${{ matrix.rpl }}
         run: |
           set -euo pipefail
 
@@ -140,6 +171,9 @@ jobs:
           bench_command=(bash script/docker_benchmark.sh)
           if [ "$INPUT_MODE" = smoke ]; then bench_command+=(--smoke); fi
           if [ "$INPUT_REBUILD" = true ]; then bench_command+=(--rebuild); fi
+          # This job's connection count and BenchPipeline rate, after smoke's
+          # own flags and before the input's, so that one given there wins.
+          bench_command+=("-c=$MATRIX_CONNS" "-rr=$MATRIX_RR" "-rpl=$MATRIX_RPL")
           # Split on purpose: this input carries several client flags.
           if [ -n "$INPUT_BENCHMARK_ARGS" ]; then
             read -r -a extra_args <<< "$INPUT_BENCHMARK_ARGS"
@@ -152,7 +186,7 @@ jobs:
       - name: Write the report to the job summary
         if: always()
         run: |
-          result_dir=output/docker/ci
+          result_dir=output/docker/ci-c${{ matrix.conns }}
           run_cpus=${BENCH_RUN_CPUS:-$BENCH_CPUS}
           if [ "$run_cpus" = "$BENCH_CPUS" ]; then
             cpu_note="CPUs: $run_cpus"
@@ -164,6 +198,8 @@ jobs:
             echo "Benchmark $cpu_note" >> "$result_dir/resources.txt"
           fi
           {
+            echo "# ${{ matrix.conns }} connections"
+            echo
             echo "**$cpu_note**"
             echo
             if [ -f "$result_dir/resources.txt" ]; then
@@ -191,7 +227,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: docker-benchmark-${{ env.BENCH_MODE }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: output/docker/ci
+          name: docker-benchmark-${{ env.BENCH_MODE }}-c${{ matrix.conns }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/docker/ci-c${{ matrix.conns }}
           if-no-files-found: warn
           retention-days: 30
