@@ -14,7 +14,7 @@ mod report;
 mod stream;
 mod upgrade;
 
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -88,6 +88,7 @@ impl Runner {
                 dial_concurrency: share(dc),
                 echo_concurrency: AtomicI32::new(0),
                 rate_concurrency: AtomicI32::new(0),
+                rate_limit: AtomicU64::new(0),
                 target: AtomicI64::new(0),
                 dial_stats: Mutex::new(Stats::default()),
                 echo_stats: Mutex::new(Stats::default()),
@@ -195,6 +196,25 @@ impl Runner {
             quota.store(*g, Ordering::Release);
         }
         wanted - remaining
+    }
+
+    // Divides -rl over the workers by their live connections, each to send its share from a
+    // bucket of its own; 0 leaves them all unlimited.
+    fn share_rate_limit(&self, limit: i32) {
+        let live: Vec<i32> = self
+            .ctls
+            .iter()
+            .map(|c| c.live.load(Ordering::Acquire))
+            .collect();
+        let total: i32 = live.iter().sum();
+        for (c, l) in self.ctls.iter().zip(&live) {
+            let share = if limit > 0 && total > 0 {
+                limit as f64 * *l as f64 / total as f64
+            } else {
+                0.0
+            };
+            c.rate_limit.store(share.to_bits(), Ordering::Release);
+        }
     }
 
     fn echo(&self, stage: i32, total: i64, concurrency: i32, limit: i32) -> Result<(), String> {
@@ -349,7 +369,7 @@ fn benchmark(o: &Options) -> Result<i32, String> {
             rc => rc,
         };
         let rate_concurrency = runner.allocate(rc, true);
-        runner.shared.limiter.reset(o.i("rl"));
+        runner.share_rate_limit(o.i("rl"));
         let seconds = match o.i("rd") {
             0 => 10,
             s => s,
@@ -371,7 +391,14 @@ fn benchmark(o: &Options) -> Result<i32, String> {
         rate.insert("Conns".into(), json!(dial.success));
         rate.insert("Concurrency".into(), json!(rate_concurrency));
         rate.insert("Pipeline".into(), json!(runner.shared.batch));
-        rate.insert("SendRate".into(), json!(o.i("rr").max(1)));
+        rate.insert(
+            "SendRate".into(),
+            json!(if runner.shared.unlimited_rate {
+                0
+            } else {
+                o.i("rr").max(1)
+            }),
+        );
         rate.insert("Payload".into(), json!(payload));
         rate.insert(
             "RatePprof".into(),

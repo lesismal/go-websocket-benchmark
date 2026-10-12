@@ -36,8 +36,8 @@
 //            longer than -io-timeout closes its connection and counts as failed
 //   Rate     the live connections divided into -rc groups, each group's connections sent one
 //            batch of Pipeline frames - Shared::batch_frame, written as one - every
-//            Pipeline/-rr seconds, a connection skipped while its last batch is still being
-//            written or five batches are unanswered
+//            Pipeline/-rr seconds (every tick with -rr=0), a connection skipped while its last
+//            batch is still being written or five batches are unanswered
 //
 // -el and -rl are a token bucket shared by every worker.
 use std::cell::RefCell;
@@ -45,7 +45,7 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 use std::net::{IpAddr, SocketAddr};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::task::Poll;
 use std::time::{Duration, Instant};
@@ -145,6 +145,44 @@ impl TokenBucket {
     }
 }
 
+// A worker's share of -rl in Rate: rate messages per second, with a one-second burst to start;
+// a rate of 0 is no limit. The worker's own rather than one bucket all of them ask in turn,
+// which hands each refill to whichever worker happens to ask first. A share smaller than a
+// batch sends one once the bucket is full and owes the rest, so it neither starves nor
+// exceeds its share over time.
+#[derive(Default)]
+struct RateBucket {
+    rate: f64,
+    tokens: f64,
+    last: i64,
+}
+
+impl RateBucket {
+    fn reset(&mut self, rate: f64) {
+        *self = RateBucket {
+            rate,
+            tokens: rate,
+            last: now_ns(),
+        };
+    }
+
+    fn take(&mut self, n: i32) -> bool {
+        if self.rate == 0.0 {
+            return true;
+        }
+        let now = now_ns();
+        self.tokens = self
+            .rate
+            .min(self.tokens + (now - self.last) as f64 * self.rate / 1e9);
+        self.last = now;
+        if self.tokens < (n as f64).min(self.rate) {
+            return false;
+        }
+        self.tokens -= n as f64;
+        true
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Stats {
     pub success: i64,
@@ -173,6 +211,8 @@ pub struct Shared {
     pub batch_frame: &'static [u8],
     // Messages per write in Rate: the report's Pipeline.
     pub batch: i32,
+    // -rr=0: every connection is sent its batch as fast as it takes them, with no interval.
+    pub unlimited_rate: bool,
     pub rate_start: AtomicI64,
     pub rate_end: AtomicI64,
 }
@@ -201,6 +241,9 @@ impl Shared {
             .collect();
         // Messages per write, as protocol.Pipeline picks them: -rpl when set, or else as many as
         // -rbs bytes of frames hold; at least one, at most -rr and -rl, and a divisor of -rr.
+        // -rr=0 is unlimited: every connection sends its batch as fast as it can, so the run
+        // measures the server's ceiling rather than the client's send rate. There is no rate
+        // to divide then, so only -rpl and -rl bound the batch.
         let frame_len = size
             + 6
             + if size < 126 {
@@ -211,17 +254,23 @@ impl Shared {
                 8
             };
         let rate = o.i("rr").max(1);
+        let unlimited_rate = o.i("rr") == 0;
         let mut batch = if o.i("rpl") > 0 {
             o.i("rpl")
         } else {
             (o.i("rbs") as usize / frame_len) as i32
         };
-        batch = batch.min(rate).max(1);
+        if !unlimited_rate {
+            batch = batch.min(rate);
+        }
+        batch = batch.max(1);
         if o.i("rl") > 0 {
             batch = batch.min(o.i("rl"));
         }
-        while rate % batch != 0 {
-            batch -= 1;
+        if !unlimited_rate {
+            while rate % batch != 0 {
+                batch -= 1;
+            }
         }
         let batch_frame = Box::leak(frames[0].repeat(batch as usize).into_boxed_slice());
         Ok(Shared {
@@ -232,6 +281,7 @@ impl Shared {
             frames,
             batch_frame,
             batch,
+            unlimited_rate,
             rate_start: AtomicI64::new(0),
             rate_end: AtomicI64::new(0),
         })
@@ -246,6 +296,8 @@ pub struct WorkerCtl {
     pub dial_concurrency: i32,
     pub echo_concurrency: AtomicI32,
     pub rate_concurrency: AtomicI32,
+    // The worker's share of -rl, in messages per second as f64 bits; 0 is no limit.
+    pub rate_limit: AtomicU64,
     pub target: AtomicI64,
     pub dial_stats: Mutex<Stats>,
     pub echo_stats: Mutex<Stats>,
@@ -325,7 +377,27 @@ struct State {
     outstanding_tail: usize,
     outstanding: usize,
     teams: Vec<Vec<usize>>,
-    team_events: BinaryHeap<Reverse<(i64, usize)>>,
+    team_passes: Vec<TeamPass>,
+    // (at, served, seq, team): when the team is next looked at. One -rl refused (served false)
+    // goes before the ones it did not at the same time, so the teams take turns at the tokens;
+    // seq keeps the rest in the order they went last time.
+    team_events: BinaryHeap<Reverse<(i64, bool, u64, usize)>>,
+    team_seq: u64,
+    rate_bucket: RateBucket,
+}
+
+// Where a team is in sending its current batch round. -rl refusing a member leaves the round
+// unfinished, to be taken up from that member on the next tick rather than dropped until the
+// next interval: every worker then asks the shared bucket each tick while it is short, not once
+// an interval, so the tokens do not all go to whichever worker happens to ask first, and the
+// members after the refused one are not the ones that always miss out.
+#[derive(Clone, Copy, Default)]
+struct TeamPass {
+    // The member the round goes on from, and how many of the members it has still to visit.
+    cursor: usize,
+    left: usize,
+    // When the round is due: the interval schedule, which a refused round keeps falling behind.
+    due: i64,
 }
 
 pub struct Worker {
@@ -404,7 +476,10 @@ impl Worker {
                 outstanding_tail: NIL,
                 outstanding: 0,
                 teams: Vec::new(),
+                team_passes: Vec::new(),
                 team_events: BinaryHeap::new(),
+                team_seq: 0,
+                rate_bucket: RateBucket::default(),
             },
         }
     }
@@ -884,7 +959,19 @@ impl State {
             // one-second run therefore sends one full second's quota and leaves time for the
             // last echoes to arrive before its snapshot.
             let start = self.shared.rate_start.load(Ordering::Acquire);
-            self.team_events = (0..n).map(|j| Reverse((start, j))).collect();
+            self.team_passes = vec![
+                TeamPass {
+                    due: start,
+                    ..TeamPass::default()
+                };
+                n
+            ];
+            self.team_events = (0..n)
+                .map(|j| Reverse((start, true, j as u64, j)))
+                .collect();
+            self.team_seq = n as u64;
+            let rate_limit = f64::from_bits(self.ctl.rate_limit.load(Ordering::Acquire));
+            self.rate_bucket.reset(rate_limit);
         }
     }
 
@@ -915,35 +1002,63 @@ impl State {
             let batch = self.shared.batch;
             let interval = (1_000_000_000i64 * batch as i64 / self.send_rate as i64).max(1);
             let rate_end = self.shared.rate_end.load(Ordering::Acquire);
-            let send_through = now.min(rate_end - 1);
-            let limiter = self.shared.clone();
+            let unlimited = self.shared.unlimited_rate;
+            let send_through = if unlimited {
+                now
+            } else {
+                now.min(rate_end - 1)
+            };
+            // Set once -rl refuses a batch: every batch is the same size, so the rest of this
+            // pass would be refused too and is not offered the bucket.
+            let mut throttled = false;
             while self
                 .team_events
                 .peek()
-                .is_some_and(|Reverse((due, _))| *due <= send_through)
+                .is_some_and(|Reverse((due, ..))| *due <= send_through)
             {
-                let Reverse((due, team)) = self.team_events.pop().unwrap();
+                let Reverse((_, _, _, team)) = self.team_events.pop().unwrap();
                 let members = std::mem::take(&mut self.teams[team]);
-                for &i in &members {
+                let mut pass = self.team_passes[team];
+                if pass.left == 0 {
+                    pass.left = members.len();
+                }
+                let mut refused = false;
+                while pass.left > 0 {
+                    let i = members[pass.cursor];
                     let slot = &self.slots[i];
-                    if !slot.ready
-                        || slot.writing
-                        || slot.sent - slot.received + batch as i64 >= batch as i64 * 5
+                    if slot.ready
+                        && !slot.writing
+                        && slot.sent - slot.received + (batch as i64) < batch as i64 * 5
                     {
-                        continue;
+                        if throttled || !self.rate_bucket.take(batch) {
+                            throttled = true;
+                            refused = true;
+                            break;
+                        }
+                        self.slots[i].writing = true;
+                        if self.send(i, Cmd::Batch) {
+                            self.slots[i].sent += batch as i64;
+                            self.rate_stats.sent += batch as i64;
+                        }
                     }
-                    if !limiter.limiter.take(batch) {
-                        continue;
-                    }
-                    self.slots[i].writing = true;
-                    if self.send(i, Cmd::Batch) {
-                        self.slots[i].sent += batch as i64;
-                        self.rate_stats.sent += batch as i64;
-                    }
+                    pass.cursor = (pass.cursor + 1) % members.len();
+                    pass.left -= 1;
                 }
                 self.teams[team] = members;
+                let next = if refused {
+                    now + 1
+                } else {
+                    pass.due = if unlimited {
+                        now + 1
+                    } else {
+                        (pass.due + interval).max(now + 1)
+                    };
+                    pass.due
+                };
+                self.team_passes[team] = pass;
                 self.team_events
-                    .push(Reverse(((due + interval).max(now + 1), team)));
+                    .push(Reverse((next, !refused, self.team_seq, team)));
+                self.team_seq += 1;
             }
             if now >= rate_end {
                 *self.ctl.rate_stats.lock().unwrap() = std::mem::take(&mut self.rate_stats);

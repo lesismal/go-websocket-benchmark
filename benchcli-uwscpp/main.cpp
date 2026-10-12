@@ -76,6 +76,12 @@ struct Runner {
         }
         return wanted-remaining;
     }
+    // Divides -rl over the workers by their live connections, each to send its share from a
+    // bucket of its own; 0 leaves them all unlimited.
+    void shareRateLimit(int limit) {
+        int total=0;for (auto &w:workers) total+=w->live.load();
+        for (auto &w:workers) w->rateLimit=limit>0 && total>0?double(limit)*w->live.load()/total:0;
+    }
     void echo(int stage,int64_t total,int concurrency,int limit) {
         int64_t assigned=0,quota=0;
         for (auto &w:workers) {
@@ -160,7 +166,7 @@ int benchmark(const Options &o) {
     if (o.boolean("rate")) {
         int rc=o.integer("rc");if(!rc)rc=50000;
         int rateConcurrency=runner.allocate(rc,true);
-        runner.shared.limiter.reset(o.integer("rl"));
+        runner.shareRateLimit(o.integer("rl"));
         int seconds=o.integer("rd");if(!seconds)seconds=10;
         runner.shared.rateStart=nowNs();runner.shared.rateEnd=runner.shared.rateStart+int64_t(seconds)*1'000'000'000;
         auto rateProfile=profile(o,"BenchPipeline",o.boolean("rp"),std::max(1,o.integer("rpd")));

@@ -70,6 +70,10 @@ type Conn struct {
 	net.Conn
 	sendCnt int64
 	recvCnt int64
+	// wake is the team's, set only when unlimited: a reply signals it so that
+	// a team whose connections were all at their in-flight bound wakes
+	// instead of polling them. Shared by the team, buffered by one.
+	wake chan struct{}
 }
 
 func New(framework string, serverPid int, ip string, options *websocket.Options, connsMap map[*websocket.Conn]struct{}, checkValid bool) *BenchPipeline {
@@ -114,12 +118,19 @@ func (br *BenchPipeline) Run() {
 	wg := sync.WaitGroup{}
 
 	connTeams := make([][]*Conn, br.Concurrency)
+	teamWakes := make([]chan struct{}, br.Concurrency)
+	if br.unlimited {
+		for i := range teamWakes {
+			teamWakes[i] = make(chan struct{}, 1)
+		}
+	}
 	cnt := 0
 	for wsc := range br.ConnsMap {
 		cnt++
 		idx := cnt % len(connTeams)
 		conn := &Conn{
 			Conn: wsc.Conn,
+			wake: teamWakes[idx],
 		}
 		connTeams[idx] = append(connTeams[idx], conn)
 		wsc.SetSession(conn)
@@ -131,20 +142,30 @@ func (br *BenchPipeline) Run() {
 
 	for i := 0; i < br.Concurrency; i++ {
 		wg.Add(1)
-		conns := connTeams[i]
+		conns, wake := connTeams[i], teamWakes[i]
 		go func() {
 			defer wg.Done()
 			if br.unlimited {
 				// Unlimited: no tick to wait for, so one goroutine sends its
 				// team's batches as fast as the connections take them. Same
-				// in-flight bound as doOnce has for a rate.
+				// in-flight bound as doOnce has for a rate. A pass that sent
+				// nothing waits for a reply rather than polling again: with
+				// -rc goroutines that would spin the client's CPUs, which
+				// also read the replies.
 				for {
+					if br.doOnce(conns) {
+						select {
+						case <-done:
+							return
+						default:
+						}
+						continue
+					}
 					select {
 					case <-done:
 						return
-					default:
+					case <-wake:
 					}
-					br.doOnce(conns)
 				}
 			}
 			ticker := time.NewTicker(time.Second / time.Duration(br.tickRate))
@@ -242,7 +263,8 @@ func (br *BenchPipeline) init() {
 	if br.Concurrency > len(br.ConnsMap) {
 		br.Concurrency = len(br.ConnsMap)
 	}
-	if br.SendRate <= 0 {
+	// 0 is unlimited; see unlimited.
+	if br.SendRate < 0 {
 		br.SendRate = 1
 	}
 	if br.Payload <= 0 {
@@ -264,7 +286,9 @@ func (br *BenchPipeline) init() {
 	}
 
 	if br.SendLimit > 0 {
-		limiter := rate.NewLimiter(rate.Every(1*time.Second), br.SendLimit)
+		// SendLimit messages a second, starting with a second's worth, as
+		// the other clients' buckets do.
+		limiter := rate.NewLimiter(rate.Limit(br.SendLimit), br.SendLimit)
 		br.limitFn = func() {
 			limiter.WaitN(context.Background(), len(br.batchBuffer)/br.Payload)
 		}
@@ -295,7 +319,10 @@ func (br *BenchPipeline) getWriteBuffer() []byte {
 	return br.wbuffer
 }
 
-func (br *BenchPipeline) doOnce(conns []*Conn) {
+// doOnce sends a batch to each of conns below its in-flight bound, and
+// reports whether it sent any.
+func (br *BenchPipeline) doOnce(conns []*Conn) bool {
+	sent := false
 	for _, conn := range conns {
 		if atomic.LoadInt64(&conn.sendCnt)-atomic.LoadInt64(&conn.recvCnt)+int64(br.batch) < int64(br.batch*5) {
 			br.limitFn()
@@ -304,24 +331,25 @@ func (br *BenchPipeline) doOnce(conns []*Conn) {
 				atomic.AddInt64(&br.sendTimes, int64(br.batch))
 				atomic.AddInt64(&br.sendBytes, int64(br.batch*br.Payload))
 				atomic.AddInt64(&conn.sendCnt, int64(br.batch))
+				sent = true
 			}
 		}
 	}
+	return sent
 }
 
 func (br *BenchPipeline) onMessage(c *websocket.Conn, mt websocket.MessageType, b []byte) {
-	if !br.checkValid {
-		conn := c.Session().(*Conn)
-		atomic.AddInt64(&conn.recvCnt, 1)
-		atomic.AddInt64(&br.recvTimes, 1)
-		atomic.AddInt64(&br.recvBytes, int64(len(b)))
+	if br.checkValid && (mt != websocket.BinaryMessage || !bytes.Equal(b, br.getWriteBuffer())) {
 		return
 	}
-
-	if mt == websocket.BinaryMessage && bytes.Equal(b, br.getWriteBuffer()) {
-		conn := c.Session().(*Conn)
-		atomic.AddInt64(&conn.recvCnt, 1)
-		atomic.AddInt64(&br.recvTimes, 1)
-		atomic.AddInt64(&br.recvBytes, int64(len(b)))
+	conn := c.Session().(*Conn)
+	atomic.AddInt64(&conn.recvCnt, 1)
+	atomic.AddInt64(&br.recvTimes, 1)
+	atomic.AddInt64(&br.recvBytes, int64(len(b)))
+	if conn.wake != nil {
+		select {
+		case conn.wake <- struct{}{}:
+		default:
+		}
 	}
 }

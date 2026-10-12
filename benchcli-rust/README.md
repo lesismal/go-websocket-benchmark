@@ -23,7 +23,7 @@ so that the two native clients put the same load on a server:
   at most `-ec` outstanding at once, rotating through the idle connections. A response that takes
   longer than `-io-timeout` closes its connection and counts as failed.
 - **BenchPipeline**: the live connections divided into `-rc` groups, each sent a batch of `Pipeline`
-  frames every `Pipeline/-rr` seconds - `-rpl` frames, or as many as `-rbs` bytes hold, written
+  frames every `Pipeline/-rr` seconds (every tick with `-rr=0`, the default: unlimited) - `-rpl` frames, or as many as `-rbs` bytes hold, written
   as one - with a connection skipped while its last batch is still being written or five batches
   are unanswered.
 
