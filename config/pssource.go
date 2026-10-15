@@ -53,6 +53,10 @@ type PSSource interface {
 	// samples which did arrive are still reported: an error here means the
 	// resource columns are incomplete, not that they are all missing.
 	PsInfo() (*perf.PSCounter, error)
+	// Mark starts the measured phase: from then on PsInfo returns only the
+	// samples taken after it. Without it a phase's columns would also average
+	// in whatever ran before it - the warmup, or an earlier benchmark.
+	Mark()
 	// Stop releases whatever the source holds.
 	Stop()
 	// String says where the numbers came from, for the run's log.
@@ -64,16 +68,57 @@ type PSSource interface {
 type RemotePSSource struct {
 	Framework string
 	IP        string
+
+	// How many samples the server had at Mark, which PsInfo leaves out.
+	mark psMark
 }
 
 func (r *RemotePSSource) PsInfo() (*perf.PSCounter, error) {
-	return GetFrameworkPsInfo(r.Framework, r.IP)
+	counter, err := GetFrameworkPsInfo(r.Framework, r.IP)
+	if counter == nil {
+		return nil, err
+	}
+	counter = r.mark.since(counter)
+	if err == nil && len(counter.RetCPU) == 0 {
+		err = fmt.Errorf("%v: no CPU samples since the phase started, so it was shorter than"+
+			" the -pi sampling interval", r.Framework)
+	}
+	return counter, err
+}
+
+// Mark asks the server how many samples it has so far. The server's sampler
+// starts once, at /init, and cannot be restarted, so the phase is cut out of
+// its samples here instead. A failed request leaves the mark where it was:
+// the columns then cover more than the phase rather than nothing.
+func (r *RemotePSSource) Mark() {
+	counter, _ := GetFrameworkPsInfo(r.Framework, r.IP)
+	if counter == nil {
+		logging.Printf("%v: cannot read the server's samples at the start of the phase;"+
+			" its CPU and MEM columns include what ran before it", r.Framework)
+		return
+	}
+	r.mark = psMark{cpu: len(counter.RetCPU), mem: len(counter.RetMEM)}
 }
 
 func (r *RemotePSSource) Stop() {}
 
 func (r *RemotePSSource) String() string {
 	return fmt.Sprintf("sampled by the server, read from %v over /ps", r.IP)
+}
+
+// psMark is how many CPU and MEM samples a source held when a phase started.
+type psMark struct{ cpu, mem int }
+
+// since is counter without the samples taken before the mark.
+func (m psMark) since(counter *perf.PSCounter) *perf.PSCounter {
+	out := &perf.PSCounter{}
+	if m.cpu < len(counter.RetCPU) {
+		out.RetCPU = counter.RetCPU[m.cpu:]
+	}
+	if m.mem < len(counter.RetMEM) {
+		out.RetMEM = counter.RetMEM[m.mem:]
+	}
+	return out
 }
 
 // PSSetup is what a client needs once it has settled how the server's

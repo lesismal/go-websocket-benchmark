@@ -96,7 +96,7 @@ Environment overrides:
 Examples:
   bash script/docker_benchmark.sh --smoke
   BENCH_FRAMEWORKS=gorilla,nbio_nonblocking \
-    bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=1024 -rate=true
+    bash script/docker_benchmark.sh -c=10000 -en=2000000 -b=256 -rate=true
   DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
     bash script/docker_benchmark.sh
   bash script/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6

@@ -32,11 +32,17 @@ inline constexpr const char *kPSModeRemote="remote";
 inline constexpr const char *kSortResult="result";
 inline constexpr const char *kSortFramework="framework";
 
+// What one client runs; -phase takes these names. Mirrors report.PhaseAll, PhaseEcho and
+// PhasePipeline in benchcli-go: the drivers run "echo", restart the server, then "pipeline".
+inline constexpr const char *kPhaseAll="all";
+inline constexpr const char *kPhaseEcho="echo";
+inline constexpr const char *kPhasePipeline="pipeline";
+
 struct Options {
     std::map<std::string, std::string> values = {
         {"nodelay","true"}, {"m","4294967296"}, {"f","nbio_std"}, {"ip","127.0.0.1"},
         {"c","10000"}, {"dc","2000"}, {"dt","5s"}, {"dr","5"}, {"dri","100ms"},
-        {"b","1024"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"},
+        {"b","256"}, {"check","false"}, {"pi","1000"}, {"ps",kPSModeAuto}, {"tpn","true"}, {"phase",kPhaseAll},
         {"ec","10000"}, {"en","2000000"}, {"el","0"}, {"ep","false"}, {"epd","5"},
         {"rate","false"}, {"rc","10000"}, {"rd","10"}, {"rr","0"}, {"rbs","16384"}, {"rpl","0"},
         {"rl","0"}, {"rp","false"}, {"rpd","5"}, {"r","false"}, {"sort",kSortResult},
@@ -114,6 +120,9 @@ struct Options {
         if (get("ps")!=kPSModeAuto && get("ps")!=kPSModeLocal && get("ps")!=kPSModeRemote)
             throw std::runtime_error("unsupported -ps value "+get("ps")+" (want "+kPSModeAuto+", "+
                                      kPSModeLocal+" or "+kPSModeRemote+")");
+        if (get("phase")!=kPhaseAll && get("phase")!=kPhaseEcho && get("phase")!=kPhasePipeline)
+            throw std::runtime_error("unsupported -phase value "+get("phase")+" (want "+kPhaseAll+", "+
+                                     kPhaseEcho+" or "+kPhasePipeline+")");
         if (get("sort")!=kSortResult && get("sort")!=kSortFramework)
             throw std::runtime_error("unsupported -sort value "+get("sort")+" (want "+kSortResult+
                                      " or "+kSortFramework+")");
@@ -130,6 +139,10 @@ struct Options {
                      "-ps: where the server's CPU and MEM samples come from: auto samples the server here when\n"
                      "     it runs on this machine and asks it over HTTP when it does not, local always samples\n"
                      "     here, remote always asks.\n"
+                     "-phase: what this client runs: all (Connections and BenchEcho, then BenchPipeline\n"
+                     "        with -rate), echo (Connections and BenchEcho) or pipeline (BenchPipeline only,\n"
+                     "        on connections it does not report). The drivers run echo, restart the server,\n"
+                     "        then pipeline.\n"
                      "-threads: native event-loop threads (0: available CPUs, capped by concurrency).\n"
                      "-io-timeout: maximum echo response wait; -dt: TCP + upgrade timeout.\n"
                      "-m: native memory limit in bytes (Linux: address space; macOS: sampled RSS; 0: unlimited).\n";

@@ -583,6 +583,8 @@ fn command_line_table(o: &Options) -> String {
             let mut value = f["Value"].as_str().unwrap_or("").to_string();
             if name == "f" {
                 value = "one run per framework".into();
+            } else if name == "phase" && value == crate::options::PHASE_ECHO {
+                value = "echo, then pipeline".into();
             } else if value.is_empty() {
                 value = "\"\"".into();
             }

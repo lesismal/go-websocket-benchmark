@@ -106,6 +106,11 @@ func (be *BenchEcho) Run() {
 	// 	}
 	// }()
 
+	// The CPU and MEM columns cover the benchmark, not the warmup before it.
+	if be.PsSource != nil {
+		be.PsSource.Mark()
+	}
+
 	logging.Printf("BenchEcho for %d times ...", be.Total)
 	if be.onBenchmark != nil {
 		be.onBenchmark()
@@ -162,16 +167,18 @@ func (be *BenchEcho) Report() *report.BenchEchoReport {
 		r.TP99 = be.Calculator.TPN(99)
 	}
 
-	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
-
-	r.TaskPool = config.GetFrameworkTaskPool(be.Framework, be.Ip)
-
+	// The samples first, while the phase has only just ended: anything read
+	// later takes in the idle server after it.
 	var psErr error
 	be.PsCounter, psErr = be.psInfo()
 	if psErr != nil {
 		logging.Printf("BenchEcho: resource statistics for %v incomplete, CPU EER and MEM EER will read 0: %v",
 			be.Framework, psErr)
 	}
+
+	r.SetPprofData(be.pprofDataCPU, be.pprofDataMEM)
+
+	r.TaskPool = config.GetFrameworkTaskPool(be.Framework, be.Ip)
 	if be.PsCounter != nil {
 		// r.GoMin = be .PsCounter.NumGoroutineMin()
 		// r.GoAvg = be .PsCounter.NumGoroutineAvg()
@@ -212,7 +219,7 @@ func (be *BenchEcho) init() {
 		be.Concurrency = len(be.ConnsMap)
 	}
 	if be.Payload <= 0 {
-		be.Payload = 1024
+		be.Payload = 256
 	}
 	be.rbufferPool = &sync.Pool{
 		New: func() any {

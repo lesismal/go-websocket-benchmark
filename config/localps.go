@@ -190,6 +190,8 @@ type LocalPSSampler struct {
 	mu  sync.Mutex
 	cpu []float64
 	mem []*process.MemoryInfoStat
+	// Where the measured phase starts in cpu and mem; see Mark.
+	mark psMark
 
 	// Where to read the samples from when this sampler has none of its own -
 	// the server's /ps route, when the run asked it to sample as well.
@@ -286,9 +288,10 @@ func (s *LocalPSSampler) sampleCount() int {
 // that the server's /ps route answers with.
 func (s *LocalPSSampler) PsInfo() (*perf.PSCounter, error) {
 	s.mu.Lock()
+	window := s.mark.since(&perf.PSCounter{RetCPU: s.cpu, RetMEM: s.mem})
 	counter := &perf.PSCounter{}
-	counter.RetCPU = append([]float64(nil), s.cpu...)
-	counter.RetMEM = append([]*process.MemoryInfoStat(nil), s.mem...)
+	counter.RetCPU = append([]float64(nil), window.RetCPU...)
+	counter.RetMEM = append([]*process.MemoryInfoStat(nil), window.RetMEM...)
 	s.mu.Unlock()
 
 	if len(counter.RetCPU) > 0 {
@@ -302,6 +305,17 @@ func (s *LocalPSSampler) PsInfo() (*perf.PSCounter, error) {
 	}
 	return counter, fmt.Errorf("pid %d: no CPU samples yet, so the phase was shorter than"+
 		" the -pi sampling interval", s.pid)
+}
+
+// Mark starts the measured phase: PsInfo leaves out every sample taken
+// before it, and so does the fallback's.
+func (s *LocalPSSampler) Mark() {
+	s.mu.Lock()
+	s.mark = psMark{cpu: len(s.cpu), mem: len(s.mem)}
+	s.mu.Unlock()
+	if s.fallback != nil {
+		s.fallback.Mark()
+	}
 }
 
 // Stop ends the sampling and waits for the goroutine to finish, so that no

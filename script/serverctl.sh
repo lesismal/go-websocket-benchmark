@@ -230,3 +230,56 @@ bench_pause() {
         sleep 1
     done
 }
+
+# Whether the client flags in "$@" ask for BenchPipeline: the last -rate wins,
+# as it does in the clients.
+bench_wants_rate() {
+    local a v=false
+    for a in "$@"; do
+        case "$a" in
+            -rate|--rate) v=true ;;
+            -rate=*|--rate=*) v=${a#*=} ;;
+        esac
+    done
+    case "$v" in
+        1|t|T|true|TRUE|True) return 0 ;;
+    esac
+    return 1
+}
+
+# Runs the benchmark client to f, whose server is up, with the client flags in
+# the rest of the arguments, and leaves the server up.
+#
+# BenchEcho and BenchPipeline are two clients, -phase=echo and then
+# -phase=pipeline, with f's server restarted between them when this machine
+# owns it: BenchPipeline then starts on a fresh server and fresh connections,
+# not on the memory, goroutines and sockets BenchEcho left behind, and neither
+# benchmark's CPU and MEM samples take in the other's. Connections is the echo
+# pass's, dialed to a server just started. A run without -rate is the echo
+# pass alone.
+bench_run_client() {
+    local f=$1 status=0
+    shift
+    echo "run client to ${f} at ${BENCH_SERVER_HOST}, on cpu ${client_cpu_list:-unbound}"
+    # -ip first, so a host given on the command line still wins: the clients
+    # take the last value of a repeated flag. -phase last, so the driver's does.
+    if ! bench_wants_rate "$@"; then
+        . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} "$@" || status=$?
+        return "$status"
+    fi
+    . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} "$@" -phase=echo || status=$?
+    if bench_owns_servers; then
+        echo "restart ${f} server for BenchPipeline"
+        bench_stop_server "$f"
+        bench_pause_needed=true
+        bench_pause
+        if ! bench_start_server "$f"; then
+            echo "skip BenchPipeline for ${f}: its server did not restart" >&2
+            return 1
+        fi
+        sleep $ServerReadyDelay
+    fi
+    echo "run BenchPipeline client to ${f} at ${BENCH_SERVER_HOST}"
+    . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} "$@" -phase=pipeline || status=$?
+    return "$status"
+}

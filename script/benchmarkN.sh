@@ -95,7 +95,9 @@ for f in ${frameworks[@]}; do
                 bench_pause
                 suffix="_${c}_${b}_${n}"
                 #echo "benchmarkN: [${f}], ${c} connections, ${b} payload, ${n} times"
-                . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || clients_failed=1
+                # BenchEcho, then BenchPipeline on a restarted server; see
+                # bench_run_client in script/serverctl.sh.
+                bench_run_client "$f" -c=$c -b=$b -en=$n -suffix=${suffix} -rate=true || clients_failed=1
                 bench_pause_needed=true
             done
         done

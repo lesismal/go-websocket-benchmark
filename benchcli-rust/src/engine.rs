@@ -221,7 +221,7 @@ impl Shared {
     pub fn new(o: &Options) -> Result<Shared, String> {
         let mut rng = Rng::new();
         let size = match o.i("b") {
-            0 => 1024,
+            0 => 256,
             n => n as usize,
         };
         let budget = o.number("m")?;
@@ -800,6 +800,34 @@ impl State {
     fn written(&mut self, i: usize, generation: u64) {
         if self.slots[i].generation == generation {
             self.slots[i].writing = false;
+            self.pump_rate(i);
+        }
+    }
+
+    // Sends connection i its next batch the moment it has room for one, when -rr is unlimited
+    // and -rl sets no limit. tick() alone runs off a 1 ms timer and sends a connection at most
+    // one batch a tick, which capped every run at -rc x batch x 1000 messages a second - the
+    // same number for every server - however fast the server answered.
+    fn pump_rate(&mut self, i: usize) {
+        if self.stage != RATE
+            || self.stage_done()
+            || !self.shared.unlimited_rate
+            || f64::from_bits(self.ctl.rate_limit.load(Ordering::Acquire)) > 0.0
+        {
+            return;
+        }
+        let batch = self.shared.batch as i64;
+        let slot = &self.slots[i];
+        if !slot.ready || slot.writing || slot.sent - slot.received + batch >= batch * 5 {
+            return;
+        }
+        if now_ns() >= self.shared.rate_end.load(Ordering::Acquire) {
+            return;
+        }
+        self.slots[i].writing = true;
+        if self.send(i, Cmd::Batch) {
+            self.slots[i].sent += batch;
+            self.rate_stats.sent += batch;
         }
     }
 
@@ -917,6 +945,7 @@ impl State {
             self.slots[i].received += 1;
             self.rate_stats.received += 1;
             self.rate_stats.recv_bytes += data.len() as i64;
+            self.pump_rate(i);
         }
         true
     }

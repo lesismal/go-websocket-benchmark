@@ -541,6 +541,7 @@ inline std::string commandLineTable(const Options &o) {
         const auto &f=flags[name];
         std::string value=f.value("Value",std::string());
         if (name=="f") value="one run per framework";
+        else if (name=="phase" && value==kPhaseEcho) value="echo, then pipeline";
         else if (value.empty()) value="\"\"";
         rows.push_back({"-"+name,value,f.value("Set",false)?"command line":"default",description(name)});
     }
@@ -617,6 +618,8 @@ struct PSSetup {
     // Whether /init reached the server, i.e. whether /ps has anything to
     // answer with. It is the fallback for a local sampler with no samples yet.
     bool serverSampling=false;
+    // How many samples the server's own /ps had when the measured phase started; see markPS.
+    size_t cpuMark=0,memMark=0;
 };
 // setupPS settles where the samples come from, and starts collecting them.
 // Mirrors config.SetupPS: local sampling asks the server nothing at all, so a
@@ -685,6 +688,21 @@ inline void applyResourceStats(json &r,std::vector<double> cpu,std::vector<uint6
     r[rate?"EchoEER":"EER"]=perUnit(tps,avg);
     r["MEMEER"]=memEER(tps,r.contains("MEMAvg")?r["MEMAvg"].get<double>():0.0);
 }
+// markPS starts the measured phase: the CPU and MEM columns cover only what is sampled from
+// here on. The server's sampler starts once, at /init, and cannot be restarted, so its
+// samples are cut at the count it has now instead. Mirrors PSSource.Mark in config/pssource.go.
+inline void markPS(const Options &o,PSSetup &ps) {
+    if (ps.local) ps.local->mark();
+    if (!ps.serverSampling) return;
+    try {
+        auto answer=json::parse(httpRetry(controlURL(o)+"/ps"));
+        ps.cpuMark=answer.contains("cpu") && answer["cpu"].is_array()?answer["cpu"].size():0;
+        ps.memMark=answer.contains("mem") && answer["mem"].is_array()?answer["mem"].size():0;
+    } catch (const std::exception &e) {
+        std::cerr<<"cannot read the server's samples at the start of the phase; its CPU and MEM"
+                   " columns include what ran before it: "<<e.what()<<'\n';
+    }
+}
 inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) {
     std::vector<double> cpu;
     std::vector<uint64_t> mem;
@@ -696,10 +714,13 @@ inline void resourceStats(json &r,const Options &o,bool rate,const PSSetup &ps) 
     if (cpu.empty() && (!ps.local || ps.serverSampling)) {
         try {
             auto answer=json::parse(httpRetry(controlURL(o)+"/ps"));
-            if (answer.contains("cpu") && answer["cpu"].is_array())
+            if (answer.contains("cpu") && answer["cpu"].is_array()) {
                 cpu=answer["cpu"].get<std::vector<double>>();
+                cpu.erase(cpu.begin(),cpu.begin()+long(std::min(ps.cpuMark,cpu.size())));
+            }
             if (answer.contains("mem") && answer["mem"].is_array())
-                for (const auto &v:answer["mem"]) if (v.is_object()) mem.push_back(v.value("rss",uint64_t(0)));
+                for (size_t i=ps.memMark;i<answer["mem"].size();++i)
+                    if (answer["mem"][i].is_object()) mem.push_back(answer["mem"][i].value("rss",uint64_t(0)));
         } catch (const std::exception &e) { trouble=e.what(); }
     }
     applyResourceStats(r,cpu,mem,rate);

@@ -3,6 +3,7 @@ package report
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ var ClientFlags = []SummaryParameter{
 	{"ep", "BenchEcho: sample Go servers' CPU and heap pprof"},
 	{"epd", "BenchEcho: pprof CPU profile length, in seconds"},
 	{"rate", "run BenchPipeline after BenchEcho"},
+	{"phase", "what one client runs: all, echo (Connections and BenchEcho) or pipeline (BenchPipeline); the drivers restart the server between echo and pipeline"},
 	{"rc", "BenchPipeline: connections sending at once"},
 	{"rd", "BenchPipeline: how long it sends for, in seconds"},
 	{"rr", "BenchPipeline: messages sent to each connection per second, 0 unlimited"},
@@ -53,6 +55,27 @@ var ClientFlags = []SummaryParameter{
 	{"suffix", "report file name suffix"},
 	{"sort", "report row order: result ranks the best first, framework keeps the framework order"},
 	{"project", "the Summary's Project row"},
+}
+
+// What -phase takes: the benchmarks one client process runs. The drivers run
+// a framework as two clients, PhaseEcho and then PhasePipeline, with its
+// server restarted in between, so that BenchPipeline starts on a fresh server
+// and fresh connections rather than on what BenchEcho left behind. All three
+// clients take the same names.
+const (
+	PhaseAll      = "all"
+	PhaseEcho     = "echo"
+	PhasePipeline = "pipeline"
+)
+
+// ValidatePhase checks a -phase value, so that a misspelled one fails before
+// the run rather than after it.
+func ValidatePhase(phase string) error {
+	switch phase {
+	case PhaseAll, PhaseEcho, PhasePipeline:
+		return nil
+	}
+	return fmt.Errorf("unsupported -phase value %q (want %v, %v or %v)", phase, PhaseAll, PhaseEcho, PhasePipeline)
 }
 
 // ReportStepFlags are the flags whose values the report step, not the
@@ -156,6 +179,10 @@ func CommandLineTable(run CommandLine, reportStep []ClientFlag) string {
 		switch {
 		case name == "f":
 			value = "one run per framework"
+		case name == "phase" && value == PhaseEcho:
+			// Written by the echo pass; the pipeline pass that follows it
+			// leaves the file alone.
+			value = "echo, then pipeline"
 		case value == "":
 			value = `""`
 		}

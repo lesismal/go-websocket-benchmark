@@ -223,11 +223,18 @@ public:
         stopping.store(true,std::memory_order_release);
         if (thread.joinable()) thread.join();
     }
-    // samples copies what has been collected so far: a report is built while
+    // samples copies what has been collected since mark: a report is built while
     // the sampling thread is still appending.
     void samples(std::vector<double> &cpuOut,std::vector<uint64_t> &memOut) const {
         std::lock_guard<std::mutex> lock(mutex);
-        cpuOut=cpu;memOut=mem;
+        cpuOut.assign(cpu.begin()+long(std::min(cpuMark,cpu.size())),cpu.end());
+        memOut.assign(mem.begin()+long(std::min(memMark,mem.size())),mem.end());
+    }
+    // mark starts the measured phase: samples leaves out everything taken before it,
+    // the warmup or an earlier benchmark. Mirrors LocalPSSampler.Mark in config/localps.go.
+    void mark() {
+        std::lock_guard<std::mutex> lock(mutex);
+        cpuMark=cpu.size();memMark=mem.size();
     }
 
 private:
@@ -266,6 +273,7 @@ private:
     mutable std::mutex mutex;
     std::vector<double> cpu;
     std::vector<uint64_t> mem;
+    size_t cpuMark=0,memMark=0;
     std::atomic<bool> stopping{false};
     std::thread thread;
 };

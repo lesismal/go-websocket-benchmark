@@ -33,11 +33,9 @@ for f in ${frameworks[@]}; do
         # Up is not settled: give it a moment before the connections arrive.
         sleep $ServerReadyDelay
     fi
-    # echo "start bench ${f}" "$@"
-    echo "run client to ${f} at ${BENCH_SERVER_HOST}, on cpu ${client_cpu_list:-unbound}"
-    # -ip first, so a host given on the command line still wins: both clients
-    # take the last value of a repeated flag.
-    . ./script/client.sh -f=$f -ip=${BENCH_SERVER_HOST} "$@" || clients_status=$?
+    # BenchEcho, then BenchPipeline on a restarted server; see bench_run_client
+    # in script/serverctl.sh.
+    bench_run_client "$f" "$@" || clients_status=$?
     if bench_owns_servers; then
         bench_stop_server "$f"
     fi

@@ -35,13 +35,17 @@ var (
 	dialRetryInterval = flag.Duration("dri", 100*time.Millisecond, "client; dial retry interval")
 
 	// BenchEcho && BenchPipeline
-	payload    = flag.Int("b", 1024, `benchmark: payload size of benchecho and benchpipeline`)
+	payload    = flag.Int("b", 256, `benchmark: payload size of benchecho and benchpipeline`)
 	checkValid = flag.Bool("check", false, `benchmark: whether to check the validity of the response data`)
 	psInterval = flag.Int("pi", 1000, `benchmark: ps interval of benchecho and benchpipeline, 1000 ms by default`)
 	psMode     = flag.String("ps", config.PSModeAuto, `benchmark: where the server's CPU and MEM samples come from: `+
 		`"auto" samples the server here when it runs on this machine and asks it over HTTP when it does not, `+
 		`"local" always samples here, "remote" always asks`)
 	enableTPN = flag.Bool("tpn", true, `benchmark: whether enable TPN caculation`)
+	phase     = flag.String("phase", report.PhaseAll, `benchmark: what this client runs: `+
+		`"all" runs Connections and BenchEcho, then BenchPipeline when -rate is set; `+
+		`"echo" runs Connections and BenchEcho only; "pipeline" runs BenchPipeline only, `+
+		`on connections of its own that it does not report. The drivers run "echo", restart the server, then "pipeline"`)
 
 	// BenchEcho
 	echoConcurrency   = flag.Int("ec", 10000, "benchecho: concurrency: how many goroutines used to do the echo test")
@@ -86,6 +90,11 @@ func main() {
 	if err := config.ValidatePSMode(*psMode); err != nil {
 		logging.Fatalf("%v", err)
 	}
+	if err := report.ValidatePhase(*phase); err != nil {
+		logging.Fatalf("%v", err)
+	}
+	runEcho := *phase != report.PhasePipeline
+	runPipeline := *phase == report.PhasePipeline || (*phase == report.PhaseAll && *rateEnabled)
 
 	if *genReport {
 		generateReports()
@@ -93,9 +102,12 @@ func main() {
 	}
 
 	// The report's Summary lists every flag this run had; see
-	// report.CommandLineTable.
-	if err := report.WriteCommandLine(commandLine(), *preffix, *suffix); err != nil {
-		logging.Printf("writing %v failed: %v", report.CommandLineFilename(*preffix, *suffix), err)
+	// report.CommandLineTable. A pipeline pass is the second client of a run
+	// split in two, and leaves the file to the first.
+	if *phase != report.PhasePipeline {
+		if err := report.WriteCommandLine(commandLine(), *preffix, *suffix); err != nil {
+			logging.Printf("writing %v failed: %v", report.CommandLineFilename(*preffix, *suffix), err)
+		}
 	}
 
 	debug.SetMemoryLimit(*memLimit)
@@ -103,7 +115,7 @@ func main() {
 	logging.Print(logging.LongLine)
 	defer logging.Print(logging.LongLine)
 
-	logging.Printf("Benchmark [%v]: %v connections, %v payload, %v times", *framework, *numConnections, *payload, *echoTimes)
+	logging.Printf("Benchmark [%v] (%v): %v connections, %v payload, %v times", *framework, *phase, *numConnections, *payload, *echoTimes)
 	logging.Print(logging.ShortLine)
 
 	cs := connections.New(*framework, *ip, *numConnections)
@@ -115,12 +127,16 @@ func main() {
 	cs.NoDelay = *nodelay
 	cs.Run()
 	defer cs.Stop()
-	csReport := cs.Report()
-	saveReport(csReport)
-	logging.Print(logging.ShortLine)
-	logging.Print(csReport.String(*enableTPN))
-	logging.Print("\n")
-	logging.Print(logging.ShortLine)
+	// The connections a pipeline pass dials only carry its benchmark: the
+	// Connections table is the echo pass's, dialed to a server just started.
+	if runEcho {
+		csReport := cs.Report()
+		saveReport(csReport)
+		logging.Print(logging.ShortLine)
+		logging.Print(csReport.String(*enableTPN))
+		logging.Print("\n")
+		logging.Print(logging.ShortLine)
+	}
 
 	cpuProfileUrlEcho := ""
 	cpuProfileUrlRate := ""
@@ -148,42 +164,44 @@ func main() {
 		fmt.Printf("  go tool pprof -http=:6061 ./mem_profile\n")
 		logging.Print(logging.ShortLine)
 	}
-	be := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
-	be.PsSource = psSetup.Source
-	be.Concurrency = *echoConcurrency
-	be.Payload = *payload
-	be.Total = *echoTimes
-	be.Limit = *echoTPSLimit
-	be.EnalbeTPN = *enableTPN
-	if *echoPprof && servesPprof {
-		be.OnWarmup(func() {
-			time.AfterFunc(time.Second*2, func() {
-				cpu, err := httpGet(cpuProfileUrlEcho)
-				if err != nil {
-					fmt.Printf("BenchEcho: [pprof cpu] httpGet failed: %v\n", err)
-					return
-				}
+	if runEcho {
+		be := benchecho.New(*framework, serverPid, *echoTimes, *ip, cs.Conns(), *checkValid)
+		be.PsSource = psSetup.Source
+		be.Concurrency = *echoConcurrency
+		be.Payload = *payload
+		be.Total = *echoTimes
+		be.Limit = *echoTPSLimit
+		be.EnalbeTPN = *enableTPN
+		if *echoPprof && servesPprof {
+			be.OnWarmup(func() {
+				time.AfterFunc(time.Second*2, func() {
+					cpu, err := httpGet(cpuProfileUrlEcho)
+					if err != nil {
+						fmt.Printf("BenchEcho: [pprof cpu] httpGet failed: %v\n", err)
+						return
+					}
 
-				mem, err := httpGet(memProfileUrl)
-				if err != nil {
-					fmt.Printf("BenchEcho: [pprof mem] httpGet failed: %v\n", err)
-					return
-				}
-				be.SetPprofData(cpu, mem)
+					mem, err := httpGet(memProfileUrl)
+					if err != nil {
+						fmt.Printf("BenchEcho: [pprof mem] httpGet failed: %v\n", err)
+						return
+					}
+					be.SetPprofData(cpu, mem)
+				})
 			})
-		})
+		}
+		be.Run()
+		defer be.Stop()
+		beReport := be.Report()
+		beReport.EchoPprof = report.PprofSetting(*echoPprof)
+		saveReport(beReport)
+		logging.Print(logging.ShortLine)
+		logging.Print(beReport.String(*enableTPN))
+		logging.Print("\n")
+		logging.Print(logging.ShortLine)
 	}
-	be.Run()
-	defer be.Stop()
-	beReport := be.Report()
-	beReport.EchoPprof = report.PprofSetting(*echoPprof)
-	saveReport(beReport)
-	logging.Print(logging.ShortLine)
-	logging.Print(beReport.String(*enableTPN))
-	logging.Print("\n")
-	logging.Print(logging.ShortLine)
 
-	if *rateEnabled {
+	if runPipeline {
 		br := benchpipeline.New(*framework, serverPid, *ip, cs.Options, cs.NBConns(), *checkValid)
 		br.PsSource = psSetup.Source
 		br.Concurrency = *rateConcurrency

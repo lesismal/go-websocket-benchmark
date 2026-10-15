@@ -16,6 +16,10 @@ int availableCPUs() {
 #endif
     return std::max(1,int(std::thread::hardware_concurrency()));
 }
+bool runsEcho(const Options &o) {return o.get("phase")!=kPhasePipeline;}
+bool runsPipeline(const Options &o) {
+    return o.get("phase")==kPhasePipeline || (o.get("phase")==kPhaseAll && o.boolean("rate"));
+}
 struct Runner {
     Shared shared;
     int64_t memoryBudget;
@@ -27,7 +31,7 @@ struct Runner {
         int ec=o.integer("ec");if (!ec) ec=availableCPUs()*1000;
         int rc=o.integer("rc");if (!rc) rc=50000;
         int threads=o.integer("threads");if (!threads) threads=availableCPUs();
-        threads=std::min({threads,n,dc,ec,o.boolean("rate")?rc:n});
+        threads=std::min({threads,n,dc,runsEcho(o)?ec:n,runsPipeline(o)?rc:n});
         for (int i=0;i<threads;++i)
             workers.push_back(std::make_unique<Worker>(o,shared,i,threads,n/threads+(i<n%threads),dc/threads+(i<dc%threads)));
         std::cout<<"Client: benchcli-uwscpp, event-loop threads: "<<threads<<std::endl;
@@ -139,13 +143,17 @@ int benchmark(const Options &o) {
     connections["Total"]=dial.success+dial.failed;
     int dc=0;for (auto &w:runner.workers) dc+=w->dialConcurrency;
     connections["Concurrency"]=dc;
-    saveReport(o,"Connections",connections);
+    // A pipeline pass's connections only carry its benchmark: the Connections table is the echo
+    // pass's, dialed to a server just started.
+    if (runsEcho(o)) saveReport(o,"Connections",connections);
     if (!dial.success) throw std::runtime_error("no WebSocket connections established");
     // Where this run's CPU and MEM samples come from. On a run whose server is on
     // this machine the client samples the process itself and the server is never
     // asked, which is one less request to fail at the far end of a benchmark
     // carrying a million connections; see setupPS.
     auto ps=setupPS(o);
+    Stats stats;
+    if (runsEcho(o)) {
     int ec=o.integer("ec");if (!ec) ec=availableCPUs()*1000;
     int concurrency=runner.allocate(ec);
     if (!concurrency) throw std::runtime_error("all connections closed before echo benchmark");
@@ -153,21 +161,25 @@ int benchmark(const Options &o) {
     int64_t warmup=std::min<int64_t>(dial.success*5,2'000'000);
     std::cout<<"BenchEcho warmup: "<<warmup<<std::endl;
     runner.echo(Warmup,warmup,concurrency,o.integer("el"));
+    // The CPU and MEM columns cover the benchmark, not the warmup before it.
+    markPS(o,ps);
     std::cout<<"BenchEcho: "<<o.integer("en")<<" messages"<<std::endl;
     runner.echo(Echo,o.integer("en"),concurrency,o.integer("el"));
     auto echo=emptyReport("BenchEcho",o);
-    auto stats=runner.collect(false);
+    stats=runner.collect(false);
     setLatency(echo,stats,o.boolean("tpn"));
     echo["Total"]=o.integer("en");echo["Conns"]=dial.success;echo["Concurrency"]=concurrency;echo["Payload"]=runner.shared.payloads[0].size();
     echo["EchoPprof"]=o.boolean("ep")?"on":"off";
     resourceStats(echo,o,false,ps);
     if (echoProfile.valid()) echoProfile.get();
     saveReport(o,"BenchEcho",echo);
-    if (o.boolean("rate")) {
+    }
+    if (runsPipeline(o)) {
         int rc=o.integer("rc");if(!rc)rc=50000;
         int rateConcurrency=runner.allocate(rc,true);
         runner.shareRateLimit(o.integer("rl"));
         int seconds=o.integer("rd");if(!seconds)seconds=10;
+        markPS(o,ps);
         runner.shared.rateStart=nowNs();runner.shared.rateEnd=runner.shared.rateStart+int64_t(seconds)*1'000'000'000;
         auto rateProfile=profile(o,"BenchPipeline",o.boolean("rp"),std::max(1,o.integer("rpd")));
         std::cout<<"BenchPipeline: "<<seconds<<" seconds"<<std::endl;
@@ -197,7 +209,8 @@ int main(int argc,char **argv) {
         if(options.help){options.usage();return 0;}
         if(options.boolean("r")){generateReports(options);return 0;}
         // The report's Summary lists every flag this run had; see commandLineTable in report.hpp.
-        writeFile(commandLineFile(options),commandLine(options).dump()+"\n");
+        // A pipeline pass is the second client of a run split in two, and leaves it to the first.
+        if(options.get("phase")!=kPhasePipeline) writeFile(commandLineFile(options),commandLine(options).dump()+"\n");
         if(curl_global_init(CURL_GLOBAL_DEFAULT)!=CURLE_OK) throw std::runtime_error("curl global initialization failed");
         int result=benchmark(options);
         curl_global_cleanup();return result;

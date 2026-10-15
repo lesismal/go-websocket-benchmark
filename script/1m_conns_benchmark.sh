@@ -121,7 +121,7 @@ bench_write_server_parameters
 # command line wins - both clients take the last value of a repeated flag -
 # e.g. a smaller -c where the machine cannot hold a million connections.
 clients_failed=0
-. ./script/clients.sh -c=1000000 -en=2000000 -b=1024 -rr=1 "$@" || clients_failed=1
+. ./script/clients.sh -c=1000000 -en=2000000 -b=256 -rr=1 "$@" || clients_failed=1
 
 # echo $line
 

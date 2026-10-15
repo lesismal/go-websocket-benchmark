@@ -75,8 +75,8 @@ impl Runner {
         }
         .min(n)
         .min(dc)
-        .min(ec)
-        .min(if o.b("rate") { rc } else { n });
+        .min(if o.runs_echo() { ec } else { n })
+        .min(if o.runs_pipeline() { rc } else { n });
         let mut runner = Runner {
             shared,
             ctls: Vec::new(),
@@ -329,44 +329,53 @@ fn benchmark(o: &Options) -> Result<i32, String> {
         "Concurrency".into(),
         json!(runner.ctls.iter().map(|c| c.dial_concurrency).sum::<i32>()),
     );
-    save_report(o, "Connections", &connections)?;
+    // A pipeline pass's connections only carry its benchmark: the Connections table is the echo
+    // pass's, dialed to a server just started.
+    if o.runs_echo() {
+        save_report(o, "Connections", &connections)?;
+    }
     if dial.success == 0 {
         return Err("no WebSocket connections established".into());
     }
 
     // Where this run's CPU and MEM samples come from: on a run whose server is on this machine
     // the client samples the process itself and the server is never asked.
-    let ps = ps::setup_ps(o);
-    let ec = match o.i("ec") {
-        0 => available_cpus() * 1000,
-        ec => ec,
-    };
-    let concurrency = runner.allocate(ec, false);
-    if concurrency == 0 {
-        return Err("all connections closed before echo benchmark".into());
+    let mut ps = ps::setup_ps(o);
+    let mut stats = Stats::default();
+    if o.runs_echo() {
+        let ec = match o.i("ec") {
+            0 => available_cpus() * 1000,
+            ec => ec,
+        };
+        let concurrency = runner.allocate(ec, false);
+        if concurrency == 0 {
+            return Err("all connections closed before echo benchmark".into());
+        }
+        let echo_profile = profile(o, "BenchEcho", o.b("ep"), o.i("epd").max(1));
+        let warmup = (dial.success * 5).min(2_000_000);
+        println!("BenchEcho warmup: {warmup}");
+        runner.echo(WARMUP, warmup, concurrency, o.i("el"))?;
+        // The CPU and MEM columns cover the benchmark, not the warmup before it.
+        ps::mark_ps(o, &mut ps);
+        println!("BenchEcho: {} messages", o.i("en"));
+        runner.echo(ECHO, o.i("en") as i64, concurrency, o.i("el"))?;
+        let mut echo = empty_report("BenchEcho", o);
+        stats = runner.collect(|c| &c.echo_stats);
+        set_latency(&mut echo, &mut stats, o.b("tpn"));
+        echo.insert("Total".into(), json!(o.i("en")));
+        echo.insert("Conns".into(), json!(dial.success));
+        echo.insert("Concurrency".into(), json!(concurrency));
+        echo.insert("Payload".into(), json!(runner.shared.payloads[0].len()));
+        echo.insert(
+            "EchoPprof".into(),
+            json!(if o.b("ep") { "on" } else { "off" }),
+        );
+        ps::resource_stats(&mut echo, o, false, &ps);
+        join_profile(echo_profile);
+        save_report(o, "BenchEcho", &echo)?;
     }
-    let echo_profile = profile(o, "BenchEcho", o.b("ep"), o.i("epd").max(1));
-    let warmup = (dial.success * 5).min(2_000_000);
-    println!("BenchEcho warmup: {warmup}");
-    runner.echo(WARMUP, warmup, concurrency, o.i("el"))?;
-    println!("BenchEcho: {} messages", o.i("en"));
-    runner.echo(ECHO, o.i("en") as i64, concurrency, o.i("el"))?;
-    let mut echo = empty_report("BenchEcho", o);
-    let mut stats = runner.collect(|c| &c.echo_stats);
-    set_latency(&mut echo, &mut stats, o.b("tpn"));
-    echo.insert("Total".into(), json!(o.i("en")));
-    echo.insert("Conns".into(), json!(dial.success));
-    echo.insert("Concurrency".into(), json!(concurrency));
-    echo.insert("Payload".into(), json!(runner.shared.payloads[0].len()));
-    echo.insert(
-        "EchoPprof".into(),
-        json!(if o.b("ep") { "on" } else { "off" }),
-    );
-    ps::resource_stats(&mut echo, o, false, &ps);
-    join_profile(echo_profile);
-    save_report(o, "BenchEcho", &echo)?;
 
-    if o.b("rate") {
+    if o.runs_pipeline() {
         let rc = match o.i("rc") {
             0 => 50000,
             rc => rc,
@@ -377,6 +386,7 @@ fn benchmark(o: &Options) -> Result<i32, String> {
             0 => 10,
             s => s,
         };
+        ps::mark_ps(o, &mut ps);
         let start = now_ns();
         runner.shared.rate_start.store(start, Ordering::Release);
         runner
@@ -439,11 +449,14 @@ fn main() {
             return generate_reports(&o).map(|_| 0);
         }
         // The report's Summary lists every flag this run had; see command_line_table in
-        // report.rs.
-        write_file(
-            &command_line_file(&o),
-            format!("{}\n", command_line(&o)).as_bytes(),
-        )?;
+        // report.rs. A pipeline pass is the second client of a run split in two, and leaves it
+        // to the first.
+        if o.runs_echo() {
+            write_file(
+                &command_line_file(&o),
+                format!("{}\n", command_line(&o)).as_bytes(),
+            )?;
+        }
         benchmark(&o)
     });
     let code = match result {

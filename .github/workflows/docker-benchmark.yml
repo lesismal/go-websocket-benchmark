@@ -51,7 +51,7 @@ on:
         type: string
         default: ""
       benchmark_args:
-        description: "Extra benchmark client flags, e.g. -en=2000000 -b=1024; given to every job, after its own -c, -rr and -rpl, so a -c here makes them all that"
+        description: "Extra benchmark client flags, e.g. -en=2000000 -b=256; given to every job, after its own -c, -rr and -rpl, so a -c here makes them all that"
         type: string
         default: ""
       rebuild:

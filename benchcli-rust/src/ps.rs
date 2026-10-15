@@ -223,6 +223,8 @@ fn read_process(pid: i32) -> Result<(f64, u64), String> {
 // /ps sampler does.
 pub struct LocalSampler {
     samples: Arc<Mutex<(Vec<f64>, Vec<u64>)>>,
+    // Where the measured phase starts in samples; see mark.
+    marks: Mutex<(usize, usize)>,
     stopping: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
 }
@@ -278,13 +280,27 @@ impl LocalSampler {
         });
         Ok(LocalSampler {
             samples,
+            marks: Mutex::new((0, 0)),
             stopping,
             thread: Some(thread),
         })
     }
 
+    // What has been sampled since mark.
     fn samples(&self) -> (Vec<f64>, Vec<u64>) {
-        self.samples.lock().unwrap().clone()
+        let (cpu_mark, mem_mark) = *self.marks.lock().unwrap();
+        let s = self.samples.lock().unwrap();
+        (
+            s.0[cpu_mark.min(s.0.len())..].to_vec(),
+            s.1[mem_mark.min(s.1.len())..].to_vec(),
+        )
+    }
+
+    // Starts the measured phase: samples leaves out everything taken before it, the warmup or
+    // an earlier benchmark. Mirrors LocalPSSampler.Mark in config/localps.go.
+    fn mark(&self) {
+        let s = self.samples.lock().unwrap();
+        *self.marks.lock().unwrap() = (s.0.len(), s.1.len());
     }
 }
 
@@ -326,6 +342,9 @@ pub struct PsSetup {
     // Whether /init reached the server, i.e. whether /ps has anything to answer with - the
     // fallback for a sampler here with no samples yet.
     server_sampling: bool,
+    // How many samples the server's own /ps had when the measured phase started; see mark_ps.
+    cpu_mark: usize,
+    mem_mark: usize,
 }
 
 // Settles where the samples come from and starts collecting them. Mirrors config.SetupPS: a
@@ -335,6 +354,8 @@ pub fn setup_ps(o: &Options) -> PsSetup {
     let mut ps = PsSetup {
         local: None,
         server_sampling: false,
+        cpu_mark: 0,
+        mem_mark: 0,
     };
     let interval_ns = o.i("pi") as i64 * 1_000_000;
     let interval = Duration::from_nanos(if interval_ns > 0 {
@@ -451,6 +472,30 @@ pub fn mem_eer(throughput: f64, mem_avg: f64) -> f64 {
     per_unit(throughput, mem_avg / (1024.0 * 1024.0))
 }
 
+// Starts the measured phase: the CPU and MEM columns cover only what is sampled from here on.
+// The server's sampler starts once, at /init, and cannot be restarted, so its samples are cut at
+// the count it has now instead. Mirrors PSSource.Mark in config/pssource.go.
+pub fn mark_ps(o: &Options, ps: &mut PsSetup) {
+    if let Some(local) = &ps.local {
+        local.mark();
+    }
+    if !ps.server_sampling {
+        return;
+    }
+    match http_retry(&format!("{}/ps", control_url(o)), None, CONTROL_ATTEMPTS)
+        .and_then(|body| serde_json::from_slice::<Value>(&body).map_err(|e| e.to_string()))
+    {
+        Ok(answer) => {
+            ps.cpu_mark = answer["cpu"].as_array().map_or(0, Vec::len);
+            ps.mem_mark = answer["mem"].as_array().map_or(0, Vec::len);
+        }
+        Err(e) => eprintln!(
+            "cannot read the server's samples at the start of the phase; its CPU and MEM columns \
+             include what ran before it: {e}"
+        ),
+    }
+}
+
 pub fn resource_stats(r: &mut Map<String, Value>, o: &Options, rate: bool, ps: &PsSetup) {
     let (mut cpu, mut mem) = ps
         .local
@@ -466,11 +511,16 @@ pub fn resource_stats(r: &mut Map<String, Value>, o: &Options, rate: bool, ps: &
         {
             Ok(answer) => {
                 if let Some(values) = answer["cpu"].as_array() {
-                    cpu = values.iter().filter_map(Value::as_f64).collect();
+                    cpu = values
+                        .iter()
+                        .skip(ps.cpu_mark)
+                        .filter_map(Value::as_f64)
+                        .collect();
                 }
                 if let Some(values) = answer["mem"].as_array() {
                     mem = values
                         .iter()
+                        .skip(ps.mem_mark)
                         .filter(|v| v.is_object())
                         .map(|v| v["rss"].as_u64().unwrap_or(0))
                         .collect();

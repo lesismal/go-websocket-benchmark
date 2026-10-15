@@ -16,6 +16,12 @@ pub const PS_MODE_REMOTE: &str = "remote";
 pub const SORT_RESULT: &str = "result";
 pub const SORT_FRAMEWORK: &str = "framework";
 
+// What one client runs; -phase takes these names. Mirrors report.PhaseAll, PhaseEcho and
+// PhasePipeline in benchcli-go: the drivers run "echo", restart the server, then "pipeline".
+pub const PHASE_ALL: &str = "all";
+pub const PHASE_ECHO: &str = "echo";
+pub const PHASE_PIPELINE: &str = "pipeline";
+
 const DEFAULTS: &[(&str, &str)] = &[
     ("nodelay", "true"),
     ("m", "4294967296"),
@@ -26,11 +32,12 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("dt", "5s"),
     ("dr", "5"),
     ("dri", "100ms"),
-    ("b", "1024"),
+    ("b", "256"),
     ("check", "false"),
     ("pi", "1000"),
     ("ps", PS_MODE_AUTO),
     ("tpn", "true"),
+    ("phase", PHASE_ALL),
     ("ec", "10000"),
     ("en", "2000000"),
     ("el", "0"),
@@ -151,6 +158,12 @@ impl Options {
                 "unsupported -ps value {ps} (want {PS_MODE_AUTO}, {PS_MODE_LOCAL} or {PS_MODE_REMOTE})"
             ));
         }
+        let phase = self.get("phase");
+        if phase != PHASE_ALL && phase != PHASE_ECHO && phase != PHASE_PIPELINE {
+            return Err(format!(
+                "unsupported -phase value {phase} (want {PHASE_ALL}, {PHASE_ECHO} or {PHASE_PIPELINE})"
+            ));
+        }
         let sort = self.get("sort");
         if sort != SORT_RESULT && sort != SORT_FRAMEWORK {
             return Err(format!(
@@ -158,6 +171,17 @@ impl Options {
             ));
         }
         Ok(())
+    }
+
+    // Whether this client runs Connections and BenchEcho; see -phase.
+    pub fn runs_echo(&self) -> bool {
+        self.get("phase") != PHASE_PIPELINE
+    }
+
+    // Whether this client runs BenchPipeline; see -phase.
+    pub fn runs_pipeline(&self) -> bool {
+        let phase = self.get("phase");
+        phase == PHASE_PIPELINE || (phase == PHASE_ALL && self.b("rate"))
     }
 
     // Every flag, its value and whether the command line set it, in name order.
@@ -225,6 +249,10 @@ impl Options {
              -ps: where the server's CPU and MEM samples come from: auto samples the server here when\n\
              \x20    it runs on this machine and asks it over HTTP when it does not, local always samples\n\
              \x20    here, remote always asks.\n\
+             -phase: what this client runs: all (Connections and BenchEcho, then BenchPipeline\n\
+             \x20       with -rate), echo (Connections and BenchEcho) or pipeline (BenchPipeline only,\n\
+             \x20       on connections it does not report). The drivers run echo, restart the server,\n\
+             \x20       then pipeline.\n\
              -threads: event-loop threads (0: available CPUs, capped by concurrency).\n\
              -io-timeout: maximum echo response wait; -dt: TCP + upgrade timeout.\n\
              -m: memory limit in bytes (Linux: address space; macOS: sampled RSS; 0: unlimited)."

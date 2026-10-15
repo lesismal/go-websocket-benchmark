@@ -60,6 +60,10 @@ type BenchPipeline struct {
 	sendBytes int64
 	recvTimes int64
 	recvBytes int64
+	// The counters above as they stood when Duration ran out: replies still
+	// arriving after it would otherwise count towards a TPS taken over
+	// Duration alone.
+	final [4]int64
 
 	onBenchmark  func()
 	pprofDataCPU []byte `json:"-" md:"-"`
@@ -108,8 +112,17 @@ func (br *BenchPipeline) Run() {
 	// 	}
 	// }()
 
+	// The CPU and MEM columns cover this phase alone.
+	if br.PsSource != nil {
+		br.PsSource.Mark()
+	}
+
 	done := make(chan struct{})
 	time.AfterFunc(br.Duration, func() {
+		br.final = [4]int64{
+			atomic.LoadInt64(&br.sendTimes), atomic.LoadInt64(&br.sendBytes),
+			atomic.LoadInt64(&br.recvTimes), atomic.LoadInt64(&br.recvBytes),
+		}
 		close(done)
 	})
 
@@ -214,19 +227,20 @@ func (br *BenchPipeline) Report() *report.BenchPipelineReport {
 		SendRate:    br.SendRate,
 		Pipeline:    br.batch,
 		Payload:     br.Payload,
-		SendTimes:   br.sendTimes,
-		SendBytes:   br.sendBytes,
-		RecvTimes:   br.recvTimes,
-		RecvBytes:   br.recvBytes,
+		SendTimes:   br.final[0],
+		SendBytes:   br.final[1],
+		RecvTimes:   br.final[2],
+		RecvBytes:   br.final[3],
 	}
-	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
-	r.TaskPool = config.GetFrameworkTaskPool(br.Framework, br.Ip)
+	// The samples first; see BenchEcho.Report.
 	var psErr error
 	br.PsCounter, psErr = br.psInfo()
 	if psErr != nil {
 		logging.Printf("BenchPipeline: resource statistics for %v incomplete, CPU EER and MEM EER will read 0: %v",
 			br.Framework, psErr)
 	}
+	r.SetPprofData(br.pprofDataCPU, br.pprofDataMEM)
+	r.TaskPool = config.GetFrameworkTaskPool(br.Framework, br.Ip)
 	if br.PsCounter != nil {
 		// r.GoMin = br.PsCounter.NumGoroutineMin()
 		// r.GoAvg = br.PsCounter.NumGoroutineAvg()
@@ -268,7 +282,7 @@ func (br *BenchPipeline) init() {
 		br.SendRate = 1
 	}
 	if br.Payload <= 0 {
-		br.Payload = 1024
+		br.Payload = 256
 	}
 
 	br.wbuffer = make([]byte, br.Payload)

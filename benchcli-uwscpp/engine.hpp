@@ -75,7 +75,7 @@ struct Shared {
     int64_t rateEnd=0,rateStart=0;
     explicit Shared(const Options &o) {
         std::mt19937_64 random(std::random_device{}());
-        int size=o.integer("b"); if (!size) size=1024;
+        int size=o.integer("b"); if (!size) size=256;
         if (size>INT32_MAX-14 || (o.number("m") && int64_t(size)*2050>o.number("m")))
             throw std::runtime_error("payload pool exceeds -m memory budget or maximum frame size");
         // Same 1024-message payload pool as benchcli-go; immutable during benchmarking.
@@ -187,6 +187,7 @@ struct Worker {
     void consume(Connection &c,char *data,int length);
     void write(Connection &c,std::string_view data);
     void flush(Connection &c);
+    void pumpRate(Connection &c);
     void attemptDone(Connection &c,bool success);
     std::string handshakeKey() {
         static constexpr char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -241,7 +242,18 @@ inline void Worker::flush(Connection &c) {
     int n=us_socket_write(0,c.socket,c.pending.data()+c.offset,int(c.pending.size()-c.offset),0);
     if (n<0) {close(c);return;}
     c.offset+=size_t(n);
-    if (c.offset==c.pending.size()) {c.pending.clear();c.offset=0;}
+    if (c.offset==c.pending.size()) {c.pending.clear();c.offset=0;pumpRate(c);}
+}
+// pumpRate sends c its next batch the moment it has room for one, when -rr is unlimited and
+// -rl sets no limit. tick() alone runs off a 1 ms timer and sends a connection at most one
+// batch a tick, which capped every run at -rc x batch x 1000 messages a second - the same
+// number for every server - however fast the server answered.
+inline void Worker::pumpRate(Connection &c) {
+    if (stage!=Rate || done.load()==Rate || !shared.unlimitedRate || rateLimit>0) return;
+    if (!c.ready || !c.pending.empty() || c.sent-c.received+shared.batch>=int64_t(shared.batch)*5) return;
+    if (nowNs()>=shared.rateEnd) return;
+    write(c,shared.batchFrame);
+    if (c.ready) {c.sent+=shared.batch;rateStats.sent+=shared.batch;}
 }
 inline void Worker::close(Connection &c) {
     if (!c.socket) return;
@@ -322,6 +334,7 @@ inline void Worker::receive(Connection &c,std::string_view data,uWS::OpCode opco
     } else if (stage==Rate) {
         if (!checkValid || (opcode==uWS::BINARY && data==shared.payloads[0])) {
             ++c.received;++rateStats.received;rateStats.recvBytes+=int64_t(data.size());
+            pumpRate(c);
         }
     }
 }
