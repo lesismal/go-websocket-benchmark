@@ -88,7 +88,9 @@ a report field updates both clients on the next build. JSON files retain the Go
 names and fields and can be aggregated by either client. Markdown uses the same
 columns, units and framework order, and the same Summary table of the run's
 parameters (`summary:"<name>"` fields, and the server settings the driver
-scripts record in `output/report/ServerParameters.json`) in front of the three.
+scripts record in `output/report/ServerParameters.json`) in front of the three,
+followed by the table of the run's command-line flags each benchmark run records
+in `output/report/CommandLine.json`.
 
 ```sh
 ./output/bin/bench.client -f=gorilla -c=10000 -ec=10000 -en=2000000 \

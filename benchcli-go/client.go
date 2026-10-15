@@ -92,6 +92,12 @@ func main() {
 		return
 	}
 
+	// The report's Summary lists every flag this run had; see
+	// report.CommandLineTable.
+	if err := report.WriteCommandLine(commandLine(), *preffix, *suffix); err != nil {
+		logging.Printf("writing %v failed: %v", report.CommandLineFilename(*preffix, *suffix), err)
+	}
+
 	debug.SetMemoryLimit(*memLimit)
 
 	logging.Print(logging.LongLine)
@@ -232,7 +238,7 @@ func saveReport(r report.Report) {
 // benchcli-uwscpp's generateReports prints the same thing.
 func generateReports() {
 	sections := []struct{ name, data string }{
-		{"Summary", report.GenerateSummary(*project, *preffix, *suffix)},
+		{"Summary", report.GenerateSummary(*project, *preffix, *suffix, commandLine().Flags)},
 		{"Connections", report.GenerateConnectionsReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 		{"BenchEcho", report.GenerateBenchEchoReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
 		{"BenchPipeline", report.GenerateBenchPipelineReports(*preffix, *suffix, *enableTPN, *reportSort, nil)},
@@ -245,6 +251,18 @@ func generateReports() {
 		logging.Print(report.ConsoleSection(*preffix+section.name+*suffix, section.data))
 	}
 	logging.Print(logging.LongLine)
+}
+
+// commandLine is every flag of this client, with its value and whether the
+// command line set it.
+func commandLine() report.CommandLine {
+	set := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	cl := report.CommandLine{Client: "benchcli-go"}
+	flag.VisitAll(func(f *flag.Flag) {
+		cl.Flags = append(cl.Flags, report.ClientFlag{Name: f.Name, Value: f.Value.String(), Set: set[f.Name]})
+	})
+	return cl
 }
 
 func httpGet(url string) ([]byte, error) {

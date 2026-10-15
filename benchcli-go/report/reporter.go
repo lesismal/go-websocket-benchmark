@@ -361,10 +361,19 @@ func ReadBenchPipelineReports(preffix, suffix string) []Report {
 
 // GenerateSummary is the Summary table of the run the three reports' files
 // are from, headed by project, with the server settings the run recorded; see
-// Summary.
-func GenerateSummary(project, preffix, suffix string) string {
-	return Summary(project, ReadServerParameters(), ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
+// Summary. After it, a blank line apart, comes the table of the client's
+// command-line flags the run recorded, the report step's own reportStep
+// flags among them; see CommandLineTable.
+func GenerateSummary(project, preffix, suffix string, reportStep []ClientFlag) string {
+	summary := Summary(project, ReadServerParameters(), ReadConnectionsReports(preffix, suffix), ReadBenchEchoReports(preffix, suffix),
 		ReadBenchPipelineReports(preffix, suffix))
+	if summary == "" {
+		return ""
+	}
+	if flags := CommandLineTable(ReadCommandLine(preffix, suffix), reportStep); flags != "" {
+		summary += "\n" + flags
+	}
+	return summary
 }
 
 // ReadReports reads the report every framework has in files, in

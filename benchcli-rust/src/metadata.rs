@@ -9,6 +9,8 @@
 //                 name), title (the md tag), fmt, optional (tpn), hidden (md:"-"), rank,
 //                 summary, string and floating
 //   summaryOrder  report.SummaryParameters: name and description
+//   clientFlags   report.ClientFlags: name and description
+//   reportStepFlags  report.ReportStepFlags
 use std::sync::LazyLock;
 
 use serde_json::Value;
@@ -65,4 +67,12 @@ pub fn schema(kind: &str) -> &'static [Value] {
 
 pub fn summary_order() -> &'static [Value] {
     metadata()["summaryOrder"].as_array().unwrap()
+}
+
+pub fn client_flags() -> &'static [Value] {
+    metadata()["clientFlags"].as_array().unwrap()
+}
+
+pub fn report_step_flags() -> &'static [Value] {
+    metadata()["reportStepFlags"].as_array().unwrap()
 }

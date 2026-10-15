@@ -23,7 +23,10 @@ use serde_json::json;
 
 use engine::{DIAL, ECHO, RATE, STOP, Shared, Stats, WARMUP, Worker, WorkerCtl, now_ns};
 use options::Options;
-use report::{Report, empty_report, fill_rate_tps, generate_reports, profile, save_report};
+use report::{
+    Report, command_line, command_line_file, empty_report, fill_rate_tps, generate_reports,
+    profile, save_report, write_file,
+};
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
@@ -435,6 +438,12 @@ fn main() {
         if o.b("r") {
             return generate_reports(&o).map(|_| 0);
         }
+        // The report's Summary lists every flag this run had; see command_line_table in
+        // report.rs.
+        write_file(
+            &command_line_file(&o),
+            format!("{}\n", command_line(&o)).as_bytes(),
+        )?;
         benchmark(&o)
     });
     let code = match result {

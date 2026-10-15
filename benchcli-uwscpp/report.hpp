@@ -482,6 +482,70 @@ inline std::string summaryTable(const Options &o) {
     }
     return markdownTable({"Parameter","Value","Description"},rows,true);
 }
+// commandLine mirrors report.CommandLine: every flag of this client, its value and whether the
+// command line set it, which a benchmark run writes to commandLineFile for the report step.
+inline json commandLine(const Options &o) {
+    json flags=json::array();
+    for (const auto &[name,value]:o.values)
+        flags.push_back({{"Name",name},{"Value",value},{"Set",o.set.count(name)>0}});
+    return {{"Client","benchcli-uwscpp"},{"Flags",flags}};
+}
+// report.CommandLineFilename: beside the reports, under the same -preffix and -suffix.
+inline std::string commandLineFile(const Options &o) { return filename(o,"CommandLine",".json"); }
+// readCommandLine mirrors report.ReadCommandLine: no flags when the run's client predates the
+// file, and none - logged - for a file that cannot be read, so that the Summary loses only the
+// command-line table.
+inline json readCommandLine(const Options &o) {
+    std::ifstream in(commandLineFile(o));
+    if (!in) return json::array();
+    try {
+        json cl; in>>cl;
+        return cl.value("Flags",json::array());
+    } catch (const std::exception &e) {
+        std::cerr<<"reading "<<commandLineFile(o)<<" failed: "<<e.what()<<'\n';
+        return json::array();
+    }
+}
+// commandLineTable mirrors report.CommandLineTable: every flag the run's client had, the report
+// step's own values of metadata["reportStepFlags"] in place of the run's, in
+// metadata["clientFlags"] order, with -f said to be per framework.
+inline std::string commandLineTable(const Options &o) {
+    auto run=readCommandLine(o);
+    if (run.empty()) return "";
+    std::map<std::string,json> flags;
+    std::vector<std::string> names;
+    auto add=[&](const json &f) {
+        std::string name=f.value("Name",std::string());
+        if (!flags.count(name)) names.push_back(name);
+        flags[name]=f;
+    };
+    for (const auto &f:run) add(f);
+    // Held, since a range-for over a member of a temporary outlives the temporary.
+    const auto reportStep=commandLine(o);
+    for (const auto &f:reportStep["Flags"])
+        for (const auto &r:metadata["reportStepFlags"])
+            if (f["Name"]==r) add(f);
+    std::vector<std::string> ordered;
+    auto description=[](const std::string &name) {
+        for (const auto &p:metadata["clientFlags"]) if (p["name"]==name) return p["description"].get<std::string>();
+        return std::string();
+    };
+    for (const auto &p:metadata["clientFlags"]) {
+        auto name=p["name"].get<std::string>();
+        if (flags.count(name)) ordered.push_back(name);
+    }
+    for (const auto &name:names)
+        if (std::find(ordered.begin(),ordered.end(),name)==ordered.end()) ordered.push_back(name);
+    std::vector<std::vector<std::string>> rows;
+    for (const auto &name:ordered) {
+        const auto &f=flags[name];
+        std::string value=f.value("Value",std::string());
+        if (name=="f") value="one run per framework";
+        else if (value.empty()) value="\"\"";
+        rows.push_back({"-"+name,value,f.value("Set",false)?"command line":"default",description(name)});
+    }
+    return markdownTable({"Flag","Value","Source","Description"},rows,true);
+}
 // consoleSection mirrors report.ConsoleSection: a rule, the table's name, and the table
 // between blank lines.
 inline const std::string kLongLine(100,'-');
@@ -491,6 +555,10 @@ inline std::string consoleSection(const std::string &name,std::string table) {
 }
 inline void generateReports(const Options &o) {
     auto summary=summaryTable(o);
+    // The command-line table follows the Summary a blank line apart, as report.GenerateSummary
+    // has it.
+    if (!summary.empty())
+        if (auto flags=commandLineTable(o); !flags.empty()) summary+="\n"+flags;
     writeFile(filename(o,"Summary",".md"),summary);
     std::cout<<consoleSection(o.get("preffix")+"Summary"+o.get("suffix"),summary);
     for (auto kind:{"Connections","BenchEcho","BenchPipeline"}) {

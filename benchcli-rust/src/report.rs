@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde_json::{Map, Value, json};
 
 use crate::http::{control_url, framework_task_pool, http};
-use crate::metadata::{frameworks, lang, schema, summary_order};
+use crate::metadata::{client_flags, frameworks, lang, report_step_flags, schema, summary_order};
 use crate::options::{Options, SORT_RESULT};
 use crate::ps::mem_eer;
 
@@ -505,6 +505,107 @@ fn summary_table(o: &Options) -> Result<String, String> {
     Ok(markdown_table(&title, rows, true))
 }
 
+// report.CommandLine: every flag of this client, its value and whether the command line set it,
+// which a benchmark run writes to command_line_file for the report step.
+pub fn command_line(o: &Options) -> Value {
+    let flags: Vec<Value> = o
+        .flags()
+        .map(|(name, value, set)| json!({"Name": name, "Value": value, "Set": set}))
+        .collect();
+    json!({"Client": "benchcli-rust", "Flags": flags})
+}
+
+// report.CommandLineFilename: beside the reports, under the same -preffix and -suffix.
+pub fn command_line_file(o: &Options) -> String {
+    filename(o, "CommandLine", ".json")
+}
+
+// report.ReadCommandLine: no flags when the run's client predates the file, and none - logged -
+// for a file that cannot be read, so that the Summary loses only the command-line table.
+fn read_command_line(o: &Options) -> Vec<Value> {
+    let path = command_line_file(o);
+    let data = match std::fs::read(&path) {
+        Ok(data) => data,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(e) => {
+            eprintln!("reading {path} failed: {e}");
+            return Vec::new();
+        }
+    };
+    match serde_json::from_slice::<Value>(&data) {
+        Ok(cl) => cl["Flags"].as_array().cloned().unwrap_or_default(),
+        Err(e) => {
+            eprintln!("reading {path} failed: {e}");
+            Vec::new()
+        }
+    }
+}
+
+// report.CommandLineTable: every flag the run's client had, the report step's own values of
+// report_step_flags in place of the run's, in client_flags order, with -f said to be per
+// framework.
+fn command_line_table(o: &Options) -> String {
+    let run = read_command_line(o);
+    if run.is_empty() {
+        return String::new();
+    }
+    let mut flags: std::collections::HashMap<String, Value> = Default::default();
+    let mut names: Vec<String> = Vec::new();
+    let mut add = |f: &Value| {
+        let name = f["Name"].as_str().unwrap_or("").to_string();
+        if !flags.contains_key(&name) {
+            names.push(name.clone());
+        }
+        flags.insert(name, f.clone());
+    };
+    for f in &run {
+        add(f);
+    }
+    for f in command_line(o)["Flags"].as_array().unwrap() {
+        if report_step_flags().contains(&f["Name"]) {
+            add(f);
+        }
+    }
+    let mut ordered: Vec<String> = client_flags()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap().to_string())
+        .filter(|name| flags.contains_key(name))
+        .collect();
+    for name in names {
+        if !ordered.contains(&name) {
+            ordered.push(name);
+        }
+    }
+    let rows = ordered
+        .iter()
+        .map(|name| {
+            let f = &flags[name];
+            let mut value = f["Value"].as_str().unwrap_or("").to_string();
+            if name == "f" {
+                value = "one run per framework".into();
+            } else if value.is_empty() {
+                value = "\"\"".into();
+            }
+            let source = if f["Set"].as_bool().unwrap_or(false) {
+                "command line"
+            } else {
+                "default"
+            };
+            let description = client_flags()
+                .iter()
+                .find(|p| p["name"] == name.as_str())
+                .map(|p| p["description"].as_str().unwrap().to_string())
+                .unwrap_or_default();
+            vec![format!("-{name}"), value, source.to_string(), description]
+        })
+        .collect();
+    let title: Vec<String> = ["Flag", "Value", "Source", "Description"]
+        .iter()
+        .map(|t| t.to_string())
+        .collect();
+    markdown_table(&title, rows, true)
+}
+
 fn console_section(name: &str, table: &str) -> String {
     let table = if table.is_empty() {
         "(no results)\n"
@@ -516,7 +617,15 @@ fn console_section(name: &str, table: &str) -> String {
 
 pub fn generate_reports(o: &Options) -> Result<(), String> {
     let (preffix, suffix) = (o.get("preffix"), o.get("suffix"));
-    let summary = summary_table(o)?;
+    let mut summary = summary_table(o)?;
+    // The command-line table follows the Summary a blank line apart, as report.GenerateSummary
+    // has it.
+    if !summary.is_empty() {
+        let flags = command_line_table(o);
+        if !flags.is_empty() {
+            summary = format!("{summary}\n{flags}");
+        }
+    }
     write_file(&filename(o, "Summary", ".md"), summary.as_bytes())?;
     print!(
         "{}",

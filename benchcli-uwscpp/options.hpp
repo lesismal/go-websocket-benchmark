@@ -7,6 +7,7 @@
 #include <limits>
 #include <map>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -43,6 +44,9 @@ struct Options {
         {"threads","0"}, {"io-timeout","30s"}
     };
     const std::vector<std::string> bools = {"nodelay","check","tpn","ep","rate","rp","r"};
+    // The flags the command line set rather than left at their defaults, for the Summary's
+    // command-line table; see commandLine in report.hpp.
+    std::set<std::string> set;
     bool help = false;
     std::string get(const std::string &key) const { return values.at(key); }
     bool boolean(const std::string &key) const {
@@ -94,6 +98,7 @@ struct Options {
                 else throw std::runtime_error("missing value -" + key);
             }
             values[key]=value;
+            set.insert(key);
         }
         for (auto &key:bools) boolean(key);
         for (auto key:{"c","dc","dr","b","pi","ec","en","el","epd","rc","rd","rr","rbs","rpl","rl","rpd","threads"}) integer(key);

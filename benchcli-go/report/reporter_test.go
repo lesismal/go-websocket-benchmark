@@ -706,3 +706,34 @@ func TestMEMEERIsTPSPerMB(t *testing.T) {
 		t.Errorf("fillMEMEER replaced a recorded MEM EER with %v", recorded.MEMEER)
 	}
 }
+
+// TestCommandLineTable lists every flag the run's client had in ClientFlags
+// order, the report step's own values of ReportStepFlags in place of the
+// run's, and says -f is per framework rather than naming the last one run.
+func TestCommandLineTable(t *testing.T) {
+	run := CommandLine{Client: "benchcli-go", Flags: []ClientFlag{
+		{Name: "rr", Value: "0"},
+		{Name: "c", Value: "1000", Set: true},
+		{Name: "f", Value: "nbio_std", Set: true},
+		{Name: "sort", Value: SortResult},
+		{Name: "preffix", Value: ""},
+		{Name: "extra", Value: "x"},
+	}}
+	table := CommandLineTable(run, []ClientFlag{{Name: "sort", Value: SortFramework, Set: true}, {Name: "c", Value: "9"}})
+	if !rowOrder(table, "-f", "-c", "-rr", "-preffix", "-sort", "-extra") {
+		t.Errorf("flags are out of ClientFlags order:\n%s", table)
+	}
+	for _, want := range []string{
+		"| -c       | 1000                  | command line | connections dialed and held",
+		"| -f       | one run per framework | command line ",
+		"| -sort    | framework             | command line ",
+		"| -preffix | \"\"                    | default      ",
+	} {
+		if !strings.Contains(table, want) {
+			t.Errorf("no %q in:\n%s", want, table)
+		}
+	}
+	if CommandLineTable(CommandLine{}, nil) != "" {
+		t.Error("a run with no recorded flags has a table")
+	}
+}

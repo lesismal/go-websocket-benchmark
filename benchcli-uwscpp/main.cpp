@@ -196,6 +196,8 @@ int main(int argc,char **argv) {
         Options options(argc,argv);
         if(options.help){options.usage();return 0;}
         if(options.boolean("r")){generateReports(options);return 0;}
+        // The report's Summary lists every flag this run had; see commandLineTable in report.hpp.
+        writeFile(commandLineFile(options),commandLine(options).dump()+"\n");
         if(curl_global_init(CURL_GLOBAL_DEFAULT)!=CURLE_OK) throw std::runtime_error("curl global initialization failed");
         int result=benchmark(options);
         curl_global_cleanup();return result;

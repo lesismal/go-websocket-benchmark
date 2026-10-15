@@ -61,8 +61,18 @@ summary_order = [dict(name=name, description=description) for name, description 
                  re.findall(r'\{"([^"]+)",\s*"([^"]*)"\}', summary_block)]
 if not summary_order:
     raise SystemExit('No SummaryParameters found in summary.go')
+# report.ClientFlags and report.ReportStepFlags: the Summary's command-line table.
+commandline_go = (root / 'benchcli-go/report/commandline.go').read_text()
+flags_block = re.search(r'var ClientFlags = \[\]SummaryParameter\{\n(.*?)\n\}', commandline_go, re.S).group(1)
+client_flags = [dict(name=name, description=description) for name, description in
+                re.findall(r'\{"([^"]+)",\s*"([^"]*)"\}', flags_block)]
+if not client_flags:
+    raise SystemExit('No ClientFlags found in commandline.go')
+report_step_flags = re.findall(r'"([^"]+)"', re.search(r'var ReportStepFlags = \[\]string\{(.*?)\}',
+                                                       commandline_go, re.S).group(1))
 metadata = dict(ports=ports, frameworks=frameworks, langs=langs, taskpoolFrameworks=taskpool_frameworks,
-                schemas=schemas, summaryOrder=summary_order)
+                schemas=schemas, summaryOrder=summary_order, clientFlags=client_flags,
+                reportStepFlags=report_step_flags)
 path = pathlib.Path(sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
 if path.suffix == '.json':

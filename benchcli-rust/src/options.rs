@@ -1,7 +1,7 @@
 // The command line, as benchcli-go's flags and benchcli-uwscpp's Options take it: the same
 // names and defaults, -flag=value, -flag value and a bare -bool, and the same checks up front,
 // so that a misspelled flag fails before the run spends the whole benchmark rather than after.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::metadata::metadata;
 
@@ -58,6 +58,9 @@ const BOOLS: &[&str] = &["nodelay", "check", "tpn", "ep", "rate", "rp", "r"];
 
 pub struct Options {
     values: BTreeMap<String, String>,
+    // The flags the command line set rather than left at their defaults, for the Summary's
+    // command-line table; see report::command_line.
+    set: BTreeSet<String>,
     pub help: bool,
 }
 
@@ -69,11 +72,16 @@ impl Options {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
+        let mut set = BTreeSet::new();
         let mut i = 0;
         while i < args.len() {
             let arg = &args[i];
             if arg == "-h" || arg == "--help" || arg == "-help" {
-                return Ok(Options { values, help: true });
+                return Ok(Options {
+                    values,
+                    set,
+                    help: true,
+                });
             }
             if !arg.starts_with('-') {
                 return Err(format!("unexpected argument: {arg}"));
@@ -96,11 +104,13 @@ impl Options {
                         .ok_or_else(|| format!("missing value -{key}"))?
                 }
             };
+            set.insert(key.clone());
             values.insert(key, value);
             i += 1;
         }
         let o = Options {
             values,
+            set,
             help: false,
         };
         o.validate()?;
@@ -148,6 +158,13 @@ impl Options {
             ));
         }
         Ok(())
+    }
+
+    // Every flag, its value and whether the command line set it, in name order.
+    pub fn flags(&self) -> impl Iterator<Item = (&str, &str, bool)> {
+        self.values
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str(), self.set.contains(k)))
     }
 
     pub fn get(&self, key: &str) -> &str {

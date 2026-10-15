@@ -335,6 +335,18 @@ has no row. The clients never see these settings, so the driver scripts record
 them in `output/report/ServerParameters.json` when the run starts, which is
 also what a later `script/report.sh` reads them from.
 
+After the Summary table, a blank line apart, comes the run's command line: every
+flag of the benchmark client, with its value, whether the command line set it
+(`command line`) or left the client's default (`default`), and a `Description`
+of what it is, e.g.
+`| -c | 1000 | command line | connections dialed and held for every benchmark |`.
+Each benchmark run records its flags in `output/report/CommandLine.json` (under
+the run's `-preffix` and `-suffix`); `-f` reads `one run per framework`, and
+`-r`, `-preffix`, `-suffix`, `-sort` and `-project` show the report step's own
+values. The descriptions are `report.ClientFlags` in
+`benchcli-go/report/commandline.go`, which all three clients read. A run whose
+client did not record its flags has no such table.
+
 In either order, every column a table is ranked by - `TPS`, `CPU EER` and
 `MEM EER` - shows each row's share of the best in that column after the
 number, the best being `100%`, floored so that only the best reads `100%`. Each
