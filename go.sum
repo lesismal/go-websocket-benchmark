@@ -90,6 +90,10 @@ github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/lesismal/fib v1.0.1-0.20261007081702-1b13e11779e1 h1:tiaYt9JSIgs3v3XNnBabZwAschtCAMCON3uOz3NOg84=
 github.com/lesismal/fib v1.0.1-0.20261007081702-1b13e11779e1/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
+github.com/lesismal/fib v1.2.0 h1:+TdfZIDV9dbt6DjyqFktlbE4gOMWG+qq5uZy87dLeMo=
+github.com/lesismal/fib v1.2.0/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
+github.com/lesismal/fib v1.2.1-0.20261016025854-2dfff5c708a1 h1:bvj1kzkA1XFzlc3OSNjaIw93FJqzbBImIGmpIpK+Fy0=
+github.com/lesismal/fib v1.2.1-0.20261016025854-2dfff5c708a1/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
 github.com/lesismal/llib v1.2.4 h1:O9ih7VDnOB6KOP3r64DAJpMyMJ/bCKbzYI80VoXEV28=
 github.com/lesismal/llib v1.2.4/go.mod h1:70tFXXe7P1FZ02AU9l8LgSOK7d7sRrpnkUr3rd3gKSg=
 github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb h1:JK8HlVwJ8tbCsDam9/NAX5AJaN+L761Sz17SpckXm0w=
