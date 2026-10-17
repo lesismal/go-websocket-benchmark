@@ -2,12 +2,15 @@ package main
 
 import (
 	"flag"
-	"log"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+
+	"github.com/antlabs/fio/engine"
+	fiohttp "github.com/antlabs/fio/http"
 
 	"go-websocket-benchmark/config"
 	"go-websocket-benchmark/frameworks"
@@ -50,14 +53,23 @@ func main() {
 		taskMode = taskpool.RegisterFioTaskDriver(pool)
 	}
 
+	// fio's own default is one loop per CPU. On the benchmark's 12 server
+	// CPUs, 16 loops hides the read/write syscall latency better than 12
+	// (lab, 10k x 1KB echo: 12 loops 1.70M, 16 loops 1.78M, 20 loops 1.59M).
+	// -eventloops from BENCH_EVENTLOOPS still overrides it.
+	loops := *eventLoops
+	if loops == 0 {
+		loops = 16
+	}
+
 	var h Handler
 	h.m = fio.NewMultiEventLoopMust(
-		fio.WithEventLoops(*eventLoops),    // 控制io go程数
+		fio.WithEventLoops(loops),          // 控制io go程数
 		fio.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
 		fio.WithMaxEventNum(1000),
 		fio.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
-	logging.Printf("%v server: eventloops=%d (0 = fio's own default)", config.Fio, *eventLoops)
+	logging.Printf("%v server: eventloops=%d", config.Fio, loops)
 	opt := []fio.ServerOption{
 		// fio.WithServerIgnorePong(),
 		fio.WithServerCallback(&Handler{}),
@@ -91,44 +103,49 @@ func main() {
 	}
 }
 
-func (h *Handler) startServers(addrs []string) []net.Listener {
-	lns := make([]net.Listener, 0, len(addrs))
+func (h *Handler) startServers(addrs []string) []io.Closer {
+	lns := make([]io.Closer, 0, len(addrs)+1)
+	// fio 的 http 包直接跑在 engine 上：所有数据端口都走它自己的 HTTP/1.1
+	// parser + 原生 WebSocket 升级（websocket.UpgradeConn），不再经过标准库
+	// net/http 的 per-conn goroutine、bufio、hijack 和 fd dup/close。
+	// 控制口（/init /ps /taskpool /debug/pprof）放到端口段后面那个端口，
+	// 和 fnet/fib/gws 一样，见 config.GetFrameworkHTTPServerAddrs。
 	for _, addr := range addrs {
-		mux := &http.ServeMux{}
-		mux.HandleFunc("/ws", h.onWebsocket)
-		frameworks.HandleCommon(mux)
-		server := http.Server{
-			// Addr:    addr,
-			Handler: mux,
-			// fio takes the socket over by duplicating the hijacked
-			// conn's fd, so setting it on that conn sets it on the socket
-			// fio serves.
-			ConnState: func(c net.Conn, state http.ConnState) {
-				if state == http.StateHijacked {
-					frameworks.SetNoDelay(c, *nodelay)
+		newHandler := func() engine.Handler {
+			ch := fiohttp.NewConnHandler(fiohttp.HandlerFunc(func(c *fiohttp.Ctx) error {
+				c.Status(http.StatusNotFound)
+				return nil
+			}), 0)
+			ch.OnUpgrade(func(c *engine.Conn, r *fiohttp.Request) {
+				if _, err := upgrader.UpgradeConn(c, r); err != nil {
+					logging.Printf("upgrade failed: %v", err)
 				}
-			},
+			})
+			return ch
 		}
-		ln, err := frameworks.Listen("tcp", addr)
+		ln, err := engine.ListenAndServe(h.m.MultiEventLoop, addr, newHandler)
 		if err != nil {
 			logging.Fatalf("Listen failed: %v", err)
 		}
 		lns = append(lns, ln)
-		go func() {
-			logging.Printf("server exit: %v", server.Serve(ln))
-		}()
 	}
-	return lns
-}
 
-func (h *Handler) onWebsocket(w http.ResponseWriter, r *http.Request) {
-	_, err := upgrader.Upgrade(w, r)
+	controlAddr, err := config.GetFrameworkHTTPServerAddrs(config.Fio)
 	if err != nil {
-		log.Printf("upgrade failed: %v", err)
-		return
+		logging.Fatalf("GetFrameworkHTTPServerAddrs(%v) failed: %v", config.Fio, err)
 	}
-	// c.SetDeadline(time.Time{})
-	// c.StartReadLoop()
+	controlMux := &http.ServeMux{}
+	frameworks.HandleCommon(controlMux)
+	controlLn, err := net.Listen("tcp", controlAddr)
+	if err != nil {
+		logging.Fatalf("Listen(%v) failed: %v", controlAddr, err)
+	}
+	controlServer := &http.Server{Handler: controlMux}
+	lns = append(lns, controlLn)
+	go func() {
+		logging.Printf("control server exit: %v", controlServer.Serve(controlLn))
+	}()
+	return lns
 }
 
 type Handler struct {
