@@ -114,7 +114,6 @@ func startServer(addrs []string) *fib.Engine {
 
 	serverConfig := fib.DefaultConfig()
 	serverConfig.Network = "tcp4"
-	serverConfig.Addrs = addrs
 	serverConfig.SocketSyscalls = *socketSyscalls
 	serverConfig.IOPollerCount = *eventLoops
 	logging.Printf("%v server: socketsyscalls=%v eventloops=%d (0 = fib's own default)",
@@ -133,7 +132,7 @@ func startServer(addrs []string) *fib.Engine {
 		serverConfig.SetTaskPool(taskpool.FibTaskPool{Pool: pool})
 	}
 
-	server, err := fib.Bind(serverConfig, handler)
+	server, err := fib.New(serverConfig, fib.Binding{Addrs: addrs, Handler: handler})
 	if err != nil {
 		logging.Fatalf("bind %d addresses failed: %v", len(addrs), err)
 	}
