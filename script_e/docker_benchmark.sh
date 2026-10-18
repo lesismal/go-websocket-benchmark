@@ -1,0 +1,527 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd "$script_dir/.." && pwd)
+cd "$repo_root"
+
+usage() {
+    cat <<'EOF'
+Run the benchmark in a resource-limited Docker container.
+
+Usage:
+  bash script_e/docker_benchmark.sh [options] [benchmark client flags]
+
+Options:
+  --smoke       Run a short fib-only validation.
+  --rebuild     Rebuild the image without Docker's layer cache.
+  -cput=N       CPUs the container gets in all (DOCKER_BENCH_CPUS)
+  -cpus=N       Of those, CPUs the servers are pinned to with taskset
+                (DOCKER_BENCH_SERVER_CPUS)
+  -cpuc=N       Of those, CPUs the client is pinned to with taskset
+                (DOCKER_BENCH_CLIENT_CPUS)
+  -socketsyscalls=BOOL
+                fib only: true (default) has its server read and write
+                its sockets with recvfrom, sendto and sendmsg, false with
+                read, write and writev (BENCH_FIB_SOCKET_SYSCALLS; see
+                script_e/config.sh). A bare -socketsyscalls is true. Like
+                the -cpu* flags, it may come anywhere among the arguments.
+  -eventloops=N Event loops for each server that runs its own (fib, fnet,
+                fio, hertz, nbio, tokio_tungstenite, uwebsockets,
+                uws_events); 0 (default) leaves each its framework's own
+                default (BENCH_EVENTLOOPS; see script_e/config.sh). It may
+                come anywhere among the arguments too.
+  -vfs=BOOL     false (default) runs the container with
+                --security-opt apparmor=unconfined, which turns off the
+                AppArmor file-permission check the kernel's VFS makes on
+                every read and write; true keeps Docker's default profile and
+                with it the check (DOCKER_BENCH_VFS). A bare -vfs is -vfs=true.
+  -h, --help    Show this help.
+
+  The three -cpu* flags and -vfs may come anywhere among the arguments;
+  they are taken out before the rest go to the benchmark's clients. Any
+  -cpu* flag left out is worked out from the others: -cput defaults to
+  -cpus + -cpuc when both are given, else to about 75% of what Docker
+  exposes; -cpus and -cpuc default to what -cput leaves after the other, or
+  to half of it each. -cpus + -cpuc may be less than -cput, not more: the
+  server and client CPUs never overlap.
+
+Environment overrides:
+  BENCH_CLIENT             benchcli-uwscpp (default), benchcli-rust or
+                           benchcli-go
+  BENCH_FRAMEWORKS         Comma-separated framework subset
+  BENCH_TASKPOOL           Pool the servers run their callbacks on, and
+  BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script_e/config.sh)
+  BENCH_PROJECT            The Summary's Project row (default:
+                           GO-WEBSOCKET-BENCHMARK; empty leaves it out)
+  BENCH_REPORT_SORT        Report row order: result (default, best first) or
+                           framework (see script_e/config.sh)
+  BENCH_FIB_SOCKET_SYSCALLS true (default) or false; -socketsyscalls
+                           overrides it
+  BENCH_EVENTLOOPS         Event loops per server, 0 (default) for each
+                           framework's own; -eventloops overrides it
+  BENCH_UWS_LOOPS_PER_CPU  uwebsockets' event loops per CPU (see
+                           script_e/config.sh)
+  DOCKER_BENCH_SCRIPT      What the container runs (default:
+                           script_e/benchmark.sh); script_e/1m_conns_benchmark.sh
+                           is the 1M-connection benchmark, which is what
+                           script_e/docker_1m_conns_benchmark.sh and
+                           script_e/docker_1m_conns_benchmark_cn.sh run. Its
+                           BENCH_FRAMEWORKS picks from that script's own list,
+                           and it needs far more memory: a million connections
+                           on each side of the container's loopback
+  DOCKER_BENCH_CPUS        Integer CPU count (default: about 75% available);
+                           -cput overrides it
+  DOCKER_BENCH_SERVER_CPUS The servers' CPU count; -cpus overrides it
+  DOCKER_BENCH_CLIENT_CPUS The client's CPU count; -cpuc overrides it
+  DOCKER_BENCH_VFS         true or false (default); -vfs overrides it
+  DOCKER_BENCH_MEMORY      Docker memory value such as 8g (default: 80%)
+  DOCKER_BENCH_IMAGE       Image tag (default: go-websocket-benchmark:local)
+  DOCKER_BENCH_OUTPUT      Result directory (default: output/docker/<timestamp>)
+  DOCKER_BENCH_SKIP_BUILD  Set to 1 to reuse an existing image
+  DOCKER_BENCH_GO_IMAGE    Base image (default: golang:1.27-bookworm)
+  DOCKER_BENCH_APT_MIRROR  Replaces http://deb.debian.org in the image's apt
+                           sources, e.g. https://mirrors.aliyun.com
+  DOCKER_BENCH_GOPROXY     GOPROXY for the image's go mod download
+  DOCKER_BENCH_GITHUB_MIRROR Space-separated prefixes tried before
+                           https://github.com/ for the image's native
+                           dependencies, each download checked by SHA-256
+  DOCKER_BENCH_RUSTUP_MIRROR Replaces https://static.rust-lang.org for the
+                           image's Rust toolchain, e.g. https://rsproxy.cn
+  DOCKER_BENCH_CARGO_MIRROR A sparse index standing in for crates.io, e.g.
+                           sparse+https://rsproxy.cn/index/; each crate is
+                           checked against Cargo.lock
+  (script_e/docker_benchmark_cn.sh sets the last six to mainland China mirrors.)
+
+Examples:
+  bash script_e/docker_benchmark.sh --smoke
+  BENCH_FRAMEWORKS=fib,nbio_nonblocking \
+    bash script_e/docker_benchmark.sh -c=10000 -en=5000000 -b=256 -rate=true
+  DOCKER_BENCH_CPUS=8 DOCKER_BENCH_MEMORY=12g \
+    bash script_e/docker_benchmark.sh
+  bash script_e/docker_benchmark.sh -cput=8 -cpus=2 -cpuc=6
+  bash script_e/docker_benchmark.sh -vfs=true
+  BENCH_FRAMEWORKS=fib,fnet DOCKER_BENCH_MEMORY=24g \
+    bash script_e/docker_1m_conns_benchmark.sh
+EOF
+}
+
+smoke=false
+rebuild=false
+cpu_total=${DOCKER_BENCH_CPUS:-}
+cpu_server=${DOCKER_BENCH_SERVER_CPUS:-}
+cpu_client=${DOCKER_BENCH_CLIENT_CPUS:-}
+vfs_check=${DOCKER_BENCH_VFS:-false}
+# The -cpu* and -vfs flags are this script's wherever they are; everything else
+# is passed on in its order. None of the clients has a flag by these names.
+other_args=()
+for arg in "$@"; do
+    case "$arg" in
+        -cput=*|--cput=*) cpu_total=${arg#*=} ;;
+        -cpus=*|--cpus=*) cpu_server=${arg#*=} ;;
+        -cpuc=*|--cpuc=*) cpu_client=${arg#*=} ;;
+        # Checked by config.sh, below.
+        -socketsyscalls|--socketsyscalls) BENCH_FIB_SOCKET_SYSCALLS=true ;;
+        -socketsyscalls=*|--socketsyscalls=*) BENCH_FIB_SOCKET_SYSCALLS=${arg#*=} ;;
+        -eventloops=*|--eventloops=*) BENCH_EVENTLOOPS=${arg#*=} ;;
+        -vfs|--vfs) vfs_check=true ;;
+        -vfs=*|--vfs=*) vfs_check=${arg#*=} ;;
+        *) other_args+=("$arg") ;;
+    esac
+done
+set -- ${other_args[@]+"${other_args[@]}"}
+for cpu_flag in "cput:$cpu_total" "cpus:$cpu_server" "cpuc:$cpu_client"; do
+    cpu_value=${cpu_flag#*:}
+    if [ -n "$cpu_value" ] && ! [[ "$cpu_value" =~ ^[1-9][0-9]*$ ]]; then
+        echo "-${cpu_flag%%:*} must be a positive integer, got: $cpu_value" >&2
+        exit 1
+    fi
+done
+case "$vfs_check" in
+    true|false) ;;
+    *) echo "-vfs must be true or false, got: $vfs_check" >&2; exit 1 ;;
+esac
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --smoke) smoke=true; shift ;;
+        --rebuild) rebuild=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --) shift; break ;;
+        *) break ;;
+    esac
+done
+benchmark_args=("$@")
+
+bench_script=${DOCKER_BENCH_SCRIPT:-script/benchmark.sh}
+bench_script=${bench_script#./}
+case "$bench_script" in
+    *..*) echo "DOCKER_BENCH_SCRIPT must be a script_e/*.sh path, got: $bench_script" >&2; exit 1 ;;
+    script_e/*.sh) ;;
+    *) echo "DOCKER_BENCH_SCRIPT must be a script_e/*.sh path, got: $bench_script" >&2; exit 1 ;;
+esac
+if [ ! -f "$repo_root/$bench_script" ]; then
+    echo "DOCKER_BENCH_SCRIPT does not exist: $bench_script" >&2
+    exit 1
+fi
+if [ "$smoke" = true ] && [ "$bench_script" != script_e/benchmark.sh ]; then
+    echo "--smoke runs script_e/benchmark.sh only, not DOCKER_BENCH_SCRIPT=$bench_script" >&2
+    exit 1
+fi
+
+# config.sh checks BENCH_FRAMEWORKS against its own list, which is
+# script_e/benchmark.sh's. Another script picks from a list of its own and checks
+# it in the container (script_e/1m_conns_benchmark.sh does), so it is kept out
+# of that check here and passed through as given.
+if [ "$bench_script" = script_e/benchmark.sh ]; then
+    . "$repo_root/script_e/config.sh" || exit 1
+else
+    selected_frameworks=${BENCH_FRAMEWORKS:-}
+    unset BENCH_FRAMEWORKS
+    . "$repo_root/script_e/config.sh" || exit 1
+    if [ -n "$selected_frameworks" ]; then
+        export BENCH_FRAMEWORKS=$selected_frameworks
+    fi
+fi
+. "$repo_root/script_e/ports.sh"
+
+if [ "$BENCH_ROLE" != both ]; then
+    echo "BENCH_ROLE=$BENCH_ROLE: this script runs one container with --network none," >&2
+    echo "so it cannot be one node of a split run; use script_e/benchmark.sh on each node" >&2
+    exit 1
+fi
+if ! command -v docker >/dev/null 2>&1; then
+    echo "docker is required" >&2
+    exit 1
+fi
+if ! docker_info=$(docker info --format '{{.NCPU}} {{.MemTotal}}' 2>/dev/null); then
+    echo "cannot connect to the Docker daemon; start Docker and check socket permissions" >&2
+    exit 1
+fi
+read -r daemon_cpu_count daemon_memory_bytes <<< "$docker_info"
+if ! [[ "$daemon_cpu_count" =~ ^[0-9]+$ && "$daemon_memory_bytes" =~ ^[0-9]+$ ]]; then
+    echo "unexpected Docker hardware information: $docker_info" >&2
+    exit 1
+fi
+
+image=${DOCKER_BENCH_IMAGE:-go-websocket-benchmark:local}
+build_args=(-f script_e/Dockerfile.benchmark -t "$image")
+if [ "$rebuild" = true ]; then
+    build_args=(--no-cache "${build_args[@]}")
+fi
+# Only the ones given, so an unset one keeps the Dockerfile's default.
+if [ -n "${DOCKER_BENCH_GO_IMAGE:-}" ]; then build_args+=(--build-arg "GO_IMAGE=$DOCKER_BENCH_GO_IMAGE"); fi
+if [ -n "${DOCKER_BENCH_APT_MIRROR:-}" ]; then build_args+=(--build-arg "APT_MIRROR=$DOCKER_BENCH_APT_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_GOPROXY:-}" ]; then build_args+=(--build-arg "GO_PROXY=$DOCKER_BENCH_GOPROXY"); fi
+if [ -n "${DOCKER_BENCH_GITHUB_MIRROR:-}" ]; then build_args+=(--build-arg "GITHUB_MIRROR=$DOCKER_BENCH_GITHUB_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_RUSTUP_MIRROR:-}" ]; then build_args+=(--build-arg "RUSTUP_DIST_SERVER=$DOCKER_BENCH_RUSTUP_MIRROR"); fi
+if [ -n "${DOCKER_BENCH_CARGO_MIRROR:-}" ]; then build_args+=(--build-arg "CARGO_REGISTRY=$DOCKER_BENCH_CARGO_MIRROR"); fi
+if [ "${DOCKER_BENCH_SKIP_BUILD:-0}" != 1 ]; then
+    echo "Building Docker benchmark image: $image"
+    docker build "${build_args[@]}" .
+elif ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "DOCKER_BENCH_SKIP_BUILD=1, but image does not exist: $image" >&2
+    exit 1
+fi
+
+# Docker Desktop may expose fewer CPUs than the physical host. Query the
+# daemon's effective cpuset and select from those IDs rather than assuming 0-N.
+allowed_cpu_spec=$(docker run --rm "$image" awk '/Cpus_allowed_list/ {print $2}' /proc/self/status)
+expanded_cpus=()
+IFS=',' read -r -a cpu_parts <<< "$allowed_cpu_spec"
+for cpu_part in "${cpu_parts[@]}"; do
+    if [[ "$cpu_part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+        cpu_start=${BASH_REMATCH[1]}
+        cpu_end=${BASH_REMATCH[2]}
+        for ((cpu_id=cpu_start; cpu_id<=cpu_end; cpu_id++)); do
+            expanded_cpus+=("$cpu_id")
+        done
+    elif [[ "$cpu_part" =~ ^[0-9]+$ ]]; then
+        expanded_cpus+=("$cpu_part")
+    else
+        echo "unexpected Docker CPU list: $allowed_cpu_spec" >&2
+        exit 1
+    fi
+done
+available_cpus=${#expanded_cpus[@]}
+if [ "$daemon_cpu_count" -lt "$available_cpus" ]; then
+    available_cpus=$daemon_cpu_count
+fi
+if [ "$available_cpus" -lt 2 ]; then
+    echo "Docker needs at least 2 CPUs for separate server/client affinity" >&2
+    exit 1
+fi
+
+if [ -n "$cpu_total" ]; then
+    allocated_cpus=$cpu_total
+elif [ -n "$cpu_server" ] && [ -n "$cpu_client" ]; then
+    allocated_cpus=$((cpu_server + cpu_client))
+else
+    allocated_cpus=$((available_cpus * 3 / 4))
+    if [ "$allocated_cpus" -lt 2 ]; then allocated_cpus=2; fi
+    if [ "$available_cpus" -gt 2 ] && [ "$allocated_cpus" -ge "$available_cpus" ]; then
+        allocated_cpus=$((available_cpus - 1))
+    fi
+fi
+if [ "$allocated_cpus" -lt 2 ] || [ "$allocated_cpus" -gt "$available_cpus" ]; then
+    echo "requested $allocated_cpus CPUs, but Docker exposes $available_cpus" >&2
+    exit 1
+fi
+
+if [ -n "$cpu_server" ] && [ -n "$cpu_client" ]; then
+    server_cpu_count=$cpu_server
+    client_cpu_count=$cpu_client
+elif [ -n "$cpu_server" ]; then
+    server_cpu_count=$cpu_server
+    client_cpu_count=$((allocated_cpus - cpu_server))
+elif [ -n "$cpu_client" ]; then
+    client_cpu_count=$cpu_client
+    server_cpu_count=$((allocated_cpus - cpu_client))
+else
+    server_cpu_count=$((allocated_cpus / 2))
+    client_cpu_count=$((allocated_cpus - server_cpu_count))
+fi
+if [ "$server_cpu_count" -lt 1 ] || [ "$client_cpu_count" -lt 1 ] \
+    || [ $((server_cpu_count + client_cpu_count)) -gt "$allocated_cpus" ]; then
+    echo "cannot pin $server_cpu_count server and $client_cpu_count client CPUs within $allocated_cpus;" >&2
+    echo "each needs at least 1, and together no more than the container's (-cput)" >&2
+    exit 1
+fi
+
+selected_cpus=("${expanded_cpus[@]:0:allocated_cpus}")
+server_cpus=("${selected_cpus[@]:0:server_cpu_count}")
+client_cpus=("${selected_cpus[@]:server_cpu_count:client_cpu_count}")
+join_cpus() {
+    local joined=""
+    local cpu
+    for cpu in "$@"; do
+        joined="${joined}${joined:+,}${cpu}"
+    done
+    printf '%s' "$joined"
+}
+selected_cpu_list=$(join_cpus "${selected_cpus[@]}")
+server_cpu_list=$(join_cpus "${server_cpus[@]}")
+client_cpu_list=$(join_cpus "${client_cpus[@]}")
+
+if [ -n "${DOCKER_BENCH_MEMORY:-}" ]; then
+    memory_limit=$DOCKER_BENCH_MEMORY
+    memory_description=$DOCKER_BENCH_MEMORY
+else
+    memory_limit=$((daemon_memory_bytes * 80 / 100))
+    if [ "$memory_limit" -lt 805306368 ]; then
+        echo "Docker exposes too little memory for this benchmark: ${daemon_memory_bytes} bytes" >&2
+        exit 1
+    fi
+    memory_description=$(awk -v bytes="$memory_limit" 'BEGIN {printf "%.2f GiB", bytes/1024/1024/1024}')
+fi
+
+run_frameworks=${BENCH_FRAMEWORKS:-}
+if [ "$smoke" = true ]; then
+    run_frameworks=fib
+    smoke_args=(-c=100 -dc=20 -ec=50 -en=2000 -b=512 -rate=true -rc=10 -rd=1 -rr=20 -ep=false -rp=false)
+    if [ "${#benchmark_args[@]}" -gt 0 ]; then
+        benchmark_args=("${smoke_args[@]}" "${benchmark_args[@]}")
+    else
+        benchmark_args=("${smoke_args[@]}")
+    fi
+fi
+# benchmark.sh picks the servers' flags out of these itself now, so there is
+# nothing to reorder: it used to hand its first argument to the servers
+# whatever it was, and a -nodelay had to be put there.
+bench_client=$BENCH_CLIENT
+
+timestamp=$(date +%Y%m%d-%H%M%S)
+result_dir=${DOCKER_BENCH_OUTPUT:-"$repo_root/output/docker/$timestamp"}
+mkdir -p "$result_dir"
+container="go-websocket-benchmark-${timestamp}-$$"
+cleanup_container() {
+    docker rm -f "$container" >/dev/null 2>&1 || true
+}
+trap cleanup_container EXIT INT TERM
+
+run_args=(
+    --name "$container"
+    --init
+    --network none
+    --cpus "$allocated_cpus"
+    --cpuset-cpus "$selected_cpu_list"
+    --memory "$memory_limit"
+    --memory-swap "$memory_limit"
+    --pids-limit 32768
+    --ulimit nofile=1048576:1048576
+    --sysctl "net.ipv4.ip_local_port_range=1024 65535"
+    # Keeps the servers' ports out of that range: each server starts just
+    # before its turn, and a port the client before it left in TIME_WAIT would
+    # fail its bind. See bench_server_reserved_ports in script_e/ports.sh.
+    --sysctl "net.ipv4.ip_local_reserved_ports=$(bench_server_reserved_ports)"
+    --sysctl net.ipv4.tcp_tw_reuse=1
+    --env "BENCH_CLIENT=$bench_client"
+    --env "BENCH_SERVER_CPU_LIST=$server_cpu_list"
+    --env "BENCH_CLIENT_CPU_LIST=$client_cpu_list"
+    # Without these the container would run the taskpool defaults however the
+    # caller set them out here.
+    --env "BENCH_TASKPOOL=$BENCH_TASKPOOL"
+    --env "BENCH_TASKPOOL_MIN=$BENCH_TASKPOOL_MIN"
+    --env "BENCH_TASKPOOL_MAX=$BENCH_TASKPOOL_MAX"
+    --env "BENCH_TASKPOOL_QUEUE=$BENCH_TASKPOOL_QUEUE"
+    # Likewise the report row order, which the run writes its tables in.
+    --env "BENCH_REPORT_SORT=$BENCH_REPORT_SORT"
+    # And the calls the fib server reads and writes its sockets with.
+    --env "BENCH_FIB_SOCKET_SYSCALLS=$BENCH_FIB_SOCKET_SYSCALLS"
+    # And the servers' event loop count.
+    --env "BENCH_EVENTLOOPS=$BENCH_EVENTLOOPS"
+    # And BenchEcho's round trips, the clients' -en.
+    --env "BENCH_ECHO_TIMES=$BENCH_ECHO_TIMES"
+    # And the Summary's Project row.
+    --env "BENCH_PROJECT=$BENCH_PROJECT"
+    # And uwebsockets' loop multiplier, which sizes itself against the
+    # container's CPUs rather than the host's.
+    --env "BENCH_UWS_LOOPS_PER_CPU=$BENCH_UWS_LOOPS_PER_CPU"
+)
+if [ -n "$run_frameworks" ]; then
+    run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
+fi
+# read, write and writev reach a socket through the VFS, which on every call
+# runs the security module's file permission hook; under Docker's default
+# AppArmor profile that is a large share of a busy server's system time, which
+# frameworks calling recvfrom/sendto/sendmsg instead do not pay. Unconfined
+# leaves it out, so -vfs=false measures the frameworks rather than the
+# profile. On a Docker host without AppArmor the option changes nothing.
+if [ "$vfs_check" = true ]; then
+    vfs_description="on (Docker's default AppArmor profile)"
+else
+    run_args+=(--security-opt apparmor=unconfined)
+    vfs_description="off (apparmor=unconfined)"
+fi
+
+# The machine the numbers were measured on, for resources.txt. Every probe
+# falls back to "unknown" rather than stopping the run over a missing tool.
+host_os="unknown"
+host_cpu_model="unknown"
+host_cpu_sockets="unknown"
+host_cpu_cores="unknown"
+host_cpu_threads="unknown"
+case "$(uname -s)" in
+    Darwin)
+        host_os="$(sw_vers -productName 2>/dev/null || echo macOS) $(sw_vers -productVersion 2>/dev/null || true)"
+        host_cpu_model=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)
+        host_cpu_sockets=$(sysctl -n hw.packages 2>/dev/null || echo unknown)
+        host_cpu_cores=$(sysctl -n hw.physicalcpu 2>/dev/null || echo unknown)
+        host_cpu_threads=$(sysctl -n hw.logicalcpu 2>/dev/null || echo unknown)
+        ;;
+    Linux)
+        if [ -r /etc/os-release ]; then
+            host_os=$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-${NAME:-Linux}}")
+        else
+            host_os=Linux
+        fi
+        host_cpu_model=$(awk -F': *' '/^model name/ {print $2; exit}' /proc/cpuinfo 2>/dev/null || true)
+        if command -v lscpu >/dev/null 2>&1; then
+            lscpu_value() { LC_ALL=C lscpu 2>/dev/null | awk -F': *' -v k="$1" '$1 == k {print $2; exit}' || true; }
+            # ARM kernels often have no model name, and lscpu prints "-" for it.
+            [ -n "$host_cpu_model" ] || host_cpu_model=$(lscpu_value "Model name")
+            if [ -z "$host_cpu_model" ] || [ "$host_cpu_model" = "-" ]; then
+                host_cpu_model=$(lscpu_value "Vendor ID")
+            fi
+            # The parsable listing has a socket and a core for every CPU on x86
+            # and ARM alike, where the "Socket(s)" summary line does not.
+            cpu_topology=$(LC_ALL=C lscpu -p=SOCKET,CORE 2>/dev/null | grep -v '^#' || true)
+            if [ -n "$cpu_topology" ]; then
+                host_cpu_sockets=$(printf '%s\n' "$cpu_topology" | cut -d, -f1 | sort -u | wc -l | tr -d ' ')
+                host_cpu_cores=$(printf '%s\n' "$cpu_topology" | sort -u | wc -l | tr -d ' ')
+            fi
+        fi
+        if [ -z "$host_cpu_model" ] || [ "$host_cpu_model" = "-" ]; then
+            host_cpu_model=unknown
+        fi
+        host_cpu_threads=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo unknown)
+        ;;
+esac
+host_kernel=$(uname -srm 2>/dev/null || echo unknown)
+docker_os=$(docker info --format '{{.OperatingSystem}}, kernel {{.KernelVersion}}, {{.Architecture}}' 2>/dev/null || echo unknown)
+
+# Worked out here rather than in the heredoc: bash 3.2, macOS's, fails a
+# quote inside ${var:-word} there with "bad substitution".
+frameworks_description=${run_frameworks:-"all of ${bench_script}'s"}
+
+cat > "$result_dir/resources.txt" <<EOF
+Host OS: $host_os ($host_kernel)
+Host CPU model: $host_cpu_model
+Host CPU sockets: $host_cpu_sockets
+Host CPU physical cores: $host_cpu_cores
+Host CPU logical CPUs: $host_cpu_threads
+Docker OS: $docker_os
+Docker CPUs total: $daemon_cpu_count
+Docker CPUs available: $available_cpus ($allowed_cpu_spec)
+Docker CPUs allocated: $allocated_cpus ($selected_cpu_list)
+Server CPUs: $server_cpu_count ($server_cpu_list)
+Client CPUs: $client_cpu_count ($client_cpu_list)
+Docker memory available: $daemon_memory_bytes bytes
+Container memory limit: $memory_description
+VFS check: $vfs_description
+Benchmark script: $bench_script
+Benchmark client: $bench_client
+Frameworks: $frameworks_description
+Fib socket syscalls: $BENCH_FIB_SOCKET_SYSCALLS
+Event loops: $BENCH_EVENTLOOPS (0 = each framework's own default)
+EOF
+cat "$result_dir/resources.txt"
+echo "Results: $result_dir"
+
+set +e
+if [ "${#benchmark_args[@]}" -gt 0 ]; then
+    docker run "${run_args[@]}" "$image" \
+        bash "$bench_script" "${benchmark_args[@]}" 2>&1 | tee "$result_dir/console.log"
+else
+    docker run "${run_args[@]}" "$image" \
+        bash "$bench_script" 2>&1 | tee "$result_dir/console.log"
+fi
+benchmark_status=${PIPESTATUS[0]}
+set -e
+
+mkdir -p "$result_dir/report" "$result_dir/log"
+docker cp "$container:/workspace/output/report/." "$result_dir/report" >/dev/null 2>&1 || true
+docker cp "$container:/workspace/output/log/." "$result_dir/log" >/dev/null 2>&1 || true
+
+# A server or client the kernel killed at the container's memory limit leaves
+# only a "Killed" line, or a server that stops answering its control port, in
+# the console; say what it was. Docker records it for the whole container.
+if [ "$(docker inspect --format '{{.State.OOMKilled}}' "$container" 2>/dev/null)" = true ]; then
+    {
+        echo "The container ran out of memory: the kernel killed a server or the client at its $memory_description limit."
+        echo "BenchPipeline (script_e/benchmark.sh's -rate=true) holds about -c x -rbs bytes (16KiB by default) per copy in flight."
+        echo "Give it more with DOCKER_BENCH_MEMORY (Docker exposes $daemon_memory_bytes bytes), or ask for less:"
+        echo "fewer connections (-c), a smaller write batch (-rbs), or no BenchPipeline (-rate=false)."
+    } | tee -a "$result_dir/console.log" >&2
+    if [ "$benchmark_status" -eq 0 ]; then
+        benchmark_status=1
+    fi
+fi
+
+if [ "$benchmark_status" -eq 0 ]; then
+    connection_reports=("$result_dir"/report/*-Connections*.json)
+    if [ ! -e "${connection_reports[0]}" ]; then
+        echo "Docker benchmark produced no connection report" >&2
+        benchmark_status=1
+    else
+        for connection_report in "${connection_reports[@]}"; do
+            echo_report=${connection_report/-Connections/-BenchEcho}
+            if ! grep -Eq '"Success":[1-9][0-9]*' "$connection_report" \
+                || ! grep -Eq '"Failed":0([,}])' "$connection_report"; then
+                echo "Unsuccessful connection report: $connection_report" >&2
+                benchmark_status=1
+            fi
+            if [ ! -f "$echo_report" ] \
+                || ! grep -Eq '"Success":[1-9][0-9]*' "$echo_report" \
+                || ! grep -Eq '"Failed":0([,}])' "$echo_report"; then
+                echo "Unsuccessful or missing Echo report: $echo_report" >&2
+                benchmark_status=1
+            fi
+        done
+    fi
+fi
+
+if [ "$benchmark_status" -ne 0 ]; then
+    echo "Docker benchmark failed with status $benchmark_status; partial output is in $result_dir" >&2
+    exit "$benchmark_status"
+fi
+echo "Docker benchmark completed: $result_dir"

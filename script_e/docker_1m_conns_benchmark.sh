@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# script_e/1m_conns_benchmark.sh - a million connections, 1KiB payload - in
+# script_e/docker_benchmark.sh's resource-limited container, which builds the
+# image, divides the CPUs between the servers and the client and copies the
+# results to output/docker/<timestamp> as it does for script_e/benchmark.sh.
+#
+# Every option and flag is script_e/docker_benchmark.sh's; see its --help, but
+# --smoke, which is script_e/benchmark.sh's. BENCH_FRAMEWORKS picks from
+# script_e/1m_conns_benchmark.sh's list, and flags after the options go to its
+# clients after its own -c=1000000 -en=5000000 -b=256 -rr=1, so they win:
+#   BENCH_FRAMEWORKS=fib,fnet bash script_e/docker_1m_conns_benchmark.sh
+#   bash script_e/docker_1m_conns_benchmark.sh -c=200000
+#
+# Both sides of each connection are in the one container, so its memory limit
+# has to hold two million sockets besides the servers and the client: give it
+# plenty with DOCKER_BENCH_MEMORY (and Docker Desktop's VM the memory to back
+# it), or ask for fewer connections with -c. The two million sockets also
+# count against fs.file-max, which a container shares with the host (or
+# Docker Desktop's VM) and cannot raise itself: script_e/1m_conns_benchmark.sh
+# stops before the run when it is too low and prints the sysctl to raise it.
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+export DOCKER_BENCH_SCRIPT=script_e/1m_conns_benchmark.sh
+
+exec bash "$script_dir/docker_benchmark.sh" "$@"
