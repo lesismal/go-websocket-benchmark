@@ -1,7 +1,7 @@
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
-github.com/antlabs/fio v0.2.3 h1:wKEEVgP1AXEf3FrSgZZRTg7NBexC0xZZ1EF33k0Z4yg=
-github.com/antlabs/fio v0.2.3/go.mod h1:0ID8s1hF+7DnJdSOv7UI3VqV5GcsL89NDMMklzPNZKo=
+github.com/antlabs/fio v0.2.4 h1:R74WlRm2W8PBIVwbuX/tinjloJ3wqIsek33RGrQadhU=
+github.com/antlabs/fio v0.2.4/go.mod h1:0ID8s1hF+7DnJdSOv7UI3VqV5GcsL89NDMMklzPNZKo=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 h1:u4ja6lULCPPWZudtKCHfxSyIzmc3OJs88CgtxmT0lXA=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe h1:+1J0CjnE7QUJJFKMkbKKxZoVTVf+YPdehZ/SWqH9ePE=
@@ -88,8 +88,8 @@ github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa02
 github.com/klauspost/cpuid/v2 v2.2.9 h1:66ze0taIn2H33fBvCkXuv9BmCwDfafmiIVpKV9kKGuY=
 github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK4QwQ3WMXF8=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
-github.com/lesismal/fib v1.2.1-0.20261016025854-2dfff5c708a1 h1:bvj1kzkA1XFzlc3OSNjaIw93FJqzbBImIGmpIpK+Fy0=
-github.com/lesismal/fib v1.2.1-0.20261016025854-2dfff5c708a1/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
+github.com/lesismal/fib v1.2.1-0.20261017071257-26f20d5e9817 h1:J03vvbz7GTGglrDIwKKu/QWea4dFT9k8Yl6wW3TQgoM=
+github.com/lesismal/fib v1.2.1-0.20261017071257-26f20d5e9817/go.mod h1:ECyKMzlRaSlOWKBorTaEushOJZclLtclDlfONJxBB4U=
 github.com/lesismal/llib v1.2.4 h1:O9ih7VDnOB6KOP3r64DAJpMyMJ/bCKbzYI80VoXEV28=
 github.com/lesismal/llib v1.2.4/go.mod h1:70tFXXe7P1FZ02AU9l8LgSOK7d7sRrpnkUr3rd3gKSg=
 github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb h1:JK8HlVwJ8tbCsDam9/NAX5AJaN+L761Sz17SpckXm0w=
