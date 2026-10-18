@@ -3,7 +3,7 @@ module go-websocket-benchmark
 go 1.27
 
 require (
-	github.com/antlabs/fio v0.2.5
+	github.com/antlabs/fio v0.2.6
 	github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe
 	github.com/antlabs/task v0.1.0
 	github.com/bytedance/gopkg v0.1.4
