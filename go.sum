@@ -1,7 +1,7 @@
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
-github.com/antlabs/fio v0.2.5 h1:2aDFbY+6pxSulFcuSn/DAUbJmRuJF0v2Jp3FD1AN+5s=
-github.com/antlabs/fio v0.2.5/go.mod h1:0ID8s1hF+7DnJdSOv7UI3VqV5GcsL89NDMMklzPNZKo=
+github.com/antlabs/fio v0.2.6 h1:3DeGY0SQc/aQB619IQJEawlMT0pXeGVP01AJ5aWL26s=
+github.com/antlabs/fio v0.2.6/go.mod h1:0ID8s1hF+7DnJdSOv7UI3VqV5GcsL89NDMMklzPNZKo=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 h1:u4ja6lULCPPWZudtKCHfxSyIzmc3OJs88CgtxmT0lXA=
 github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2/go.mod h1:CR7Uwu/iaQvySMEXk44joshcjkxDS6hRFW8lp8Zq8rg=
 github.com/antlabs/quickws v0.2.3-0.20261001171553-c220c5b95bfe h1:+1J0CjnE7QUJJFKMkbKKxZoVTVf+YPdehZ/SWqH9ePE=
