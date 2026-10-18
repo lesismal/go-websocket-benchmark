@@ -54,6 +54,9 @@ type taskFunc func()
 
 func (f taskFunc) RunTask() { f() }
 
+// uio v1.7.0's IOTask also wants a shard key; these tests do not shard.
+func (f taskFunc) ShardKey() uint32 { return 0 }
+
 func TestUwsExecutorPassesTheRefusalThrough(t *testing.T) {
 	// UIO closes the connection behind a task its executor refuses, so the
 	// adapter must not paper over a refusal.

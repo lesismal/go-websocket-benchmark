@@ -16,15 +16,15 @@ require (
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/lesismal/fib v1.2.1-0.20261017071257-26f20d5e9817
-	github.com/lesismal/nbio v1.6.13-0.20260923072729-cf55fbafabcb
+	github.com/lesismal/nbio v1.7.1
 	github.com/lesismal/perf v0.0.0-20240508164715-fdb92a70ac1c
 	github.com/libp2p/go-reuseport v0.4.0
 	github.com/limpo1989/taskgo v1.7.1
-	github.com/linfeip/fnet v0.0.0-20261009115752-19f29c33945b
+	github.com/linfeip/fnet v1.0.0
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/urpc/uio v1.7.0
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 	nhooyr.io/websocket v1.8.17
 )
 
