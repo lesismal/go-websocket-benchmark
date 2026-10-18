@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 
 	"github.com/antlabs/fio/engine"
 	fiohttp "github.com/antlabs/fio/http"
@@ -53,13 +54,18 @@ func main() {
 		taskMode = taskpool.RegisterFioTaskDriver(pool)
 	}
 
-	// fio's own default is one loop per CPU. On the benchmark's 12 server
-	// CPUs, 16 loops hides the read/write syscall latency better than 12
-	// (lab, 10k x 1KB echo: 12 loops 1.70M, 16 loops 1.78M, 20 loops 1.59M).
+	// fio's own default is one loop per CPU. A little oversubscription hides
+	// the read/write syscall latency; scale it with the CPUs this server
+	// actually has (taskset affinity is part of runtime.NumCPU) instead of a
+	// fixed count — 16 loops on a 2-core CI runner is 8x too many, and on the
+	// 4-core case fio fell behind fnet there (0.50M vs 0.77M echo). 4/3 of
+	// NumCPU gives 16 on the 12-core lab server (12 loops 1.70M, 16 loops
+	// 1.78M, 20 loops 1.59M) and 5 on 4 cores.
 	// -eventloops from BENCH_EVENTLOOPS still overrides it.
 	loops := *eventLoops
 	if loops == 0 {
-		loops = 16
+		loops = runtime.NumCPU()
+		loops += loops / 3
 	}
 
 	var h Handler
