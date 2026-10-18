@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 
 	"github.com/antlabs/fio/engine"
 	fiohttp "github.com/antlabs/fio/http"
@@ -54,28 +53,17 @@ func main() {
 		taskMode = taskpool.RegisterFioTaskDriver(pool)
 	}
 
-	// fio's own default is one loop per CPU. A little oversubscription hides
-	// the read/write syscall latency; scale it with the CPUs this server
-	// actually has (taskset affinity is part of runtime.NumCPU) instead of a
-	// fixed count — 16 loops on a 2-core CI runner is 8x too many, and on the
-	// 4-core case fio fell behind fnet there (0.50M vs 0.77M echo). 4/3 of
-	// NumCPU gives 16 on the 12-core lab server (12 loops 1.70M, 16 loops
-	// 1.78M, 20 loops 1.59M) and 5 on 4 cores.
-	// -eventloops from BENCH_EVENTLOOPS still overrides it.
-	loops := *eventLoops
-	if loops == 0 {
-		loops = runtime.NumCPU()
-		loops += loops / 3
-	}
-
+	// fio v0.2.5's websocket default is 4/3 of the CPUs this server actually
+	// has (runtime.NumCPU under taskset): 12 -> 16, 4 -> 5, 2 -> 2. 0 leaves
+	// that default in place; -eventloops from BENCH_EVENTLOOPS overrides it.
 	var h Handler
 	h.m = fio.NewMultiEventLoopMust(
-		fio.WithEventLoops(loops),          // 控制io go程数
+		fio.WithEventLoops(*eventLoops),    // 控制io go程数, 0 = fio 默认
 		fio.WithBusinessGoNum(80, 100, 80), // 控制业务go程数, 默认启动100个, 最小100个，最大10000个
 		fio.WithMaxEventNum(1000),
 		fio.WithLogLevel(slog.LevelError)) // epoll, kqueue
 	h.m.Start()
-	logging.Printf("%v server: eventloops=%d", config.Fio, loops)
+	logging.Printf("%v server: eventloops=%d (0 = fio default), effective=%d", config.Fio, *eventLoops, h.m.NumLoops())
 	opt := []fio.ServerOption{
 		// fio.WithServerIgnorePong(),
 		fio.WithServerCallback(&Handler{}),
