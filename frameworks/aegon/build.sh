@@ -206,25 +206,39 @@ case "${AEGON_JEMALLOC:-auto}" in
 esac
 echo "aegon: allocator: ${malloc_lib[*]:-glibc malloc}"
 
+# With AEGON_BUNDLE the server is linked to load every shared library from AEGON_BUNDLE/lib: the
+# loader by an absolute path, which is what an interpreter has to be, and the libraries by
+# DT_RPATH rather than DT_RUNPATH (--disable-new-dtags), which only the server's own dependencies
+# would be looked up in and not theirs (libssl's libcrypto, say). Set when linking rather than
+# rewritten afterwards: patchelf's rewrite of the non-PIE executable the GCC image links by
+# default crashed it before main on x86_64.
+bundle_ldflags=()
+if [ -n "${AEGON_BUNDLE:-}" ]; then
+    lib_dir=$AEGON_BUNDLE/lib
+    echo 'int main() { return 0; }' | "$cxx" -x c++ - -o "$build_dir/probe-interpreter"
+    interpreter=$(readelf -lW "$build_dir/probe-interpreter" | sed -n 's/.*program interpreter: \(.*\)]$/\1/p')
+    if [ -z "$interpreter" ]; then
+        echo "aegon: cannot tell which dynamic loader $cxx links against" >&2
+        exit 1
+    fi
+    bundle_ldflags=(-Wl,--dynamic-linker="$lib_dir/$(basename "$interpreter")"
+        -Wl,--disable-new-dtags -Wl,-rpath,"$lib_dir")
+fi
+
 # jemalloc ahead of libc, so that its malloc is the one every library ends up calling.
 "$cxx" "${cxxflags[@]}" -Wall -Wextra "${includes[@]}" server.cpp "${objects[@]}" \
     -L"$prefix/lib" -lngtcp2_crypto_ossl -lngtcp2 -lnghttp3 -lnghttp2 \
-    ${malloc_lib[@]+"${malloc_lib[@]}"} -luring -ldeflate -lssl -lcrypto ${LDFLAGS:-} \
-    -o "$output"
+    ${malloc_lib[@]+"${malloc_lib[@]}"} -luring -ldeflate -lssl -lcrypto \
+    ${bundle_ldflags[@]+"${bundle_ldflags[@]}"} ${LDFLAGS:-} -o "$output"
 
 if [ -n "${AEGON_BUNDLE:-}" ]; then
-    # Every shared library the server loads, glibc and the loader included, next to it, and the
-    # server pointed at them: DT_RPATH rather than DT_RUNPATH, which only the server's own
-    # dependencies would be looked up in and not theirs (libssl's libcrypto, say), and the
-    # loader by an absolute path, which is what an interpreter has to be.
-    lib_dir=$AEGON_BUNDLE/lib
+    # Listed by the system's own loader, which finds them where they are installed while lib_dir
+    # is empty.
+    rm -rf "$lib_dir"
     mkdir -p "$lib_dir"
-    interpreter=$(patchelf --print-interpreter "$output")
-    cp -L "$interpreter" "$lib_dir/"
-    ldd "$output" | awk '$2 == "=>" && $3 ~ /^\// { print $3 }' | while read -r lib; do
+    "$interpreter" --list "$output" | awk '$2 == "=>" && $3 ~ /^\// { print $3 }' | while read -r lib; do
         cp -L "$lib" "$lib_dir/"
     done
-    patchelf --set-interpreter "$lib_dir/$(basename "$interpreter")" --force-rpath \
-        --set-rpath "$lib_dir" "$output"
+    cp -L "$interpreter" "$lib_dir/"
     echo "aegon: bundled $(ls "$lib_dir" | wc -l) libraries into $lib_dir"
 fi

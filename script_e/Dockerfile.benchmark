@@ -25,7 +25,6 @@ RUN if [ -n "$APT_MIRROR" ]; then \
         libjemalloc-dev \
         libssl-dev \
         liburing-dev \
-        patchelf \
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
 COPY frameworks/aegon/build.sh frameworks/aegon/server.cpp /tmp/aegon/
