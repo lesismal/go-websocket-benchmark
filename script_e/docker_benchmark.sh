@@ -154,7 +154,7 @@ while [ "$#" -gt 0 ]; do
 done
 benchmark_args=("$@")
 
-bench_script=${DOCKER_BENCH_SCRIPT:-script/benchmark.sh}
+bench_script=${DOCKER_BENCH_SCRIPT:-script_e/benchmark.sh}
 bench_script=${bench_script#./}
 case "$bench_script" in
     *..*) echo "DOCKER_BENCH_SCRIPT must be a script_e/*.sh path, got: $bench_script" >&2; exit 1 ;;
