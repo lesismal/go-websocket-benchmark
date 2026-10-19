@@ -294,7 +294,7 @@ frameworks=(
     # "hertz_std"
     # "nbio_blocking"
     # "nbio_mixed"
-    "nbio_nonblocking"
+    # "nbio_nonblocking"
     # "nbio_std"
     "nettyws"
     "nhooyr"
