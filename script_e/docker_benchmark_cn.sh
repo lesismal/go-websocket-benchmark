@@ -14,6 +14,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # ${VAR-default}, not ${VAR:-default}: an empty value is kept, to go direct.
 export DOCKER_BENCH_GO_IMAGE=${DOCKER_BENCH_GO_IMAGE-docker.m.daocloud.io/library/golang:1.27-bookworm}
+export DOCKER_BENCH_GCC_IMAGE=${DOCKER_BENCH_GCC_IMAGE-docker.m.daocloud.io/library/gcc:16.2.0-trixie}
 export DOCKER_BENCH_APT_MIRROR=${DOCKER_BENCH_APT_MIRROR-https://mirrors.aliyun.com}
 export DOCKER_BENCH_GOPROXY=${DOCKER_BENCH_GOPROXY-https://goproxy.cn}
 # Third-party proxies, tried in order and then https://github.com/ itself;

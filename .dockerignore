@@ -7,5 +7,7 @@ benchcli-uwscpp/.build
 benchcli-uwscpp/.deps
 benchcli-rust/target
 frameworks/tokio_tungstenite/target
+frameworks/aegon/.deps
+frameworks/aegon/.build
 **/__pycache__
 **/*.pyc

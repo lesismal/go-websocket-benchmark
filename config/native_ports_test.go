@@ -19,6 +19,12 @@ func TestNativeServersListenOnTheirPorts(t *testing.T) {
 		last      *regexp.Regexp
 	}{
 		{
+			framework: Aegon,
+			source:    "../frameworks/aegon/server.cpp",
+			first:     regexp.MustCompile(`constexpr int kPortStart = (\d+);`),
+			last:      regexp.MustCompile(`constexpr int kPortEnd = (\d+);`),
+		},
+		{
 			framework: TokioTungstenite,
 			source:    "../frameworks/tokio_tungstenite/src/main.rs",
 			first:     regexp.MustCompile(`const PORT_START: u16 = (\d+);`),

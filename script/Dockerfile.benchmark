@@ -1,4 +1,38 @@
 ARG GO_IMAGE=golang:1.27-bookworm
+# What the aegon server is built on: Aegon is C++26 and needs GCC 15's
+# libstdc++ or newer and OpenSSL 3.5, none of which this image's Debian has.
+ARG GCC_IMAGE=gcc:16.2.0-trixie
+
+# The aegon server, in a stage of its own (frameworks/aegon/build.sh). Bundled
+# with every shared library it loads, glibc and the dynamic loader included,
+# since the benchmark image's are older than the ones it was linked against;
+# the benchmark's build copies it from there (AEGON_PREBUILT below).
+# -march=native, as Aegon builds itself: the image is built where it runs.
+FROM ${GCC_IMAGE} AS aegon
+ARG APT_MIRROR=
+ARG GITHUB_MIRROR=
+RUN if [ -n "$APT_MIRROR" ]; then \
+        for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+            if [ -f "$f" ]; then \
+                sed -i "s|http://deb.debian.org|$APT_MIRROR|g; s|http://security.debian.org|$APT_MIRROR|g" "$f"; \
+            fi; \
+        done; \
+    fi \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        cmake \
+        libdeflate-dev \
+        libjemalloc-dev \
+        libssl-dev \
+        liburing-dev \
+        patchelf \
+        xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+COPY frameworks/aegon/build.sh frameworks/aegon/server.cpp /tmp/aegon/
+RUN AEGON_BUNDLE=/opt/aegon AEGON_DEPS_DIR=/tmp/aegon/.deps AEGON_BUILD_DIR=/tmp/aegon/.build \
+        bash /tmp/aegon/build.sh /opt/aegon/aegon.server \
+    && rm -rf /tmp/aegon
+
 FROM ${GO_IMAGE}
 
 # Where the build downloads from; empty means the upstream default. Set by
@@ -71,12 +105,17 @@ COPY frameworks/tokio_tungstenite/Cargo.toml frameworks/tokio_tungstenite/Cargo.
 RUN bash /tmp/docker_rust.sh fetch /tmp/benchcli-rust /tmp/tokio_tungstenite \
     && rm -rf /tmp/docker_rust.sh /tmp/benchcli-rust /tmp/tokio_tungstenite
 
+# The aegon server the stage above built, which frameworks/aegon/build.sh
+# copies rather than builds when AEGON_PREBUILT names it.
+COPY --from=aegon /opt/aegon /opt/aegon
+
 COPY . .
 
 # CARGO_NET_OFFLINE: the benchmark runs with --network none, and cargo would
 # otherwise try the registry before settling for what is already fetched.
 ENV GOCACHE=/tmp/go-build-cache \
     BUILD_DIR=/tmp/benchcli-uwscpp-build \
-    CARGO_NET_OFFLINE=true
+    CARGO_NET_OFFLINE=true \
+    AEGON_PREBUILT=/opt/aegon/aegon.server
 
 CMD ["bash", "script/benchmark.sh"]

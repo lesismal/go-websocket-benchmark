@@ -28,6 +28,7 @@ type InitArgs struct {
 // script/1m_conns_benchmark.sh, so that a framework sits in the same place in
 // all of them and a new one has one obvious place to go in each.
 const (
+	Aegon              = "aegon"
 	Fasthttp           = "fasthttp"
 	Fib                = "fib"
 	Fio                = "fio"
@@ -59,7 +60,7 @@ const (
 //
 // Kept together and small so that as few ports as possible are taken from the
 // clients: every server's ports are reserved from the ephemeral range - see
-// script/ports.sh - and 15001 to 17651 sits below the default ephemeral range
+// script/ports.sh - and 15001 to 17751 sits below the default ephemeral range
 // of Linux (32768 and up) and of macOS and Windows (49152 and up). Fifty
 // ports each because one client address holds at most one connection per
 // ephemeral port to each server port: a million connections need 16 server
@@ -70,6 +71,7 @@ const (
 // and 16701 up - are left free rather than closed up, so that no other
 // framework's ports move.
 var Ports = map[string]string{
+	Aegon:              "17701:17750",
 	Fasthttp:           "15001:15050",
 	Fib:                "15101:15150",
 	Fio:                "15701:15750",
@@ -104,6 +106,7 @@ const (
 // Langs is the language of every framework's server, in framework-name order
 // like Ports.
 var Langs = map[string]string{
+	Aegon:              LangCPP,
 	Fasthttp:           LangGo,
 	Fib:                LangGo,
 	Fio:                LangGo,
@@ -152,6 +155,7 @@ func FrameworkServesPprof(framework string) bool {
 // row order of a -sort=framework report, which is what puts a framework on the
 // same row in every table and across runs, whatever it scored.
 var FrameworkList = []string{
+	Aegon,
 	Fasthttp,
 	Fib,
 	Fio,

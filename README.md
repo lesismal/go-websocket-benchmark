@@ -66,7 +66,7 @@ the default, keeps them. It is `BENCH_FIB_SOCKET_SYSCALLS` in
 `script/docker_*benchmark*.sh`; no other server is given it.
 
 `-eventloops=N` gives every server that runs event loops of its own N of them:
-fib (`IOPollerCount`), fnet (`NumLoops`), fio and fio_event
+aegon (`Server::run`'s threads), fib (`IOPollerCount`), fnet (`NumLoops`), fio and fio_event
 (`WithEventLoops`), hertz (`netpoll.SetNumLoops`), nbio_mixed and
 nbio_nonblocking (`NPoller`), tokio_tungstenite (`-threads`), uwebsockets
 (`-loops`) and uws_events (`uio.Events.Pollers`). `-eventloops=0`, the default,
@@ -112,9 +112,14 @@ bash script/docker_1m_conns_benchmark.sh
 
 ## Servers not written in Go
 
-Two of the servers are not Go, and each builds with its own toolchain, which a
+Three of the servers are not Go, and each builds with its own toolchain, which a
 server node needs besides Go:
 
+- `aegon` - [Aegon](https://github.com/UdayKhare09/Aegon), C++26 on Linux
+  io_uring, set up the way [HttpArena](https://github.com/MDA2AV/HttpArena/tree/main/frameworks/aegon)
+  runs it. Linux only; GCC 15 or newer, cmake, and OpenSSL 3.5+, liburing and
+  libdeflate headers; its first build fetches and builds the pinned Aegon,
+  glaze, nghttp2, nghttp3 and ngtcp2 sources. See [its README](frameworks/aegon/README.md).
 - `uwebsockets` - [uWebSockets](https://github.com/uNetworking/uWebSockets),
   C++. A C++20 compiler and zlib headers; its first build fetches the pinned
   uWebSockets/uSockets sources. See [its README](frameworks/uwebsockets/README.md).
@@ -125,9 +130,11 @@ server node needs besides Go:
   loops and answers on a logic thread pool of its own. It takes no `-taskpool`
   flag. See [its README](frameworks/tokio_tungstenite/README.md).
 
-The Docker image installs both toolchains - the Rust one also builds
+The Docker image installs the C++ and Rust toolchains - the Rust one also builds
 `benchcli-rust` - and fetches every pinned source at build time, so the
-benchmark in the container still runs with `--network none`.
+benchmark in the container still runs with `--network none`. `aegon` is built in
+an image stage of its own, on the official GCC image, since the benchmark
+image's Debian is too old for it, and copied in with the libraries it needs.
 
 ## Goroutine pool
 
@@ -305,7 +312,7 @@ EER to break a tie with. The JSON keeps `CPU EER` under its old keys, `EER` in
 `BenchEcho` and `EchoEER` in `BenchPipeline`, and `MEM EER` is `MEMEER` in both.
 
 Every table's first two columns are `Framework` and `Lang`, the language that
-framework's server is written in - `go`, `c++` (`uwebsockets`) or `rust`
+framework's server is written in - `go`, `c++` (`aegon`, `uwebsockets`) or `rust`
 (`tokio_tungstenite`) - so that a row of another language stands out in a table
 otherwise of Go servers. It comes from `config.Langs`, which every client reads,
 and a report written before the column existed gets it from there when it is
@@ -410,7 +417,7 @@ What each role does differently:
 - `server` builds only the servers - a server node needs no client toolchain -
   starts them and stops there. `client` builds only the client, so it needs
   none of the servers' toolchains, in particular not the C++ and Rust ones
-  `uwebsockets` and `tokio_tungstenite` want.
+  `aegon`, `uwebsockets` and `tokio_tungstenite` want.
 - A node running one half gives it the whole machine instead of half, since
   there is nothing to divide it with. `BENCH_SERVER_CPU_LIST` and
   `BENCH_CLIENT_CPU_LIST` still pin it where a node shares its CPUs.
@@ -440,7 +447,7 @@ sysctl -w net.ipv4.ip_local_port_range="1024 65535"
 # Keep the servers' ports (config.Ports) out of that range: each server starts
 # just before its turn, and would fail to bind a port the client before it left
 # in TIME_WAIT. The run prints the exact list when they are not reserved.
-sysctl -w net.ipv4.ip_local_reserved_ports=15001-17651
+sysctl -w net.ipv4.ip_local_reserved_ports=15001-17751
 # System-wide, so it counts both ends of every connection when the client and
 # the servers share a machine, or a Docker container: a million connections
 # there are two million files. The benchmark scripts check it before they start.

@@ -25,6 +25,7 @@ build_benchmark() {
         for f in "${frameworks[@]}"; do
             echo "build ${f} ..."
             case "${f}" in
+                aegon) bash ./frameworks/aegon/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 tokio_tungstenite) bash ./frameworks/tokio_tungstenite/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uwebsockets) bash ./frameworks/uwebsockets/build.sh "$(pwd)/output/bin/${f}.server" || return 1 ;;
                 uws_events) go_build -o "./output/bin/${f}.server" ./frameworks/uws || return 1 ;;

@@ -80,6 +80,8 @@ Environment overrides:
   DOCKER_BENCH_OUTPUT      Result directory (default: output/docker/<timestamp>)
   DOCKER_BENCH_SKIP_BUILD  Set to 1 to reuse an existing image
   DOCKER_BENCH_GO_IMAGE    Base image (default: golang:1.27-bookworm)
+  DOCKER_BENCH_GCC_IMAGE   What the aegon server is built on (default:
+                           gcc:16.2.0-trixie)
   DOCKER_BENCH_APT_MIRROR  Replaces http://deb.debian.org in the image's apt
                            sources, e.g. https://mirrors.aliyun.com
   DOCKER_BENCH_GOPROXY     GOPROXY for the image's go mod download
@@ -91,7 +93,7 @@ Environment overrides:
   DOCKER_BENCH_CARGO_MIRROR A sparse index standing in for crates.io, e.g.
                            sparse+https://rsproxy.cn/index/; each crate is
                            checked against Cargo.lock
-  (script/docker_benchmark_cn.sh sets the last six to mainland China mirrors.)
+  (script/docker_benchmark_cn.sh sets the last seven to mainland China mirrors.)
 
 Examples:
   bash script/docker_benchmark.sh --smoke
@@ -210,6 +212,7 @@ if [ "$rebuild" = true ]; then
 fi
 # Only the ones given, so an unset one keeps the Dockerfile's default.
 if [ -n "${DOCKER_BENCH_GO_IMAGE:-}" ]; then build_args+=(--build-arg "GO_IMAGE=$DOCKER_BENCH_GO_IMAGE"); fi
+if [ -n "${DOCKER_BENCH_GCC_IMAGE:-}" ]; then build_args+=(--build-arg "GCC_IMAGE=$DOCKER_BENCH_GCC_IMAGE"); fi
 if [ -n "${DOCKER_BENCH_APT_MIRROR:-}" ]; then build_args+=(--build-arg "APT_MIRROR=$DOCKER_BENCH_APT_MIRROR"); fi
 if [ -n "${DOCKER_BENCH_GOPROXY:-}" ]; then build_args+=(--build-arg "GO_PROXY=$DOCKER_BENCH_GOPROXY"); fi
 if [ -n "${DOCKER_BENCH_GITHUB_MIRROR:-}" ]; then build_args+=(--build-arg "GITHUB_MIRROR=$DOCKER_BENCH_GITHUB_MIRROR"); fi
@@ -348,6 +351,14 @@ run_args=(
     --memory-swap "$memory_limit"
     --pids-limit 32768
     --ulimit nofile=1048576:1048576
+    # aegon runs on io_uring, whose syscalls Docker's default seccomp profile
+    # blocks since Docker 25, and sizes its rings and provided buffers by the
+    # locked-memory limit, taking the small ones under Docker's default 8MB.
+    # The other servers make none of these calls, and on a 5.11 or newer kernel
+    # the profile's filter costs the syscalls it allows next to nothing, so
+    # turning it off changes nothing for them.
+    --security-opt seccomp=unconfined
+    --ulimit memlock=-1:-1
     --sysctl "net.ipv4.ip_local_port_range=1024 65535"
     # Keeps the servers' ports out of that range: each server starts just
     # before its turn, and a port the client before it left in TIME_WAIT would

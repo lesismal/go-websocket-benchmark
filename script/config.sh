@@ -109,11 +109,12 @@ for uws_thread_factor in "$BENCH_UWS_LOOPS_PER_CPU"; do
 done
 
 # How many event loops each server in eventloop_frameworks below runs: the
-# goroutines (threads, for tokio_tungstenite and uwebsockets) that wait on the
+# goroutines (threads, for aegon, tokio_tungstenite and uwebsockets) that wait on the
 # poller. 0 (the default) leaves every framework its own default count, which
 # differs between them; N > 0 gives every one of them the same N. Each takes
 # it through its own knob, which script/server.sh passes it as:
 #
+#   aegon               -eventloops  its io_uring event loop threads (default: one per CPU)
 #   fib                 -eventloops  fib.Config.IOPollerCount (default: CPUs/4, at least 1)
 #   fnet                -eventloops  fnet.Options.NumLoops (default: GOMAXPROCS/4, at least 2)
 #   fio(_event)         -eventloops  fio.WithEventLoops (default: one per CPU)
@@ -243,6 +244,7 @@ taskpool_frameworks=(
 # goroutines), so there is no loop count to set, and the Go ones would exit on
 # a flag they do not define.
 eventloop_frameworks=(
+    "aegon"
     "fib"
     "fio"
     "fnet"
@@ -282,6 +284,7 @@ BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 # taskpool_frameworks above, so that a framework is in the same place in every
 # list and a new one has one obvious place to go.
 frameworks=(
+    "aegon"
     "fasthttp"
     "fib"
     "fio"
