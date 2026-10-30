@@ -13,7 +13,6 @@ import (
 	"go-websocket-benchmark/logging"
 	"go-websocket-benchmark/taskpool"
 
-	"github.com/urpc/uio"
 	"github.com/urpc/uio/uws"
 )
 
@@ -41,9 +40,9 @@ func (echoHandler) OnOpen(conn *uws.Conn) {
 func (echoHandler) OnMessage(conn *uws.Conn, message uws.Message) {
 	switch message.Type {
 	case uws.TextMessage:
-		_ = conn.SendText(message.Payload)
+		_ = conn.SendText(message.Text())
 	case uws.BinaryMessage:
-		_ = conn.SendBinary(message.Payload)
+		_ = conn.SendBinary(message.Bytes())
 	}
 }
 
@@ -68,27 +67,25 @@ func main() {
 		logging.Fatalf("no websocket listen addresses configured")
 	}
 
-	server := uws.NewServer(echoHandler{})
-	server.Events = &uio.Events{
-		Pollers:       *eventLoops,
-		MaxBufferSize: maxBufferSize,
-		ReusePort:     frameworks.ReusePort(),
+	options := uws.Options{
+		Handler:        echoHandler{},
+		ReadBufferSize: maxBufferSize,
+		Pollers:        *eventLoops,
+		ReusePort:      frameworks.ReusePort(),
 	}
-	// UIO runs each connection's I/O as one task. An explicit benchmark pool
-	// runs those tasks in place of UIO's own scheduler; -taskpool=default keeps
-	// UIO's taskgo scheduler, which runs about one worker per P and adds
-	// workers, up to 512*GOMAXPROCS, while callbacks block. The stdio backend
-	// reads and writes on goroutines of its own and takes no executor.
+
 	if supportsExecutor {
 		if pool := taskpool.FromFlags(); pool != nil {
-			server.Events.Executor = taskpool.UwsExecutor{Pool: pool}
+			options.Executor = taskpool.UwsExecutor{Pool: pool}
 		}
 	}
 	logging.Printf(
 		"uws benchmark config: pollers=%d (0 = UIO's own default) GOMAXPROCS=%d NumCPU=%d",
-		server.Events.Pollers, runtime.GOMAXPROCS(0), runtime.NumCPU(),
+		*eventLoops, runtime.GOMAXPROCS(0), runtime.NumCPU(),
 	)
 	serveDone := make(chan error, 1)
+
+	server := uws.NewServer(options)
 	go func() { serveDone <- server.Serve(addrs...) }()
 
 	pidLn := startHTTPServer()

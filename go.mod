@@ -23,7 +23,7 @@ require (
 	github.com/linfeip/fnet v1.0.0
 	github.com/lxzan/gws v1.10.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/urpc/uio v1.7.0
+	github.com/urpc/uio v1.8.0
 	golang.org/x/time v0.16.0
 	nhooyr.io/websocket v1.8.17
 )
@@ -50,6 +50,7 @@ require (
 	github.com/lesismal/llib v1.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
+	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
