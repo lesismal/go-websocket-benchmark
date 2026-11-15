@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ type InitArgs struct {
 // all of them and a new one has one obvious place to go in each.
 const (
 	Aegon              = "aegon"
+	Alos               = "alos"
 	Fasthttp           = "fasthttp"
 	Fib                = "fib"
 	Fio                = "fio"
@@ -60,7 +62,7 @@ const (
 //
 // Kept together and small so that as few ports as possible are taken from the
 // clients: every server's ports are reserved from the ephemeral range - see
-// script/ports.sh - and 15001 to 17751 sits below the default ephemeral range
+// script/ports.sh - and 15001 to 17851 sits below the default ephemeral range
 // of Linux (32768 and up) and of macOS and Windows (49152 and up). Fifty
 // ports each because one client address holds at most one connection per
 // ephemeral port to each server port: a million connections need 16 server
@@ -72,6 +74,7 @@ const (
 // framework's ports move.
 var Ports = map[string]string{
 	Aegon:              "17701:17750",
+	Alos:               "17801:17850",
 	Fasthttp:           "15001:15050",
 	Fib:                "15101:15150",
 	Fio:                "15701:15750",
@@ -107,6 +110,7 @@ const (
 // like Ports.
 var Langs = map[string]string{
 	Aegon:              LangCPP,
+	Alos:               LangGo,
 	Fasthttp:           LangGo,
 	Fib:                LangGo,
 	Fio:                LangGo,
@@ -156,6 +160,7 @@ func FrameworkServesPprof(framework string) bool {
 // same row in every table and across runs, whatever it scored.
 var FrameworkList = []string{
 	Aegon,
+	Alos,
 	Fasthttp,
 	Fib,
 	Fio,
@@ -179,8 +184,43 @@ var FrameworkList = []string{
 	UwsStdio,
 }
 
+// BenchPortsEnv names the environment variable that narrows every framework
+// to the first N of its benchmark ports, which its server listens on and the
+// clients dial: BENCH_PORTS=1 puts every connection on one port. Unset, or
+// anything but a positive integer, leaves all of them. The control port does
+// not move. script/config.sh checks and exports it, and benchcli-rust and
+// benchcli-uwscpp read the same variable at run time.
+const BenchPortsEnv = "BENCH_PORTS"
+
+// BenchPorts is BENCH_PORTS as a count, or 0 when it does not narrow anything.
+func BenchPorts() int {
+	n, err := strconv.Atoi(os.Getenv(BenchPortsEnv))
+	if err != nil || n < 1 {
+		return 0
+	}
+	return n
+}
+
+// GetFrameworkBenchmarkPorts is the ports the clients dial for the benchmark:
+// framework's range in Ports, or the first BENCH_PORTS of them.
 func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
+	ports, err := frameworkPortRange(framework)
+	if err != nil {
+		return nil, err
+	}
+	if n := BenchPorts(); n > 0 && n < len(ports) {
+		ports = ports[:n]
+	}
+	return ports, nil
+}
+
+// frameworkPortRange is every port of framework's range in Ports, whatever
+// BENCH_PORTS says.
+func frameworkPortRange(framework string) ([]int, error) {
 	portRange := strings.Split(Ports[framework], ":")
+	if len(portRange) != 2 {
+		return nil, fmt.Errorf("unknown framework %q", framework)
+	}
 	minPort, err := strconv.Atoi(portRange[0])
 	if err != nil {
 		return nil, err
@@ -196,8 +236,28 @@ func GetFrameworkBenchmarkPorts(framework string) ([]int, error) {
 	return ports, nil
 }
 
-func GetFrameworkServerAddrs(framework string) ([]string, error) {
+// frameworkServerPorts is the ports framework's server listens on: the ones
+// the clients dial, and, for the frameworks whose control routes are on the
+// last port of their range rather than the one after it, that port too, so
+// that BENCH_PORTS never takes /init, /ps or /taskpool away.
+func frameworkServerPorts(framework string) ([]int, error) {
 	ports, err := GetFrameworkBenchmarkPorts(framework)
+	if err != nil {
+		return nil, err
+	}
+	control, err := frameworkControlPort(framework)
+	if err != nil {
+		return nil, err
+	}
+	all, _ := frameworkPortRange(framework)
+	if control == all[len(all)-1] && !slices.Contains(ports, control) {
+		ports = append(ports, control)
+	}
+	return ports, nil
+}
+
+func GetFrameworkServerAddrs(framework string) ([]string, error) {
+	ports, err := frameworkServerPorts(framework)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +268,11 @@ func GetFrameworkServerAddrs(framework string) ([]string, error) {
 	return addrs, nil
 }
 
+// GetFrameworkHTTPServerAddrs is the port after the last of framework's range,
+// where the frameworks with separate control routes serve them, however many
+// ports BENCH_PORTS leaves to the benchmark.
 func GetFrameworkHTTPServerAddrs(framework string) (string, error) {
-	ports, err := GetFrameworkBenchmarkPorts(framework)
+	ports, err := frameworkPortRange(framework)
 	if err != nil {
 		return "", err
 	}
@@ -308,15 +371,16 @@ func controlOnce(url string, body []byte) (data []byte, answered bool, err error
 // frameworkControlPort is the port a framework's control routes - /init, /ps,
 // /taskpool and the pprof ones - listen on. For most frameworks it is also
 // the last of the ports carrying benchmark connections; the ones that serve
-// their control routes separately take the one after it.
+// their control routes separately take the one after it. Both are worked out
+// from the whole range, so BENCH_PORTS never moves the control port.
 func frameworkControlPort(framework string) (int, error) {
-	ports, err := GetFrameworkBenchmarkPorts(framework)
+	ports, err := frameworkPortRange(framework)
 	if err != nil {
 		return 0, err
 	}
 	port := ports[len(ports)-1]
 	switch framework {
-	case Fib, Fnet, Fio, Gws, UwsEvents, UwsStdio:
+	case Alos, Fib, Fnet, Fio, Gws, UwsEvents, UwsStdio:
 		port++
 	}
 	return port, nil

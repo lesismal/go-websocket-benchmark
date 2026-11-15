@@ -13,6 +13,7 @@ require (
 	github.com/go-netty/go-netty-ws v1.0.12
 	github.com/gobwas/ws v1.4.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/guno1928/alos-http v0.0.0-20261101222527-fda85f52b84c
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/lesismal/fib v1.7.2
@@ -29,14 +30,17 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.1.1 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/antlabs/pulse v0.0.0-20261007064121-2127031031e2 // indirect
 	github.com/antlabs/wsutil v0.1.13 // indirect
-	github.com/bytedance/sonic v1.15.0 // indirect
-	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/bytedance/sonic v1.15.2 // indirect
+	github.com/bytedance/sonic/loader v0.5.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/gopkg v0.2.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
+	github.com/ericlagergren/aegis v0.0.0-20250325060835-cd0defd64358 // indirect
+	github.com/ericlagergren/subtle v0.0.0-20220507045147-890d697da010 // indirect
 	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-netty/go-netty v1.6.8 // indirect
@@ -45,9 +49,12 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
+	github.com/guno1928/alosmap v0.0.0-20260622010136-91db0f96eeae // indirect
+	github.com/guno1928/turbo v0.0.0-20260706091412-3b318c1e1ce7 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lesismal/llib v1.2.4 // indirect
+	github.com/molecule-man/go-brrr v1.3.0 // indirect
 	github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
@@ -60,9 +67,10 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.58.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )

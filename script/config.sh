@@ -126,6 +126,10 @@ done
 #                                    BENCH_UWS_LOOPS_PER_CPU, which -loops overrides)
 #   uws_events          -eventloops  uio.Events.Pollers (default: 4, capped by the CPUs)
 #
+# alos runs event loops too but is not in the list: core.Config takes one
+# address, so its server is fifty alos servers, one per port, each with one
+# loop, and their number is the port count rather than anything a flag sets.
+#
 # "CPU" there is the CPUs the server may run on, after script/env.sh pins it.
 # Exported, since script/server.sh runs as a process of its own.
 #
@@ -201,6 +205,22 @@ case "$BENCH_FIB_SOCKET_SYSCALLS" in
     *) echo "Unsupported BENCH_FIB_SOCKET_SYSCALLS: $BENCH_FIB_SOCKET_SYSCALLS (want true or false)" >&2; return 1 ;;
 esac
 export BENCH_FIB_SOCKET_SYSCALLS
+
+# How many of each framework's benchmark ports its server listens on and the
+# clients dial: the first N of its range in config.Ports. Empty (the default)
+# is all fifty; BENCH_PORTS=1 puts every connection on one port. The control
+# port stays where it is. config.BenchPorts, benchcli-rust and benchcli-uwscpp
+# read it at run time, so it is exported. The servers not written in Go
+# (aegon, tokio_tungstenite, uwebsockets) still listen on all fifty; the
+# clients dial only the first N of theirs too.
+#
+#   BENCH_PORTS=1 BENCH_FRAMEWORKS=alos,fib bash script/benchmark.sh -c=20000
+BENCH_PORTS=${BENCH_PORTS:-}
+case "$BENCH_PORTS" in
+    '') ;;
+    *[!0-9]*|0*) echo "Unsupported BENCH_PORTS: $BENCH_PORTS (want a positive integer)" >&2; return 1 ;;
+esac
+export BENCH_PORTS
 
 # What the run benchmarks: the Project row that heads the Summary table, so a
 # report read on its own still says what it measured. Set it to name a run of
@@ -285,6 +305,7 @@ BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 # list and a new one has one obvious place to go.
 frameworks=(
     "aegon"
+    "alos"
     "fasthttp"
     "fib"
     "fio"

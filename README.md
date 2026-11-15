@@ -74,6 +74,24 @@ passes nothing, so each keeps its framework's own default count, and those
 differ: see `BENCH_EVENTLOOPS` in `script/config.sh`, which is what the flag
 sets, for each one's. It works with the same scripts as `-socketsyscalls`.
 
+`alos` ([alos-http](https://github.com/guno1928/alos-http), Linux amd64 only)
+runs event loops as well, but takes no `-eventloops`: `core.Config` has one
+address, so its server is one alos server per port, each with its share of
+the CPUs as `SO_REUSEPORT` listeners and epoll loops - one each on fifty
+ports, one per CPU on one - echoing from the loop through
+`core.ServeWebSocketEvents`.
+
+`BENCH_PORTS=N` narrows every framework to the first N of its fifty benchmark
+ports: the Go servers listen on those alone, and all three clients dial only
+those. `BENCH_PORTS=1` puts every connection on one port, which suits runs of
+up to a few tens of thousands of connections from one client address. The
+control port (`/init`, `/ps`, `/taskpool`, pprof) stays where it is. It works
+with `script/benchmark.sh`, `script/benchmarkN.sh` and the Docker runners:
+
+```sh
+BENCH_PORTS=1 BENCH_FRAMEWORKS=alos,fib bash script/docker_benchmark.sh -c=20000 -ec=20000 -rc=20000
+```
+
 ```sh
 # Four event loops in every server that has them
 bash script/benchmark.sh -eventloops=4
@@ -447,7 +465,7 @@ sysctl -w net.ipv4.ip_local_port_range="1024 65535"
 # Keep the servers' ports (config.Ports) out of that range: each server starts
 # just before its turn, and would fail to bind a port the client before it left
 # in TIME_WAIT. The run prints the exact list when they are not reserved.
-sysctl -w net.ipv4.ip_local_reserved_ports=15001-17751
+sysctl -w net.ipv4.ip_local_reserved_ports=15001-17851
 # System-wide, so it counts both ends of every connection when the client and
 # the servers share a machine, or a Docker container: a million connections
 # there are two million files. The benchmark scripts check it before they start.

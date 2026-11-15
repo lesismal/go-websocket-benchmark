@@ -116,8 +116,18 @@ bench_wait_server_ready() {
     fi
     min=${range%%:*}
     max=${range##*:}
+    # BENCH_PORTS leaves the server the first N benchmark ports, and the
+    # control port, which does not move: the last port of the range for most
+    # frameworks, the one after it for those with separate control routes
+    # (config.frameworkControlPort). Either one listening counts for it, so
+    # this needs no copy of that list.
+    local bench_max=$max control_ports=""
+    if [ -n "${BENCH_PORTS:-}" ] && [ $((min + BENCH_PORTS - 1)) -lt "$max" ]; then
+        bench_max=$((min + BENCH_PORTS - 1))
+        control_ports="$max $((max + 1))"
+    fi
     pending=()
-    for ((p = min; p <= max; p++)); do
+    for ((p = min; p <= bench_max; p++)); do
         pending+=("$p")
     done
     deadline=$((SECONDS + BENCH_SERVER_START_TIMEOUT))
@@ -140,11 +150,27 @@ bench_wait_server_ready() {
             done
         fi
         pending=("${still[@]}")
-        if [ "${#pending[@]}" -eq 0 ]; then
+        local control_ok=true
+        if [ "${#pending[@]}" -eq 0 ] && [ -n "$control_ports" ]; then
+            control_ok=false
+            for p in $control_ports; do
+                if [ -n "$bench_listen_tool" ]; then
+                    bench_listening_ports | grep -qx "$p" && control_ok=true
+                else
+                    (exec 3<>"/dev/tcp/127.0.0.1/${p}") 2>/dev/null && control_ok=true
+                fi
+                [ "$control_ok" = true ] && break
+            done
+        fi
+        if [ "${#pending[@]}" -eq 0 ] && [ "$control_ok" = true ]; then
             return 0
         fi
         if [ "$SECONDS" -ge "$deadline" ]; then
-            echo "${f} server not listening on ${#pending[@]} of its ports (${pending[0]}...) after ${BENCH_SERVER_START_TIMEOUT}s" >&2
+            if [ "${#pending[@]}" -eq 0 ]; then
+                echo "${f} server not listening on its control port (one of ${control_ports}) after ${BENCH_SERVER_START_TIMEOUT}s" >&2
+            else
+                echo "${f} server not listening on ${#pending[@]} of its ports (${pending[0]}...) after ${BENCH_SERVER_START_TIMEOUT}s" >&2
+            fi
             return 1
         fi
         sleep 0.1

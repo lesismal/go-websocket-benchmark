@@ -62,7 +62,7 @@ use tokio_tungstenite::tungstenite::handshake::client::generate_key;
 use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
 
-use crate::metadata::ports;
+use crate::metadata::dial_ports;
 use crate::options::Options;
 use crate::stream::Stream;
 use crate::upgrade;
@@ -414,7 +414,7 @@ impl Worker {
         workers: usize,
         count: usize,
     ) -> Worker {
-        let (first, last) = ports(o.get("f"));
+        let (first, last) = dial_ports(o.get("f"));
         let mut host = o.get("ip").to_string();
         if host.starts_with('[') && host.ends_with(']') {
             host = host[1..host.len() - 1].to_string();

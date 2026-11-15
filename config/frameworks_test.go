@@ -119,3 +119,38 @@ func TestNativeClientsAgreeOnControlPorts(t *testing.T) {
 		}
 	}
 }
+
+// BENCH_PORTS narrows the ports the clients dial to the first N of each range
+// and leaves the control port where it is; a server whose control routes are
+// on the last port of its range keeps listening there.
+func TestBenchPorts(t *testing.T) {
+	t.Setenv(BenchPortsEnv, "1")
+	ports, err := GetFrameworkBenchmarkPorts(Fib)
+	if err != nil || len(ports) != 1 || ports[0] != 15101 {
+		t.Fatalf("BENCH_PORTS=1: fib ports %v, %v; want [15101]", ports, err)
+	}
+	if addrs, _ := GetFrameworkServerAddrs(Fib); !slices.Equal(addrs, []string{":15101"}) {
+		t.Errorf("BENCH_PORTS=1: fib listens on %v, want [:15101]", addrs)
+	}
+	if addr, _ := GetFrameworkHTTPServerAddrs(Fib); addr != ":15151" {
+		t.Errorf("BENCH_PORTS=1: fib control %v, want :15151", addr)
+	}
+	if addrs, _ := GetFrameworkServerAddrs(Gorilla); !slices.Equal(addrs, []string{":15601", ":15650"}) {
+		t.Errorf("BENCH_PORTS=1: gorilla listens on %v, want [:15601 :15650]", addrs)
+	}
+	if port, _ := frameworkControlPort(Gorilla); port != 15650 {
+		t.Errorf("BENCH_PORTS=1: gorilla control %v, want 15650", port)
+	}
+	if addrs, _ := GetFrameworkBenchmarkAddrs(Alos, "127.0.0.1"); !slices.Equal(addrs, []string{"ws://127.0.0.1:17801/ws"}) {
+		t.Errorf("BENCH_PORTS=1: alos dials %v", addrs)
+	}
+	for _, v := range []string{"", "0", "-3", "x", "100"} {
+		t.Setenv(BenchPortsEnv, v)
+		if ports, _ := GetFrameworkBenchmarkPorts(Fib); len(ports) != 50 {
+			t.Errorf("BENCH_PORTS=%q: %d ports, want all 50", v, len(ports))
+		}
+		if addrs, _ := GetFrameworkServerAddrs(Gorilla); len(addrs) != 50 {
+			t.Errorf("BENCH_PORTS=%q: gorilla listens on %d ports, want all 50", v, len(addrs))
+		}
+	}
+}

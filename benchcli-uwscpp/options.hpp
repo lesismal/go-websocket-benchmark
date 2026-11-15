@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -18,6 +19,23 @@ inline int64_t nowNs() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
 }
 #include "metadata.hpp"
+
+// config.BenchPorts: BENCH_PORTS as a count, read at run time, or 0 when it narrows nothing.
+inline int benchPorts() {
+    const char *v=std::getenv("BENCH_PORTS");
+    if (!v || !*v) return 0;
+    for (const char *p=v;*p;++p) if (*p<'0' || *p>'9') return 0;
+    long n=std::strtol(v,nullptr,10);
+    return n>=1 && n<=65535 ? int(n) : 0;
+}
+// The last port the client dials for framework f: the last of its range in config.Ports, or of
+// the first BENCH_PORTS of them, as config.GetFrameworkBenchmarkPorts has it. The control port is
+// still worked out from the whole range (see controlURL).
+inline int dialLastPort(const std::string &f) {
+    int first=metadata["ports"][f][0],last=metadata["ports"][f][1];
+    int n=benchPorts();
+    return n>0 && first+n-1<last ? first+n-1 : last;
+}
 
 // Where a run's CPU and MEM samples come from; -ps takes these names. See
 // pssample.hpp, and config/pssource.go for the same three in the Go client.

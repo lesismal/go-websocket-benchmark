@@ -164,7 +164,7 @@ struct Worker {
     std::mt19937_64 random{std::random_device{}()};
     Worker(const Options &o,Shared &s,int i,int n,int c,int dc):options(o),shared(s),id(i),workerCount(n),count(c),dialConcurrency(dc),
         checkValid(o.boolean("check")),enableTPN(o.boolean("tpn")),
-        firstPort(metadata["ports"][o.get("f")][0]),lastPort(metadata["ports"][o.get("f")][1]),
+        firstPort(metadata["ports"][o.get("f")][0]),lastPort(dialLastPort(o.get("f"))),
         retries(o.integer("dr")?o.integer("dr"):3),sendRate(std::max(1,o.integer("rr"))),host(o.get("ip")),
         ioTimeout(o.duration("io-timeout")),dialTimeout(o.duration("dt")),retryInterval(o.duration("dri")) {
         if (host.front()=='[' && host.back()==']') host=host.substr(1,host.size()-2);

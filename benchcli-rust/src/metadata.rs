@@ -32,6 +32,25 @@ pub fn ports(framework: &str) -> (u16, u16) {
     )
 }
 
+/// The ports the client dials: ports(framework), or its first BENCH_PORTS when that is a positive
+/// integer, read at run time as config.GetFrameworkBenchmarkPorts reads it. The control port is
+/// still worked out from ports(framework).
+pub fn dial_ports(framework: &str) -> (u16, u16) {
+    let (first, last) = ports(framework);
+    match bench_ports() {
+        Some(n) if n <= (last - first) as usize => (first, first + n as u16 - 1),
+        _ => (first, last),
+    }
+}
+
+/// config.BenchPorts: BENCH_PORTS as a count, None when it narrows nothing.
+pub fn bench_ports() -> Option<usize> {
+    std::env::var("BENCH_PORTS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|&n| n >= 1)
+}
+
 pub fn frameworks() -> impl Iterator<Item = &'static str> {
     metadata()["frameworks"]
         .as_array()

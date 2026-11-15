@@ -259,6 +259,7 @@ print_env() {
     echo $line
     echo "report sort: ${BENCH_REPORT_SORT} (result = best first, framework = config.FrameworkList order)"
     echo "fib socket syscalls: ${BENCH_FIB_SOCKET_SYSCALLS} (true = recvfrom/sendto/sendmsg, false = read/write/writev)"
+    echo "benchmark ports per framework: ${BENCH_PORTS:-all}"
     echo "event loops: ${BENCH_EVENTLOOPS} (0 = each framework's own default; for ${eventloop_frameworks[*]})"
     echo "project: ${BENCH_PROJECT:-(none)}"
     echo $line

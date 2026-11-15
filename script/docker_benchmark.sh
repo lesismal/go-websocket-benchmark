@@ -50,6 +50,8 @@ Environment overrides:
   BENCH_CLIENT             benchcli-uwscpp (default), benchcli-rust or
                            benchcli-go
   BENCH_FRAMEWORKS         Comma-separated framework subset
+  BENCH_PORTS              Benchmark ports per framework, the first N of its
+                           range (default: all; see script/config.sh)
   BENCH_TASKPOOL           Pool the servers run their callbacks on, and
   BENCH_TASKPOOL_MIN/_MAX/_QUEUE its sizing (see script/config.sh)
   BENCH_PROJECT            The Summary's Project row (default:
@@ -389,6 +391,9 @@ run_args=(
 if [ -n "$run_frameworks" ]; then
     run_args+=(--env "BENCH_FRAMEWORKS=$run_frameworks")
 fi
+if [ -n "${BENCH_PORTS:-}" ]; then
+    run_args+=(--env "BENCH_PORTS=$BENCH_PORTS")
+fi
 # read, write and writev reach a socket through the VFS, which on every call
 # runs the security module's file permission hook; under Docker's default
 # AppArmor profile that is a large share of a busy server's system time, which
@@ -470,6 +475,7 @@ VFS check: $vfs_description
 Benchmark script: $bench_script
 Benchmark client: $bench_client
 Frameworks: $frameworks_description
+Benchmark ports per framework: ${BENCH_PORTS:-all}
 Fib socket syscalls: $BENCH_FIB_SOCKET_SYSCALLS
 Event loops: $BENCH_EVENTLOOPS (0 = each framework's own default)
 EOF
