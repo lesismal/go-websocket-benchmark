@@ -127,8 +127,8 @@ done
 #   uws_events          -eventloops  uio.Events.Pollers (default: 4, capped by the CPUs)
 #
 # alos runs event loops too but is not in the list: core.Config takes one
-# address, so its server is fifty alos servers, one per port, each with one
-# loop, and their number is the port count rather than anything a flag sets.
+# address, so its server is one alos server per port, each with its share of
+# the CPUs as loops, and no flag sets their number.
 #
 # "CPU" there is the CPUs the server may run on, after script/env.sh pins it.
 # Exported, since script/server.sh runs as a process of its own.
@@ -214,7 +214,7 @@ export BENCH_FIB_SOCKET_SYSCALLS
 # (aegon, tokio_tungstenite, uwebsockets) still listen on all fifty; the
 # clients dial only the first N of theirs too.
 #
-#   BENCH_PORTS=1 BENCH_FRAMEWORKS=alos,fib bash script/benchmark.sh -c=20000
+#   BENCH_PORTS=1 BENCH_FRAMEWORKS=fib bash script/benchmark.sh -c=20000
 BENCH_PORTS=${BENCH_PORTS:-}
 case "$BENCH_PORTS" in
     '') ;;
@@ -305,7 +305,10 @@ BENCH_SERVER_RETRY_DELAY=${BENCH_SERVER_RETRY_DELAY:-30}
 # list and a new one has one obvious place to go.
 frameworks=(
     "aegon"
-    "alos"
+    # alos is off by default: alos-http is not production-ready yet.
+    # Uncomment it to measure it; BENCH_FRAMEWORKS accepts only the
+    # frameworks listed here.
+    # "alos"
     "fasthttp"
     "fib"
     "fio"

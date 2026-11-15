@@ -79,7 +79,10 @@ runs event loops as well, but takes no `-eventloops`: `core.Config` has one
 address, so its server is one alos server per port, each with its share of
 the CPUs as `SO_REUSEPORT` listeners and epoll loops - one each on fifty
 ports, one per CPU on one - echoing from the loop through
-`core.ServeWebSocketEvents`.
+`core.ServeWebSocketEvents`. It is commented out of `frameworks` in
+`script/config.sh` and `script_e/config.sh`, so runs leave it out by default:
+alos-http is not production-ready yet. Uncomment it there to measure it;
+`BENCH_FRAMEWORKS` accepts only the frameworks that list leaves in.
 
 `BENCH_PORTS=N` narrows every framework to the first N of its fifty benchmark
 ports: the Go servers listen on those alone, and all three clients dial only
@@ -89,7 +92,7 @@ control port (`/init`, `/ps`, `/taskpool`, pprof) stays where it is. It works
 with `script/benchmark.sh`, `script/benchmarkN.sh` and the Docker runners:
 
 ```sh
-BENCH_PORTS=1 BENCH_FRAMEWORKS=alos,fib bash script/docker_benchmark.sh -c=20000 -ec=20000 -rc=20000
+BENCH_PORTS=1 BENCH_FRAMEWORKS=fib bash script/docker_benchmark.sh -c=20000 -ec=20000 -rc=20000
 ```
 
 ```sh
